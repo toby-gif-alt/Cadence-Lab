@@ -139,6 +139,18 @@
           `${question.id}: displayed pitches at measure ${harmonicEvent.measure}, beat ${harmonicEvent.beat ?? "?"} do not fully support ${harmonicEvent.chordSymbol} (pitch classes: ${result.actualPitchClasses.join(", ")})`
         );
       }
+      if (harmonicEvent.resolution?.chordSymbol) {
+        const resolutionEvent = noteEvents.get(harmonicEvent._resolutionIndex);
+        const resolutionResult = renderer.validateChordIdentification(
+          resolutionEvent,
+          harmonicEvent.resolution.chordSymbol
+        );
+        if (!resolutionResult.valid) {
+          errors.push(
+            `${question.id}: displayed pitches at measure ${harmonicEvent.measure}, beat ${harmonicEvent.resolution.beat} do not fully support the internal ${harmonicEvent.resolution.chordSymbol} resolution (pitch classes: ${resolutionResult.actualPitchClasses.join(", ")})`
+          );
+        }
+      }
     });
   }
 
@@ -330,6 +342,19 @@
         end: section.end,
       }))
     );
+    compareList(
+      "harmonicSpans",
+      harmonicEvents
+        .filter((event) => event.resolution)
+        .map((event) => ({
+          measure: event.measure,
+          beat: event.beat,
+          label: event.questionLabel,
+          chordSymbol: event.chordSymbol,
+          resolutionBeat: event.resolution.beat,
+          resolutionChordSymbol: event.resolution.chordSymbol,
+        }))
+    );
 
     const eventKeyCentres = [
       ...new Set(harmonicEvents.map((event) => event.localKey).filter(Boolean)),
@@ -432,6 +457,76 @@
       if (!allMeasuresIndependent || !hasIndependentRhythm) {
         sourceFidelityErrors.push(
           `${question.id}: source requires four complete, independently rhythmic SATB streams`
+        );
+      }
+    }
+    if (spec.completionContract) {
+      const contract = spec.completionContract;
+      const suppliedMeasure = question.score.measures[contract.suppliedMeasure - 1];
+      if (
+        !suppliedMeasure ||
+        JSON.stringify(suppliedMeasure.voices) !==
+          JSON.stringify(suppliedMeasure.questionVoices)
+      ) {
+        sourceFidelityErrors.push(
+          `${question.id}: source completion contract requires measure ${contract.suppliedMeasure} to remain fully supplied`
+        );
+      }
+
+      const targetMeasures = (contract.targetMeasures || []).map(
+        (measureNumber) => ({
+          measureNumber,
+          measure: question.score.measures[measureNumber - 1],
+        })
+      );
+      const modelTargetsAreComplete = targetMeasures.every(({ measure }) =>
+        measure?.voices &&
+        SATB_NAMES.every((voiceName) =>
+          measure.voices[voiceName]?.some(
+            (event) => event.pitch || event.pitches?.length
+          )
+        )
+      );
+      if (!modelTargetsAreComplete) {
+        sourceFidelityErrors.push(
+          `${question.id}: source completion contract requires complete model SATB streams in the target region`
+        );
+      }
+
+      if (contract.blankTargetVoices) {
+        const targetsAreBlank = targetMeasures.every(({ measure }) =>
+          measure?.questionVoices &&
+          SATB_NAMES.every(
+            (voiceName) =>
+              Array.isArray(measure.questionVoices[voiceName]) &&
+              measure.questionVoices[voiceName].every(
+                (event) => !event.pitch && !event.pitches?.length
+              )
+          )
+        );
+        if (!targetsAreBlank) {
+          sourceFidelityErrors.push(
+            `${question.id}: source completion contract leaks model voice pitches into the target region`
+          );
+        }
+      }
+
+      const harmonicIndications = harmonicEvents.filter(
+        (event) => event.questionLabel
+      ).length;
+      if (harmonicIndications !== contract.harmonicIndications) {
+        sourceFidelityErrors.push(
+          `${question.id}: source completion contract requires ${contract.harmonicIndications} supplied harmonic indications, found ${harmonicIndications}`
+        );
+      }
+
+      const targetNumbers = new Set(contract.targetMeasures || []);
+      const realisedChordMoments = harmonicEvents
+        .filter((event) => targetNumbers.has(event.measure))
+        .reduce((count, event) => count + 1 + (event.resolution ? 1 : 0), 0);
+      if (realisedChordMoments !== contract.chordsToRealise) {
+        sourceFidelityErrors.push(
+          `${question.id}: source completion contract requires ${contract.chordsToRealise} chords to realise, found ${realisedChordMoments}`
         );
       }
     }

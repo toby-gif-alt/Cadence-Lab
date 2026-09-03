@@ -398,10 +398,18 @@
 
   function normalizeHarmonicEvents(score, normalizedScore) {
     if (Array.isArray(score.harmonicEvents)) {
-      return score.harmonicEvents.map((event) => ({
-        ...event,
-        _index: resolveEventIndex(event, normalizedScore),
-      }));
+      return score.harmonicEvents.map((event) => {
+        const resolutionLocator = event.resolution
+          ? { measure: event.measure, ...event.resolution }
+          : null;
+        return {
+          ...event,
+          _index: resolveEventIndex(event, normalizedScore),
+          _resolutionIndex: resolutionLocator
+            ? resolveEventIndex(resolutionLocator, normalizedScore)
+            : null,
+        };
+      });
     }
     return normalizedScore.measures.flatMap((measure) =>
       measure.events
@@ -795,29 +803,47 @@
         .map((event) => [event._index, event])
     );
     harmonicEvents.forEach((harmonicEvent) => {
-      const noteEvent = events.get(harmonicEvent._index);
-      if (!noteEvent) {
-        throw new Error("A harmonic event could not be matched to displayed notation.");
+      const points = [
+        {
+          index: harmonicEvent._index,
+          symbol: harmonicEvent.chordSymbol,
+          details: harmonicEvent,
+          description: `harmonic event ${harmonicEvent._index + 1}`,
+        },
+      ];
+      if (harmonicEvent.resolution?.chordSymbol) {
+        points.push({
+          index: harmonicEvent._resolutionIndex,
+          symbol: harmonicEvent.resolution.chordSymbol,
+          details: harmonicEvent.resolution,
+          description: `the resolution of harmonic event ${harmonicEvent._index + 1}`,
+        });
       }
-      if (!harmonicEvent.chordSymbol || harmonicEvent.validateChord === false) {
-        return;
-      }
-      const validationEvent = harmonicEvent.validationPitches
-        ? {
-            treble: harmonicEvent.validationPitches,
-            bass: harmonicEvent.bassPitch ? [harmonicEvent.bassPitch] : [],
-            omittedChordIntervals: harmonicEvent.omittedChordIntervals,
-          }
-        : noteEvent;
-      const validation = validateChordIdentification(
-        validationEvent,
-        harmonicEvent.chordSymbol
-      );
-      if (!validation.valid) {
-        throw new Error(
-          `Displayed pitches at harmonic event ${harmonicEvent._index + 1} do not fully support ${harmonicEvent.chordSymbol}.`
+      points.forEach((point) => {
+        const noteEvent = events.get(point.index);
+        if (!noteEvent) {
+          throw new Error(
+            "A harmonic event could not be matched to displayed notation."
+          );
+        }
+        if (!point.symbol || point.details.validateChord === false) return;
+        const validationEvent = point.details.validationPitches
+          ? {
+              treble: point.details.validationPitches,
+              bass: point.details.bassPitch ? [point.details.bassPitch] : [],
+              omittedChordIntervals: point.details.omittedChordIntervals,
+            }
+          : noteEvent;
+        const validation = validateChordIdentification(
+          validationEvent,
+          point.symbol
         );
-      }
+        if (!validation.valid) {
+          throw new Error(
+            `Displayed pitches at ${point.description} do not fully support ${point.symbol}.`
+          );
+        }
+      });
     });
   }
 

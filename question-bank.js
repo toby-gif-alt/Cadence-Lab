@@ -945,14 +945,31 @@ const questionBank = [
     family: "SATB / vocal completion",
     title: "Reference: chorale-style completion",
     context:
-      "Continue from the fully supplied bar 17 and complete bars 18–19 in four parts. Use the printed Roman numerals, follow the supplied rhythmic pattern, and include at least two passing notes.",
+      "Continue from the fully supplied bar 17 and create all four parts in bars 18–19. Use the printed Roman numerals, follow the supplied rhythmic pattern, and include at least two passing notes.",
     sourceSpec: {
-      chordSymbols: ["C/E", "F", "F/A", "G/B", "C/E", "C", "Gsus4", "G", "C"],
-      analysisPositions: 9,
+      chordSymbols: ["C/E", "F", "F/A", "G/B", "C/E", "C", "Gsus4", "C"],
+      analysisPositions: 8,
       suppliedLabels: ["F: Vb", "I", "F: Ib / C: IVb", "Vb", "Ib", "I", "V⁴–³", "I"],
       keyCentres: ["F major", "C major"],
       measureCount: 3,
       independentSatb: true,
+      harmonicSpans: [
+        {
+          measure: 3,
+          beat: 1,
+          label: "V⁴–³",
+          chordSymbol: "Gsus4",
+          resolutionBeat: 2,
+          resolutionChordSymbol: "G",
+        },
+      ],
+      completionContract: {
+        suppliedMeasure: 1,
+        targetMeasures: [2, 3],
+        chordsToRealise: 8,
+        harmonicIndications: 8,
+        blankTargetVoices: true,
+      },
     },
     score: measuredScore({
       key: "F major → C major",
@@ -980,7 +997,10 @@ const questionBank = [
           tenor: [{ pitch: "C4", duration: "8" }, { pitch: "Bb3", duration: "8" }, { pitch: "A3", duration: "q" }, { pitch: "A3", duration: "8" }, { pitch: "G3", duration: "8" }, { pitch: "G3", duration: "8" }, { pitch: "E4", duration: "8" }],
           bass: [{ pitch: "F3", duration: "8" }, { pitch: "G3", duration: "8" }, { pitch: "A3", duration: "q" }, { pitch: "B2", duration: "q" }, { pitch: "E3", duration: "8" }, { pitch: "C3", duration: "8" }],
         }, questionVoices: {
-          soprano: [{ pitch: "C5", duration: "q" }, { pitch: "C5", duration: "q" }, { pitch: "D5", duration: "q" }, { pitch: "C5", duration: "q" }],
+          soprano: [{ duration: "w" }],
+          alto: [{ duration: "w" }],
+          tenor: [{ duration: "w" }],
+          bass: [{ duration: "w" }],
         } },
         { expectedBeats: 3, endBarline: "final", voices: {
           soprano: [{ pitch: "C5", duration: "q" }, { pitch: "B4", duration: "q" }, { pitch: "C5", duration: "q" }],
@@ -988,7 +1008,10 @@ const questionBank = [
           tenor: [{ pitch: "D4", duration: "8" }, { pitch: "C4", duration: "8" }, { pitch: "D4", duration: "q" }, { pitch: "E4", duration: "q" }],
           bass: [{ pitch: "G3", duration: "q" }, { pitch: "G2", duration: "q" }, { pitch: "C3", duration: "q" }],
         }, questionVoices: {
-          soprano: [{ pitch: "C5", duration: "q" }, { pitch: "B4", duration: "q" }, { pitch: "C5", duration: "q" }],
+          soprano: [{ duration: "hd" }],
+          alto: [{ duration: "hd" }],
+          tenor: [{ duration: "hd" }],
+          bass: [{ duration: "hd" }],
         } },
       ],
       harmonicEvents: [
@@ -998,8 +1021,11 @@ const questionBank = [
         harmonicBox(2, 3.5, null, "Vb", { questionLabel: "Vb", chordSymbol: "G/B" }),
         harmonicBox(2, 4, null, "Ib", { questionLabel: "Ib", chordSymbol: "C/E" }),
         harmonicBox(2, 4.5, null, "I", { questionLabel: "I", chordSymbol: "C" }),
-        harmonicBox(3, 1, null, "V⁴", { questionLabel: "V⁴–³", chordSymbol: "Gsus4" }),
-        harmonicBox(3, 2, null, "V³", { chordSymbol: "G" }),
+        harmonicBox(3, 1, null, "V⁴–³", {
+          questionLabel: "V⁴–³",
+          chordSymbol: "Gsus4",
+          resolution: { beat: 2, chordSymbol: "G" },
+        }),
         harmonicBox(3, 3, null, "I", { questionLabel: "I", chordSymbol: "C" }),
       ],
       nonHarmonicNotes: [

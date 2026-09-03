@@ -192,6 +192,50 @@
       const independentBachReferences = independentBachIds.map((id) =>
         questions.find((question) => question.id === id)
       );
+      const bachCompletion = questions.find(
+        (question) => question.id === "nzqa-2024-bach-satb"
+      );
+      const completionTargets = bachCompletion.score.measures.slice(1);
+      const completionModelHasFourParts = completionTargets.every((measure) =>
+        ["soprano", "alto", "tenor", "bass"].every((voiceName) =>
+          measure.voices[voiceName].some((event) => event.pitch)
+        )
+      );
+      const completionQuestionIsBlank = completionTargets.every((measure) =>
+        ["soprano", "alto", "tenor", "bass"].every(
+          (voiceName) =>
+            Array.isArray(measure.questionVoices[voiceName]) &&
+            measure.questionVoices[voiceName].every((event) => !event.pitch)
+        )
+      );
+      const v43Spans = bachCompletion.score.harmonicEvents.filter(
+        (event) => event.questionLabel === "V⁴–³"
+      );
+      const leakedCompletionQuestions = structuredClone(questions);
+      leakedCompletionQuestions
+        .find((question) => question.id === "nzqa-2024-bach-satb")
+        .score.measures[1].questionVoices.soprano = [
+          { pitch: "C5", duration: "w" },
+        ];
+      const leakedCompletionReport =
+        window.CadenceQuestionValidator.validate(leakedCompletionQuestions);
+
+      const completionQuestionTarget = document.createElement("div");
+      const completionModelTarget = document.createElement("div");
+      renderer.render(completionQuestionTarget, bachCompletion.score, {
+        showAnswer: false,
+        width: 780,
+      });
+      renderer.render(completionModelTarget, bachCompletion.score, {
+        showAnswer: true,
+        width: 780,
+      });
+      const suppliedBarPitchCount = ["soprano", "alto", "tenor", "bass"]
+        .reduce(
+          (count, voiceName) =>
+            count + bachCompletion.score.measures[0].voices[voiceName].length,
+          0
+        );
 
       const categoryRenderErrors = [];
       const renderedCategories = new Set();
@@ -305,6 +349,33 @@
                     (voiceName) => Array.isArray(measure.voices[voiceName])
                   )
               )
+          ),
+        bachCompletionContractMatchesSource:
+          bachCompletion.sourceSpec.completionContract.chordsToRealise === 8 &&
+          bachCompletion.sourceSpec.completionContract.harmonicIndications === 8 &&
+          completionModelHasFourParts &&
+          completionQuestionIsBlank,
+        bachCompletionRejectsModelPitchLeak:
+          leakedCompletionReport.sourceFidelityErrors.some(
+            (error) =>
+              error.includes("nzqa-2024-bach-satb") &&
+              error.includes("leaks model voice pitches")
+          ),
+        bachCompletionRendersOnlySuppliedBar:
+          completionQuestionTarget.querySelectorAll(".vf-stavenote").length ===
+            suppliedBarPitchCount &&
+          completionModelTarget.querySelectorAll(".vf-stavenote").length >
+            suppliedBarPitchCount,
+        v43IsOneSuppliedHarmonicSpan:
+          bachCompletion.score.harmonicEvents.length === 8 &&
+          bachCompletion.score.harmonicEvents.every(
+            (event) => Boolean(event.questionLabel)
+          ) &&
+          v43Spans.length === 1 &&
+          v43Spans[0].resolution?.beat === 2 &&
+          v43Spans[0].resolution?.chordSymbol === "G" &&
+          !bachCompletion.score.harmonicEvents.some(
+            (event) => event.measure === 3 && event.beat === 2
           ),
         bothSourceTypesPresent:
           ["nzqa-reference", "original-practice"].every((sourceType) =>
