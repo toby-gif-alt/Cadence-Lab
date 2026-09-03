@@ -33,7 +33,7 @@ SATB remains backwards-compatible with two legacy pitches per stave: treble maps
 
 Each named voice accepts one pitch (or an empty value/rest) per event. Mixing the named and legacy SATB forms, supplying an unknown voice, or placing more than two pitches on a legacy SATB stave throws a development-time error. Question-only fields are selected before VexFlow notes are constructed, so omitted SATB/piano answer pitches do not affect accidentals, spacing, accessible text or hidden score DOM.
 
-Chord-identification events can declare `expectedChordSymbol`, or `acceptableChordSymbols` when more than one analysis is intentional. Development-time validation requires the displayed pitch-class set (and slash bass, where applicable) to match one accepted symbol, preventing incomplete or added tones from making a supposedly unique answer ambiguous. Pitch rendering continues to use the authored note names, preserving theoretical spellings such as E♯, B♭ and G♭.
+Chord-identification events can declare `expectedChordSymbol`, or `acceptableChordSymbols` when more than one analysis is intentional. Development-time validation checks that the displayed pitch-class set (and slash bass, where applicable) fully supports one accepted symbol without unlabelled added tones. It does not attempt to enumerate every alternative analysis. Pitch rendering continues to use the authored note names, preserving theoretical spellings such as E♯, B♭ and G♭.
 
 The current bank still uses legacy harmonic-event data, so it does not claim exact rhythm, metre, phrasing or intended bar placement. The planned procedural generator should emit `score.measures` whenever those details are musically intentional.
 

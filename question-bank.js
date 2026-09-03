@@ -456,7 +456,7 @@ const questionBank = [
     answerHeading: "Chromatic motion and tonal direction",
     answer: [
       "The bass descends chromatically A–G♯–G–F♯–F–E before returning to A. The semitone motion gives the phrase continuous direction even while several upper notes are retained.",
-      "One chord per beat increases harmonic momentum. The line reaches E7, the dominant seventh of A minor, before resolving to the tonic; therefore the chromatic sequence intensifies rather than weakens the final tonal arrival.",
+      "The frequent harmonic changes and chromatic bass movement create momentum. The line reaches E7, the dominant seventh of A minor, before resolving to the tonic; therefore the chromatic sequence intensifies rather than weakens the final tonal arrival.",
     ],
     criteria: {
       A: ["The chromatically descending bass is accurately described."],

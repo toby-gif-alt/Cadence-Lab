@@ -447,7 +447,7 @@
             event.acceptableChordSymbols || [event.expectedChordSymbol]
           ).join(" or ");
           throw new Error(
-            `Chord-identification event ${event._index + 1} does not uniquely support ${expected}.`
+            `Chord-identification event ${event._index + 1} does not fully support ${expected}.`
           );
         }
       }
