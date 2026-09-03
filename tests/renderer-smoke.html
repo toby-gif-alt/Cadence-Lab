@@ -207,8 +207,13 @@
         categoryTargetsMet:
           JSON.stringify(validatorReport.categoryCounts) ===
           JSON.stringify({ analysis: 6, modulation: 6, satb: 4, piano: 4, jazz: 6, features: 6 }),
-        twoReferencesPerYear:
-          Object.values(referenceCounts).every((count) => count === 2),
+        eightReferencesAcrossAllYears:
+          validatorReport.referenceCount === 8 &&
+          Object.values(referenceCounts).every((count) => count >= 1),
+        unevenReferenceYearsAllowed:
+          referenceCounts[2024] === 3 && referenceCounts[2022] === 1,
+        originalAnalysisAndJazzTextureReviewPasses:
+          validatorReport.reviewWarnings.length === 0,
         bothSourceTypesPresent:
           ["nzqa-reference", "original-practice"].every((sourceType) =>
             questions.some((question) => question.sourceType === sourceType)

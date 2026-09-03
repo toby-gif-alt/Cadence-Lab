@@ -148,8 +148,70 @@
     );
   }
 
+  function reviewTexture(question, normalized, harmonicEvents) {
+    if (
+      question.sourceType !== "original-practice" ||
+      !["analysis", "jazz"].includes(question.category)
+    ) {
+      return null;
+    }
+
+    const events = normalized.measures.flatMap((measure) => measure.events);
+    const harmonicIndices = new Set(harmonicEvents.map((event) => event._index));
+    const anchorEvents = events.filter((event) => harmonicIndices.has(event._index));
+    const allAnchorsAreBlockChords =
+      anchorEvents.length > 0 &&
+      anchorEvents.every((event) => {
+        const namedVoiceCount = event.voices
+          ? SATB_NAMES.filter((name) => event.voices[name]).length
+          : 0;
+        return namedVoiceCount >= 3 ||
+          ((event.treble || []).length >= 2 && (event.bass || []).length >= 1);
+      });
+    const oneDurationOnly =
+      new Set(events.map((event) => event.duration || "q")).size === 1;
+    const noteAndHarmonyCountsMatch = events.length === harmonicEvents.length;
+    const hasRests = events.some(
+      (event) =>
+        event.trebleRest ||
+        event.bassRest ||
+        event.rest ||
+        (event.voiceRests || []).length
+    );
+    const hasSubdivision = events.some((event) =>
+      ["8", "8d", "16"].includes(event.duration)
+    );
+    const hasTies = (question.score.ties || []).length > 0;
+    const hasIndependentMotion = events.some(
+      (event) =>
+        !harmonicIndices.has(event._index) &&
+        ((event.treble || []).length ||
+          (event.bass || []).length ||
+          event.voices)
+    );
+    const noSurfaceDetail =
+      !hasRests && !hasSubdivision && !hasTies && !hasIndependentMotion;
+
+    if (
+      allAnchorsAreBlockChords &&
+      oneDurationOnly &&
+      noteAndHarmonyCountsMatch &&
+      noSurfaceDetail
+    ) {
+      return {
+        questionId: question.id,
+        category: question.category,
+        code: "worksheet-like-texture",
+        message:
+          "Manual review: the original analysis/jazz score is only equal-duration simultaneous block chords, with no independent rhythmic or melodic surface.",
+      };
+    }
+    return null;
+  }
+
   function validate(questions, options = {}) {
     const errors = [];
+    const reviewWarnings = [];
     const ids = new Set();
     const signatures = new Map();
     const categoryCounts = Object.fromEntries(
@@ -202,6 +264,8 @@
       validateRomanRoots(question, harmonicEvents, errors);
       validateNonHarmonicNotes(question, errors);
       validateSatb(question, errors);
+      const textureWarning = reviewTexture(question, normalized, harmonicEvents);
+      if (textureWarning) reviewWarnings.push(textureWarning);
 
       const signature = JSON.stringify(question.score.measures);
       if (signatures.has(signature)) {
@@ -225,17 +289,25 @@
     const references = questions.filter(
       (question) => question.sourceType === "nzqa-reference"
     );
+    if (references.length !== 8) {
+      errors.push(`references: expected 8 templates, found ${references.length}`);
+    }
     [2021, 2022, 2023, 2024].forEach((year) => {
       const count = references.filter((question) => question.source.year === year).length;
-      if (count < 1 || count > 2) {
-        errors.push(`${year}: expected one or two reference templates, found ${count}`);
+      if (count < 1) {
+        errors.push(`${year}: expected at least one reference template, found ${count}`);
       }
     });
 
     const cTurnaround = questions.find(
       (question) => question.id === "jazz-c-turnaround"
     );
-    const c6Event = cTurnaround?.score.measures.at(-1)?.events.at(-1);
+    const c6Locator = cTurnaround?.score.harmonicEvents.find(
+      (event) => event.chordSymbol === "C6"
+    );
+    const c6Event = c6Locator
+      ? cTurnaround.score.measures[c6Locator.measure - 1]?.events[c6Locator.event]
+      : null;
     const c6Result = c6Event
       ? renderer.validateChordIdentification(c6Event, "C6")
       : { valid: false };
@@ -251,6 +323,7 @@
       referenceCount: references.length,
       referenceLabels: references.map(sourceLabel),
       legacyCount: questions.filter((question) => question.score.chords).length,
+      reviewWarnings,
     };
     if (!report.valid && options.throwOnError) {
       throw new Error(`Question-bank validation failed:\n${errors.join("\n")}`);

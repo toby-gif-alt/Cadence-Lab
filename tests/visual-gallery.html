@@ -26,6 +26,16 @@
       }
       article h2 { margin: 0 0 3px; font-size: 17px; }
       .meta { margin: 0 0 12px; color: #526177; font-size: 12px; }
+      .review-warning {
+        margin: 0 0 12px;
+        padding: 8px 10px;
+        border: 1px solid #f59e0b;
+        border-radius: 6px;
+        color: #7c2d12;
+        background: #fffbeb;
+        font-size: 12px;
+        font-weight: 700;
+      }
       .view { margin-top: 12px; }
       .view h3 {
         margin: 0 0 4px;
@@ -70,6 +80,15 @@
         meta.className = "meta";
         meta.textContent = `${question.sourceType} • ${question.score.layout} • ${question.score.timeSignature}`;
         article.append(title, meta);
+        const warning = window.CadenceQuestionValidator.report.reviewWarnings.find(
+          (item) => item.questionId === question.id
+        );
+        if (warning) {
+          const notice = document.createElement("p");
+          notice.className = "review-warning";
+          notice.textContent = warning.message;
+          article.append(notice);
+        }
 
         [false, true].forEach((showAnswer) => {
           const view = document.createElement("section");

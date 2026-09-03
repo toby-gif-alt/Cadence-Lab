@@ -23,9 +23,9 @@ The app is entirely static. It has no API key, database, package-manager install
 | Jazz / rock notation | 6 |
 | Harmonic or tonal feature | 6 |
 
-Every question has either `sourceType: "nzqa-reference"` or `sourceType: "original-practice"`. The eight reference templates include two examples from each of 2021, 2022, 2023 and 2024, with question, part, extract, creator, title, location and acknowledgement metadata. The PDFs are external source material and are not stored in the repository. `docs/nzqa-task-map.md` maps all exam families to their matching assessment-schedule evidence.
+Every question has either `sourceType: "nzqa-reference"` or `sourceType: "original-practice"`. The eight reference templates cover every year from 2021 to 2024, with an intentionally uneven distribution so the bank can include both 2024 Bach tasks. Each includes question, part, extract, creator, title, location and acknowledgement metadata. The PDFs are external source material and are not stored in the repository. `docs/nzqa-task-map.md` maps all exam families to their matching assessment-schedule evidence.
 
-The reference templates are compact teaching reductions of the named published extracts. Original templates are paired with the same major task families without being presented as NZQA material. The source filter and badges preserve that distinction in the interface and on printouts.
+The reference templates are practical teaching transcriptions of the named published extracts, retaining the assessed bars, metre, rhythmic surface, score layout, supplied labels, blank analysis positions and published answer evidence as far as the renderer permits. A simplified related-key study formerly attributed to Mendelssohn is now explicitly classified as adapted original practice. The source filter and badges preserve that distinction in the interface and on printouts.
 
 There is no procedural music generator. All pitches, rhythms, measures, harmonic changes and answer anchors are explicitly authored.
 
@@ -101,10 +101,12 @@ The validator checks that:
 
 Chord validation verifies support for the intended symbol. It does not claim to enumerate every plausible contextual analysis. `acceptableChordSymbols` remains available when the author deliberately permits more than one reading.
 
+The validator also produces non-failing `reviewWarnings` for original analysis or jazz items that collapse into equal-duration simultaneous block chords with no independent rhythmic or melodic surface. The visual gallery displays those warnings prominently for manual review; the current bank has none.
+
 The Achievement/Merit/Excellence checklists follow the recurring progression in the published schedules: isolated correct evidence; secure consecutive/contextual work; then extended analysis or convincing stylistic realisation. They are not percentage cut-offs and are not official marking judgements.
 
 ## Browser QA
 
-Serve the repository root over HTTP, then open `tests/renderer-smoke.html`. The smoke page validates the full bank and renders every question and model score at desktop and mobile widths. `tests/visual-gallery.html?category=analysis&width=780` provides a category-by-category visual review; the category can be `analysis`, `modulation`, `satb`, `piano`, `jazz` or `features`, and the width can be `780` or `390`.
+Serve the repository root over HTTP, then open `tests/renderer-smoke.html`. The smoke page validates the full bank and renders every question and model score at desktop and mobile widths. `tests/visual-gallery.html?category=analysis&width=780` provides a category-by-category visual review and surfaces any texture warnings; the category can be `analysis`, `modulation`, `satb`, `piano`, `jazz` or `features`, and the width can be `780` or `390`.
 
 Cadence Lab is not an official NZQA resource.

@@ -449,7 +449,11 @@
 
     const lowerQuality = quality.toLowerCase();
     let intervals;
-    if (/^(m7b5|half-?dim)/.test(lowerQuality)) {
+    if (/^(m|min)9(?:add6|6)/.test(lowerQuality)) {
+      intervals = [0, 2, 3, 7, 9];
+    } else if (/^(m|min)9maj7/.test(lowerQuality)) {
+      intervals = [0, 2, 3, 7, 11];
+    } else if (/^(m7b5|half-?dim)/.test(lowerQuality)) {
       intervals = [0, 3, 6, 10];
     } else if (/^(dim7|o7)/.test(lowerQuality)) {
       intervals = [0, 3, 6, 9];
