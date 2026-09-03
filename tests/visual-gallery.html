@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en-NZ">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cadence Lab visual QA gallery</title>
+    <style>
+      :root { color-scheme: light; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 20px;
+        color: #172033;
+        background: #eef2f7;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      }
+      header { margin-bottom: 18px; }
+      h1 { margin: 0 0 5px; font-size: 24px; }
+      #summary { margin: 0; color: #526177; }
+      #gallery { display: grid; gap: 20px; }
+      article {
+        padding: 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        background: #fff;
+        break-inside: avoid;
+      }
+      article h2 { margin: 0 0 3px; font-size: 17px; }
+      .meta { margin: 0 0 12px; color: #526177; font-size: 12px; }
+      .review-warning {
+        margin: 0 0 12px;
+        padding: 8px 10px;
+        border: 1px solid #f59e0b;
+        border-radius: 6px;
+        color: #7c2d12;
+        background: #fffbeb;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .view { margin-top: 12px; }
+      .view h3 {
+        margin: 0 0 4px;
+        color: #334155;
+        font-size: 12px;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+      }
+      .score { border: 1px solid #e2e8f0; overflow: hidden; }
+      .score svg { display: block; max-width: 100%; height: auto; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Cadence Lab visual QA gallery</h1>
+      <p id="summary"></p>
+    </header>
+    <main id="gallery"></main>
+
+    <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
+    <script src="../question-bank.js?v=2026-09-source-fidelity-4"></script>
+    <script src="../score-renderer.js?v=2026-09-source-fidelity-4"></script>
+    <script src="../question-validator.js?v=2026-09-source-fidelity-4"></script>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const category = params.get("category") || "analysis";
+      const requestedWidth = Number(params.get("width")) || 780;
+      const width = requestedWidth <= 390 ? 390 : 780;
+      const questions = window.CadenceData.questions.filter(
+        (question) => question.category === category
+      );
+      const gallery = document.querySelector("#gallery");
+      gallery.style.width = `${width + 30}px`;
+      document.querySelector("#summary").textContent =
+        `${category} • ${questions.length} templates • question and model • ${width}px score width`;
+
+      questions.forEach((question) => {
+        const article = document.createElement("article");
+        const title = document.createElement("h2");
+        title.textContent = `${question.id} — ${question.title}`;
+        const meta = document.createElement("p");
+        meta.className = "meta";
+        meta.textContent = `${question.sourceType} • ${question.score.layout} • ${question.score.timeSignature}`;
+        article.append(title, meta);
+        const warning = window.CadenceQuestionValidator.report.reviewWarnings.find(
+          (item) => item.questionId === question.id
+        );
+        if (warning) {
+          const notice = document.createElement("p");
+          notice.className = "review-warning";
+          notice.textContent = warning.message;
+          article.append(notice);
+        }
+
+        [false, true].forEach((showAnswer) => {
+          const view = document.createElement("section");
+          view.className = "view";
+          const heading = document.createElement("h3");
+          heading.textContent = showAnswer ? "Model" : "Question";
+          const score = document.createElement("div");
+          score.className = "score";
+          score.style.width = `${width}px`;
+          view.append(heading, score);
+          article.append(view);
+          window.CadenceScoreRenderer.render(score, question.score, { showAnswer });
+        });
+        gallery.append(article);
+      });
+    </script>
+  </body>
+</html>
