@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en-NZ">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cadence Lab renderer smoke test</title>
+    <style>
+      body { margin: 20px; font-family: sans-serif; }
+      .fixture { width: 780px; margin-bottom: 24px; border: 1px solid #ddd; }
+      #all-questions { position: absolute; left: -10000px; top: 0; width: 780px; }
+      #results { white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <h1>Cadence Lab renderer smoke test</h1>
+    <div class="fixture" id="legacy-events"></div>
+    <div class="fixture" id="explicit-measures"></div>
+    <div class="fixture" id="enharmonic"></div>
+    <div class="fixture" id="multi-system"></div>
+    <div class="fixture" id="satb-question"></div>
+    <div class="fixture" id="satb-model"></div>
+    <div id="all-questions" aria-hidden="true"></div>
+    <pre id="results"></pre>
+
+    <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
+    <script src="../question-bank.js?v=2026-09-data-contract"></script>
+    <script src="../score-renderer.js?v=2026-09-data-contract"></script>
+    <script>
+      const renderer = window.CadenceScoreRenderer;
+      const questions = window.CadenceData.questions;
+
+      const legacyScore = {
+        key: "C major",
+        keySignature: "C",
+        layout: "grand",
+        eventsPerSystem: 4,
+        chords: Array.from({ length: 8 }, (_, index) => ({
+          treble: [index % 2 ? "E4" : "G4"],
+          bass: [index % 2 ? "C3" : "G2"],
+        })),
+      };
+      const explicitScore = {
+        key: "G major",
+        keySignature: "G",
+        timeSignature: "4/4",
+        layout: "piano",
+        measures: [
+          {
+            events: Array.from({ length: 8 }, (_, index) => ({
+              treble: [index % 2 ? "B4" : "A4"],
+              bass: [index % 2 ? "G3" : "D3"],
+              duration: "8",
+            })),
+          },
+        ],
+        ties: [{ from: 0, to: 1, staff: "treble" }],
+      };
+      const enharmonicScore = {
+        key: "C major",
+        keySignature: "C",
+        layout: "treble",
+        measures: [
+          {
+            events: [
+              { treble: ["F♯4"], duration: "quarter" },
+              { treble: ["G♭4"], duration: "q" },
+              { treble: ["E♯4"], duration: "q" },
+              { treble: ["F4"], duration: "q" },
+            ],
+          },
+          {
+            events: [
+              { treble: ["B♭4"], duration: "half" },
+              { treble: ["A♯4"], duration: "h" },
+            ],
+          },
+          {
+            events: [{ treble: ["C5", "E5", "G5"], duration: "whole" }],
+          },
+        ],
+      };
+      const multiSystemScore = {
+        key: "F major",
+        keySignature: "F",
+        layout: "grand",
+        measuresPerSystem: 2,
+        measures: Array.from({ length: 4 }, (_, measureIndex) => ({
+          events: Array.from({ length: 2 }, (_, eventIndex) => {
+            const index = measureIndex * 2 + eventIndex;
+            return {
+              treble: [index % 2 ? "A4" : "C5"],
+              bass: [index % 2 ? "F3" : "C3"],
+              duration: "h",
+            };
+          }),
+        })),
+        ties: [{ from: 3, to: 4, staff: "treble" }],
+      };
+      const namedSatbScore = {
+        key: "F major",
+        keySignature: "F",
+        layout: "satb",
+        completion: true,
+        chords: [
+          {
+            voices: { soprano: "F5", alto: "A4", tenor: "C3", bass: "F2" },
+            questionVoices: { soprano: "F5", bass: "F2" },
+          },
+          {
+            voices: { soprano: "G5", alto: "B♭4", tenor: "D3", bass: "G2" },
+            questionVoices: { soprano: "G5", bass: "G2" },
+          },
+        ],
+      };
+
+      renderer.render(document.querySelector("#legacy-events"), legacyScore);
+      renderer.render(document.querySelector("#explicit-measures"), explicitScore);
+      renderer.render(document.querySelector("#enharmonic"), enharmonicScore);
+      renderer.render(document.querySelector("#multi-system"), multiSystemScore);
+      renderer.render(document.querySelector("#satb-question"), namedSatbScore);
+      renderer.render(document.querySelector("#satb-model"), namedSatbScore, {
+        showAnswer: true,
+      });
+
+      const pitchSpellings = ["F♯4", "G♭4", "E♯4", "F4", "B♭4", "A♯4"].map(
+        (pitch) => renderer.parsePitch(pitch)
+      );
+
+      let incompatibleSatbRejected = false;
+      try {
+        renderer.render(document.createElement("div"), {
+          key: "C major",
+          layout: "satb",
+          chords: [{ treble: ["C4", "E4", "G4"], bass: ["C3", "G3"] }],
+        }, { width: 780 });
+      } catch (error) {
+        incompatibleSatbRejected = /use event\.voices/i.test(error.message);
+      }
+
+      const oldAmbiguousC6 = renderer.validateChordIdentification(
+        { treble: ["E4", "A4", "C5"], bass: ["C3"] },
+        "C6"
+      );
+      const cTurnaround = questions.find(
+        (question) => question.id === "jazz-c-turnaround"
+      );
+      const correctedC6 = cTurnaround.score.chords.at(-1);
+      const correctedC6Validation = renderer.validateChordIdentification(
+        correctedC6,
+        "C6"
+      );
+      const jazzIdentificationEvents = questions
+        .filter((question) => question.category === "jazz")
+        .flatMap((question) => question.score.chords)
+        .filter((event) => event.expectedChordSymbol);
+
+      const categoryRenderErrors = [];
+      const renderedCategories = new Set();
+      questions.forEach((question) => {
+        const questionTarget = document.createElement("div");
+        const modelTarget = document.createElement("div");
+        document.querySelector("#all-questions").append(questionTarget, modelTarget);
+        const layout = question.score.layout ||
+          (question.category === "satb"
+            ? "satb"
+            : question.category === "piano"
+              ? "piano"
+              : "grand");
+        try {
+          renderer.render(questionTarget, question.score, {
+            layout,
+            width: 780,
+          });
+          renderer.render(modelTarget, question.score, {
+            layout,
+            showAnswer: true,
+            width: 780,
+          });
+          renderedCategories.add(question.category);
+        } catch (error) {
+          categoryRenderErrors.push(`${question.id}: ${error.message}`);
+        }
+      });
+
+      const legacyTarget = document.querySelector("#legacy-events");
+      const explicitTarget = document.querySelector("#explicit-measures");
+      const satbQuestion = document.querySelector("#satb-question");
+      const satbModel = document.querySelector("#satb-model");
+      const questionMetadataText = [
+        satbQuestion.getAttribute("aria-label"),
+        ...Object.values(satbQuestion.dataset),
+      ].join(" ");
+      const assertions = {
+        versionPinned: renderer.version === "4.2.5",
+        legacyMarkedAsHarmonicEvents:
+          legacyTarget.dataset.notationStructure === "legacy-harmonic-events",
+        legacyHasNoMeasures: legacyTarget.dataset.measureCount === "0",
+        legacyHasNoTimeSignature:
+          legacyTarget.querySelectorAll(".vf-timesignature").length === 0,
+        legacyHasNoRhythmicStems:
+          legacyTarget.querySelectorAll(".vf-stem").length === 0,
+        legacyWrapsWithoutCreatingBars:
+          Number(legacyTarget.dataset.systemCount) === 2 &&
+          [...legacyTarget.querySelectorAll(".vf-stavebarline")].every(
+            (barline) => barline.childElementCount === 0
+          ),
+        explicitMeasuresMarked:
+          explicitTarget.dataset.notationStructure === "explicit-measures" &&
+          explicitTarget.dataset.measureCount === "1",
+        explicitTimeSignatureRendered:
+          explicitTarget.querySelectorAll(".vf-timesignature").length > 0,
+        explicitBarlineRendered:
+          explicitTarget.querySelectorAll(".vf-stavebarline").length > 0,
+        explicitDurationsBeam:
+          explicitTarget.querySelectorAll(".vf-beam").length > 0,
+        explicitTieRendered:
+          explicitTarget.querySelectorAll(".vf-stavetie").length > 0,
+        allEnharmonicsParsed:
+          pitchSpellings.map((pitch) => pitch.accidental).join(",") ===
+          "#,b,#,,b,#",
+        durationAliases:
+          ["quarter", "half", "whole"].map(renderer.normalizeDuration).join() ===
+          "q,h,w",
+        enharmonicChordsRendered:
+          document.querySelectorAll("#enharmonic .vf-stavenote").length === 7,
+        crossSystemTieRendered:
+          document.querySelectorAll("#multi-system .vf-stavetie").length === 2,
+        explicitMultiSystemWrapped:
+          Number(document.querySelector("#multi-system").dataset.systemCount) > 1,
+        namedSatbUsesAllFourVoices:
+          satbModel.querySelectorAll(".vf-stavenote").length === 8,
+        incompatibleSatbRejected,
+        completionQuestionDiffersFromModel:
+          satbQuestion.querySelectorAll(".vf-stavenote").length <
+          satbModel.querySelectorAll(".vf-stavenote").length,
+        completionQuestionHasNoPitchMetadata:
+          !satbQuestion.querySelector("[data-pitch], [data-pitches]") &&
+          !/A4|C3|B♭4|D3/.test(questionMetadataText),
+        ambiguousC6Rejected: !oldAmbiguousC6.valid,
+        correctedC6Accepted: correctedC6Validation.valid,
+        correctedC6ContainsDefiningTones:
+          correctedC6.treble.includes("G4") && correctedC6Validation.valid,
+        allJazzIdentificationEventsValidated:
+          jazzIdentificationEvents.every(
+            (event) => renderer.validateChordIdentification(event).valid
+          ),
+        allQuestionCategoriesRender:
+          categoryRenderErrors.length === 0 &&
+          ["analysis", "modulation", "satb", "piano", "jazz", "features"].every(
+            (category) => renderedCategories.has(category)
+          ),
+      };
+      const passed = Object.values(assertions).every(Boolean);
+      document.body.dataset.status = passed ? "pass" : "fail";
+      document.querySelector("#results").textContent = JSON.stringify(
+        { passed, assertions, categoryRenderErrors },
+        null,
+        2
+      );
+    </script>
+  </body>
+</html>
