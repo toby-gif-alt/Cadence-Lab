@@ -33,8 +33,38 @@
         errors.push(`${question.id}: invalid time signature ${activeTime}`);
         return;
       }
-      const expected = Number(match[1]);
+      const expected = measure.expectedBeats || Number(match[1]);
       const denominator = Number(match[2]);
+      if (measure.voices) {
+        [
+          ["voices", measure.voices, true],
+          ["questionVoices", measure.questionVoices, false],
+        ].forEach(([sourceName, streams, requireAll]) => {
+          if (!streams) return;
+          SATB_NAMES.forEach((voiceName) => {
+            const stream = streams[voiceName];
+            if (!stream) {
+              if (requireAll) {
+                errors.push(
+                  `${question.id}: measure ${measureIndex + 1} ${sourceName} lacks ${voiceName}`
+                );
+              }
+              return;
+            }
+            const actual = stream.reduce(
+              (sum, event) =>
+                sum + renderer.durationInBeats(event.duration || "q", denominator),
+              0
+            );
+            if (Math.abs(actual - expected) > 0.001) {
+              errors.push(
+                `${question.id}: measure ${measureIndex + 1} ${sourceName}.${voiceName} contains ${actual} beats in ${activeTime}; expected ${expected}`
+              );
+            }
+          });
+        });
+        return;
+      }
       const actual = measure.events.reduce(
         (sum, event) =>
           sum + renderer.durationInBeats(event.duration || "q", denominator),
@@ -59,10 +89,45 @@
         return;
       }
       const noteEvent = noteEvents.get(harmonicEvent._index);
+      if (harmonicEvent.validationPitches) {
+        const displayedPitches = SATB_NAMES.flatMap((voiceName) => {
+          const value = noteEvent?.voices?.[voiceName];
+          return value == null ? [] : Array.isArray(value) ? value : [value];
+        }).concat(noteEvent?.treble || [], noteEvent?.bass || []);
+        const displayedPitchClasses = new Set(
+          displayedPitches.map((pitch) =>
+            renderer.pitchClass(renderer.parsePitch(pitch))
+          )
+        );
+        const inventedValidationPitch = harmonicEvent.validationPitches.find(
+          (pitch) =>
+            !displayedPitchClasses.has(
+              renderer.pitchClass(renderer.parsePitch(pitch))
+            )
+        );
+        if (inventedValidationPitch) {
+          errors.push(
+            `${question.id}: validation pitch ${inventedValidationPitch} is not displayed at measure ${harmonicEvent.measure}, beat ${harmonicEvent.beat}`
+          );
+        }
+        if (harmonicEvent.bassPitch) {
+          const displayedBass = noteEvent?.voices?.bass ?? noteEvent?.bass?.[0];
+          if (
+            !displayedBass ||
+            renderer.pitchClass(renderer.parsePitch(displayedBass)) !==
+              renderer.pitchClass(renderer.parsePitch(harmonicEvent.bassPitch))
+          ) {
+            errors.push(
+              `${question.id}: validation bass ${harmonicEvent.bassPitch} is not displayed at measure ${harmonicEvent.measure}, beat ${harmonicEvent.beat}`
+            );
+          }
+        }
+      }
       const validationEvent = harmonicEvent.validationPitches
         ? {
             treble: harmonicEvent.validationPitches,
             bass: harmonicEvent.bassPitch ? [harmonicEvent.bassPitch] : [],
+            omittedChordIntervals: harmonicEvent.omittedChordIntervals,
           }
         : noteEvent;
       const result = renderer.validateChordIdentification(
@@ -71,7 +136,7 @@
       );
       if (!result.valid) {
         errors.push(
-          `${question.id}: displayed pitches do not fully support ${harmonicEvent.chordSymbol}`
+          `${question.id}: displayed pitches at measure ${harmonicEvent.measure}, beat ${harmonicEvent.beat ?? "?"} do not fully support ${harmonicEvent.chordSymbol} (pitch classes: ${result.actualPitchClasses.join(", ")})`
         );
       }
     });
@@ -127,15 +192,18 @@
     });
   }
 
-  function validateSatb(question, errors) {
+  function validateSatb(question, normalized, errors) {
     if (question.category !== "satb") return;
-    question.score.measures.flatMap((measure) => measure.events).forEach(
+    normalized.measures.flatMap((measure) => measure.events).forEach(
       (event, eventIndex) => {
         if (!event.voices) {
           errors.push(`${question.id}: SATB event ${eventIndex + 1} lacks named voices`);
           return;
         }
         const values = SATB_NAMES.map((name) => event.voices[name]);
+        if (event._independentSatb && values.some((value) => value == null)) {
+          return;
+        }
         if (values.some((value) => typeof value !== "string")) {
           errors.push(`${question.id}: SATB event ${eventIndex + 1} is not four-part`);
           return;
@@ -209,8 +277,169 @@
     return null;
   }
 
+  function validateSourceFidelity(
+    question,
+    normalized,
+    harmonicEvents,
+    sourceFidelityErrors
+  ) {
+    if (question.sourceType !== "nzqa-reference") return;
+    const spec = question.sourceSpec;
+    if (!spec || typeof spec !== "object") {
+      sourceFidelityErrors.push(`${question.id}: missing expected-source specification`);
+      return;
+    }
+
+    const compareList = (field, actual) => {
+      if (!Array.isArray(spec[field])) return;
+      if (JSON.stringify(actual) !== JSON.stringify(spec[field])) {
+        sourceFidelityErrors.push(
+          `${question.id}: source ${field} mismatch; expected ${JSON.stringify(spec[field])}, found ${JSON.stringify(actual)}`
+        );
+      }
+    };
+
+    compareList(
+      "chordSymbols",
+      harmonicEvents
+        .map((event) =>
+          question.category === "jazz"
+            ? event.modelLabel || event.chordSymbol
+            : event.chordSymbol
+        )
+        .filter(Boolean)
+    );
+    compareList(
+      "romanNumerals",
+      harmonicEvents.map((event) => event.romanNumeral).filter(Boolean)
+    );
+    compareList(
+      "suppliedLabels",
+      harmonicEvents.map((event) => event.questionLabel).filter(Boolean)
+    );
+    compareList(
+      "sections",
+      (question.score.brackets || []).map((section) => section.label)
+    );
+    compareList(
+      "sectionRanges",
+      (question.score.brackets || []).map((section) => ({
+        label: section.label,
+        key: section.key,
+        start: section.start,
+        end: section.end,
+      }))
+    );
+
+    const eventKeyCentres = [
+      ...new Set(harmonicEvents.map((event) => event.localKey).filter(Boolean)),
+    ];
+    const bracketKeyCentres = (question.score.brackets || [])
+      .map((section) => section.key)
+      .filter(Boolean);
+    compareList(
+      "keyCentres",
+      eventKeyCentres.length
+        ? eventKeyCentres
+        : bracketKeyCentres.length
+          ? bracketKeyCentres
+          : question.score.sourceKeyCentres || []
+    );
+
+    if (
+      Number.isInteger(spec.analysisPositions) &&
+      harmonicEvents.length !== spec.analysisPositions
+    ) {
+      sourceFidelityErrors.push(
+        `${question.id}: source analysisPositions mismatch; expected ${spec.analysisPositions}, found ${harmonicEvents.length}`
+      );
+    }
+    if (Number.isInteger(spec.answerPositions)) {
+      const answerPositions = harmonicEvents.filter(
+        (event) => event.analysisBox !== false && !event.questionLabel
+      ).length;
+      if (answerPositions !== spec.answerPositions) {
+        sourceFidelityErrors.push(
+          `${question.id}: source answerPositions mismatch; expected ${spec.answerPositions}, found ${answerPositions}`
+        );
+      }
+    }
+    if (
+      Number.isInteger(spec.measureCount) &&
+      question.score.measures.length !== spec.measureCount
+    ) {
+      sourceFidelityErrors.push(
+        `${question.id}: source measureCount mismatch; expected ${spec.measureCount}, found ${question.score.measures.length}`
+      );
+    }
+    if (spec.bassPedal) {
+      const bassPitches = harmonicEvents
+        .map((locator) =>
+          question.score.measures[locator.measure - 1]?.events?.[locator.event]
+            ?.bass?.[0]
+        )
+        .filter(Boolean)
+        .map((pitch) => renderer.parsePitch(pitch).letter.toUpperCase());
+      if (!bassPitches.length || bassPitches.some((pitch) => pitch !== spec.bassPedal)) {
+        sourceFidelityErrors.push(
+          `${question.id}: source bass pedal must remain ${spec.bassPedal}`
+        );
+      }
+    }
+    if (Array.isArray(spec.requiredPitchSpellings)) {
+      const authoredPitches = new Set(
+        question.score.measures.flatMap((measure) => {
+          if (measure.voices) {
+            return SATB_NAMES.flatMap((voiceName) =>
+              (measure.voices[voiceName] || [])
+                .map((event) => event.pitch)
+                .filter(Boolean)
+            );
+          }
+          return (measure.events || []).flatMap((event) => [
+            ...(event.treble || []),
+            ...(event.bass || []),
+          ]);
+        })
+      );
+      spec.requiredPitchSpellings.forEach((pitch) => {
+        if (!authoredPitches.has(pitch)) {
+          sourceFidelityErrors.push(
+            `${question.id}: source requires exact pitch spelling ${pitch}`
+          );
+        }
+      });
+    }
+    if (spec.independentSatb) {
+      const independentMeasures = normalized.measures.filter(
+        (measure) => measure.voiceStreams
+      );
+      const allMeasuresIndependent =
+        independentMeasures.length === normalized.measures.length &&
+        independentMeasures.every((measure) =>
+          SATB_NAMES.every(
+            (voiceName) => measure.voiceStreams[voiceName]?.length
+          )
+        );
+      const hasIndependentRhythm = independentMeasures.some((measure) => {
+        const signatures = SATB_NAMES.map((voiceName) =>
+          measure.voiceStreams[voiceName]
+            .map((event) => event.duration)
+            .join(" ")
+        );
+        return new Set(signatures).size > 1;
+      });
+      if (!allMeasuresIndependent || !hasIndependentRhythm) {
+        sourceFidelityErrors.push(
+          `${question.id}: source requires four complete, independently rhythmic SATB streams`
+        );
+      }
+    }
+  }
+
   function validate(questions, options = {}) {
     const errors = [];
+    const sourceFidelityErrors = [];
     const reviewWarnings = [];
     const ids = new Set();
     const signatures = new Map();
@@ -263,7 +492,13 @@
       validateChordEvents(question, normalized, harmonicEvents, errors);
       validateRomanRoots(question, harmonicEvents, errors);
       validateNonHarmonicNotes(question, errors);
-      validateSatb(question, errors);
+      validateSatb(question, normalized, errors);
+      validateSourceFidelity(
+        question,
+        normalized,
+        harmonicEvents,
+        sourceFidelityErrors
+      );
       const textureWarning = reviewTexture(question, normalized, harmonicEvents);
       if (textureWarning) reviewWarnings.push(textureWarning);
 
@@ -315,9 +550,12 @@
       errors.push("jazz-c-turnaround: final voicing must support C6 (C–E–G–A)");
     }
 
+    const allErrors = [...errors, ...sourceFidelityErrors];
     const report = {
-      valid: errors.length === 0,
-      errors,
+      valid: allErrors.length === 0,
+      errors: allErrors,
+      musicTheoryErrors: errors,
+      sourceFidelityErrors,
       total: questions.length,
       categoryCounts,
       referenceCount: references.length,
@@ -326,7 +564,7 @@
       reviewWarnings,
     };
     if (!report.valid && options.throwOnError) {
-      throw new Error(`Question-bank validation failed:\n${errors.join("\n")}`);
+      throw new Error(`Question-bank validation failed:\n${allErrors.join("\n")}`);
     }
     return report;
   }

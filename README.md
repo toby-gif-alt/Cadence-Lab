@@ -33,7 +33,7 @@ There is no procedural music generator. All pitches, rhythms, measures, harmonic
 
 - `question-bank.js` owns assessment content and authored score data.
 - `score-renderer.js` adapts the data into responsive VexFlow systems without question-specific drawing code.
-- `question-validator.js` checks structural and music-theory invariants when the static app loads.
+- `question-validator.js` checks structural, music-theory and independent source-fidelity invariants when the static app loads.
 - `vendor/vexflow-bravura-4.2.5.js` is the pinned VexFlow 4.2.5 browser build. Its MIT licence is in `vendor/VEXFLOW-LICENSE.txt`.
 
 All production questions use `score.measures`. The renderer preserves event durations, dotted values, rests, time-signature and key-signature changes, measure boundaries, ties, automatic beams and optional begin/end barlines. Supported barline values are `none`, `single`, `double`, `end`, `repeat-begin`, `repeat-end` and `repeat-both`.
@@ -83,6 +83,21 @@ SATB uses explicit named voices:
 
 Each named voice accepts one pitch per event. Mixing named and legacy stave fields, supplying an unknown voice, or placing more than two pitches on a legacy SATB stave throws a development error. Question-only fields are selected before VexFlow notes are constructed, so omitted answer pitches do not leak into score metadata, accidentals or spacing.
 
+Reference chorales can instead give every part its own rhythmic stream:
+
+```js
+{
+  voices: {
+    soprano: [{ pitch: "G4", duration: "q" }, { pitch: "A4", duration: "h" }],
+    alto: [{ pitch: "E4", duration: "8" }, { pitch: "F4", duration: "8" }, { pitch: "E4", duration: "h" }],
+    tenor: [{ pitch: "C3", duration: "hd" }],
+    bass: [{ pitch: "C3", duration: "q", tieToNext: true }, { pitch: "C3", duration: "h" }]
+  }
+}
+```
+
+The renderer constructs four independent VexFlow voices—soprano and alto on the treble stave, tenor and bass on the bass stave—so each part can retain its own durations, rests and ties. Optional `questionVoices` uses the same stream format for completion prompts. The shared-event form remains available for original practice where all four parts genuinely share a rhythmic grid.
+
 Piano completion events use the corresponding `qTreble` and `qBass` fields to keep the melody or supplied accompaniment visible while hiding notes the learner must write.
 
 ## Validation scope
@@ -92,7 +107,7 @@ The validator checks that:
 - question IDs and score signatures are distinct;
 - every production score has explicit measures whose durations fill the stated metre;
 - every harmonic event resolves to an authored note-event anchor;
-- each declared chord symbol is fully supported by the displayed pitch-class set and slash bass, without omitted defining tones or unlabelled added tones;
+- each declared chord symbol is supported by chord-bearing pitches that are present in the displayed notation and by the displayed slash bass, rejecting undeclared added tones; conventional omissions such as a fifth must be explicitly declared on that harmonic event;
 - Roman-numeral roots agree with their declared local keys for the supported diatonic cases;
 - declared non-harmonic notes are outside the active chord;
 - all SATB events contain four named voices in non-crossing order;
@@ -100,6 +115,8 @@ The validator checks that:
 - the final tonic-sixth voicing in the C turnaround remains C–E–G–A.
 
 Chord validation verifies support for the intended symbol. It does not claim to enumerate every plausible contextual analysis. `acceptableChordSymbols` remains available when the author deliberately permits more than one reading.
+
+Source fidelity is a separate validation layer. Every `nzqa-reference` carries a `sourceSpec` derived from its assessment schedule: exact chord-symbol or Roman-numeral sequences, analysis and answer-position counts, key centres, supplied labels, X/Y/Z sections where relevant, and structural requirements such as independent SATB streams. The report exposes `musicTheoryErrors` and `sourceFidelityErrors` separately. This prevents an incorrectly transcribed label and an equally incorrect set of pitches from validating each other. The 2024 *Love is Commercial* specification, for example, requires the published E♯dim7 label and exact E♯–G♯–B–D spelling.
 
 The validator also produces non-failing `reviewWarnings` for original analysis or jazz items that collapse into equal-duration simultaneous block chords with no independent rhythmic or melodic surface. The visual gallery displays those warnings prominently for manual review; the current bank has none.
 

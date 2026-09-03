@@ -154,6 +154,84 @@
     return Boolean(event[`${staff}Rest`] || event.rest === staff || event.rest === true);
   }
 
+  function normalizeIndependentVoiceStreams(
+    source,
+    measureIndex,
+    timeSignature,
+    sourceName
+  ) {
+    if (source == null) return null;
+    if (typeof source !== "object" || Array.isArray(source)) {
+      throw new Error(
+        `SATB measure ${measureIndex + 1} ${sourceName} must be an object of voice streams.`
+      );
+    }
+    const unknownNames = Object.keys(source).filter(
+      (name) => !SATB_VOICE_NAMES.includes(name)
+    );
+    if (unknownNames.length) {
+      throw new Error(
+        `SATB measure ${measureIndex + 1} ${sourceName} has unknown voice field(s): ${unknownNames.join(", ")}.`
+      );
+    }
+
+    return Object.fromEntries(
+      SATB_VOICE_NAMES.map((voiceName) => {
+        const stream = source[voiceName] || [];
+        if (!Array.isArray(stream)) {
+          throw new Error(
+            `SATB measure ${measureIndex + 1} ${sourceName}.${voiceName} must be an array.`
+          );
+        }
+        let beat = 1;
+        const normalized = stream.map((value, voiceIndex) => {
+          const event = typeof value === "string" ? { pitch: value } : value;
+          if (!event || typeof event !== "object" || Array.isArray(event)) {
+            throw new Error(
+              `SATB measure ${measureIndex + 1} ${sourceName}.${voiceName} event ${voiceIndex + 1} is invalid.`
+            );
+          }
+          const pitches = event.pitches ??
+            (event.pitch == null ? [] : [event.pitch]);
+          if (!Array.isArray(pitches) || pitches.length > 1) {
+            throw new Error(
+              `SATB measure ${measureIndex + 1} ${sourceName}.${voiceName} event ${voiceIndex + 1} must contain at most one pitch.`
+            );
+          }
+          if (pitches[0] != null) parsePitch(pitches[0]);
+          const duration = normalizeDuration(event.duration);
+          const durationBeats = durationInBeats(
+            duration,
+            timeSignature.denominator
+          );
+          const result = {
+            ...event,
+            pitch: pitches[0] ?? null,
+            duration,
+            rest: Boolean(event.rest),
+            _voice: voiceName,
+            _voiceIndex: voiceIndex,
+            _measureIndex: measureIndex,
+            _beat: beat,
+            _durationBeats: durationBeats,
+          };
+          beat += durationBeats;
+          return result;
+        });
+        return [voiceName, normalized];
+      })
+    );
+  }
+
+  function soundingPitchAt(stream, beat) {
+    const event = stream.find(
+      (candidate) =>
+        candidate._beat <= beat + 0.001 &&
+        candidate._beat + candidate._durationBeats > beat + 0.001
+    );
+    return event && !event.rest ? event.pitch : null;
+  }
+
   function normalizeMeasures(score) {
     const initialKeySignature =
       score.keySignature || inferKeySignature(score.key);
@@ -164,18 +242,77 @@
       let currentTimeSignature = parseTimeSignature(score.timeSignature);
       const measures = score.measures.map((source, measureIndex) => {
         const measure = Array.isArray(source) ? { events: source } : source;
-        const events = measure.events || measure.chords || [];
+        const sourceEvents = measure.events || measure.chords || [];
         if (measure.keySignature) currentKeySignature = measure.keySignature;
         if (measure.timeSignature) {
           currentTimeSignature = parseTimeSignature(measure.timeSignature);
         }
+        const voiceStreams = normalizeIndependentVoiceStreams(
+          measure.voices,
+          measureIndex,
+          currentTimeSignature,
+          "voices"
+        );
+        const questionVoiceStreams = normalizeIndependentVoiceStreams(
+          measure.questionVoices,
+          measureIndex,
+          currentTimeSignature,
+          "questionVoices"
+        );
+        let events;
+        if (voiceStreams) {
+          const harmonicBeats = (score.harmonicEvents || [])
+            .filter(
+              (event) =>
+                Number(event.measure) === measureIndex + 1 &&
+                !Number.isInteger(event.event) &&
+                Number.isFinite(Number(event.beat))
+            )
+            .map((event) => Number(event.beat));
+          const onsetBeats = [
+            ...new Set(
+              [
+                ...SATB_VOICE_NAMES.flatMap((voiceName) =>
+                  voiceStreams[voiceName].map((event) => event._beat)
+                ),
+                ...harmonicBeats,
+              ]
+            ),
+          ].sort((a, b) => a - b);
+          events = onsetBeats.map((beat) => ({
+            _index: globalIndex++,
+            _beat: beat,
+            _independentSatb: true,
+            voices: Object.fromEntries(
+              SATB_VOICE_NAMES.map((voiceName) => [
+                voiceName,
+                soundingPitchAt(voiceStreams[voiceName], beat),
+              ])
+            ),
+          }));
+          const anchorByBeat = new Map(
+            events.map((event) => [event._beat, event._index])
+          );
+          [voiceStreams, questionVoiceStreams].filter(Boolean).forEach((streams) => {
+            SATB_VOICE_NAMES.forEach((voiceName) => {
+              streams[voiceName].forEach((event) => {
+                event._anchorIndex = anchorByBeat.get(event._beat) ?? null;
+              });
+            });
+          });
+        } else {
+          events = sourceEvents.map((event) => ({
+            ...event,
+            _index: globalIndex++,
+          }));
+        }
         return {
           index: measureIndex,
           mode: "explicit",
-          events: events.map((event) => ({
-            ...event,
-            _index: globalIndex++,
-          })),
+          events,
+          voiceStreams,
+          questionVoiceStreams,
+          expectedBeats: measure.expectedBeats || null,
           keySignature: measure.keySignature || null,
           effectiveKeySignature: currentKeySignature,
           cancelKeySignature: measure.cancelKeySignature || null,
@@ -214,6 +351,15 @@
     const targetBeat = Number(beat);
     if (!Number.isFinite(targetBeat) || targetBeat < 1) {
       throw new Error(`Invalid harmonic-event beat: ${beat}`);
+    }
+    if (measure.voiceStreams) {
+      const event = measure.events.find(
+        (candidate) => Math.abs(candidate._beat - targetBeat) < 0.001
+      );
+      if (event) return event._index;
+      throw new Error(
+        `No SATB voice event begins at beat ${beat} in measure ${measure.index + 1}.`
+      );
     }
     let currentBeat = 1;
     for (const event of measure.events) {
@@ -270,6 +416,18 @@
           modelLabel: event.answerLabel,
         }))
     );
+  }
+
+  function normalizeBrackets(score, normalizedScore) {
+    return (score.brackets || []).map((bracket) => ({
+      ...bracket,
+      start: Number.isInteger(bracket.start)
+        ? bracket.start
+        : resolveEventIndex(bracket.start, normalizedScore),
+      end: Number.isInteger(bracket.end)
+        ? bracket.end
+        : resolveEventIndex(bracket.end, normalizedScore),
+    }));
   }
 
   function visiblePitches(event, staff, showAnswer) {
@@ -540,11 +698,17 @@
       const requiredPitchClasses = new Set(
         parsed.intervals.map((interval) => (parsed.rootPitchClass + interval) % 12)
       );
+      const permittedOmissions = new Set(
+        (event.omittedChordIntervals || []).map(
+          (interval) => (parsed.rootPitchClass + Number(interval)) % 12
+        )
+      );
       if (parsed.bassPitchClass != null) {
         requiredPitchClasses.add(parsed.bassPitchClass);
       }
       const missingPitchClasses = [...requiredPitchClasses].filter(
-        (value) => !actualPitchClasses.has(value)
+        (value) =>
+          !actualPitchClasses.has(value) && !permittedOmissions.has(value)
       );
       const extraPitchClasses = [...actualPitchClasses].filter(
         (value) => !requiredPitchClasses.has(value)
@@ -585,6 +749,7 @@
         }
       }
       if (layout === "satb") {
+        if (event._independentSatb) return;
         if (event.voices || event.questionVoices) {
           selectedSatbVoices(event, true);
           selectedSatbVoices(event, false);
@@ -604,6 +769,23 @@
         }
       }
     });
+
+    normalizedScore.measures
+      .filter((measure) => measure.voiceStreams)
+      .forEach((measure) => {
+        if (layout !== "satb") {
+          throw new Error(
+            `Independent voice streams require SATB layout in measure ${measure.index + 1}.`
+          );
+        }
+        SATB_VOICE_NAMES.forEach((voiceName) => {
+          if (!measure.voiceStreams[voiceName].length) {
+            throw new Error(
+              `SATB measure ${measure.index + 1} model voice ${voiceName} is empty.`
+            );
+          }
+        });
+      });
   }
 
   function validateHarmonicEvents(normalizedScore, harmonicEvents) {
@@ -624,6 +806,7 @@
         ? {
             treble: harmonicEvent.validationPitches,
             bass: harmonicEvent.bassPitch ? [harmonicEvent.bassPitch] : [],
+            omittedChordIntervals: harmonicEvent.omittedChordIntervals,
           }
         : noteEvent;
       const validation = validateChordIdentification(
@@ -714,10 +897,11 @@
     showAnswer,
     timeSignature,
     referenceMap,
-    scoreMode
+    scoreMode,
+    measure
   ) {
     const voiceConfig = {
-      num_beats: timeSignature.numerator,
+      num_beats: measure?.expectedBeats || timeSignature.numerator,
       beat_value: timeSignature.denominator,
     };
 
@@ -759,6 +943,70 @@
           { name: "tenor", direction: VF.Stem.UP },
           { name: "bass", direction: VF.Stem.DOWN },
         ];
+
+    if (measure.voiceStreams) {
+      const streams = !showAnswer && measure.questionVoiceStreams
+        ? measure.questionVoiceStreams
+        : measure.voiceStreams;
+      return roles.map((role) => {
+        const stream = streams[role.name] || [];
+        const tickables = stream.map((event) => {
+          const pitches = event.rest || !event.pitch ? [] : [event.pitch];
+          const note = makeStaveNote(
+            VF,
+            pitches,
+            staff,
+            event.duration,
+            role.direction,
+            event.rest
+          );
+          note.setStave(stave);
+          if (Number.isInteger(event._anchorIndex)) {
+            addReference(
+              VF,
+              referenceMap,
+              event._anchorIndex,
+              staff,
+              note,
+              role.name,
+              pitches
+            );
+          }
+          return note;
+        });
+        if (!tickables.length) {
+          const expectedBeats = measure.expectedBeats || timeSignature.numerator;
+          const ghostDuration = ["w", "hd", "h", "qd", "q", "8d", "8", "16"]
+            .find(
+              (duration) =>
+                Math.abs(
+                  durationInBeats(duration, timeSignature.denominator) -
+                    expectedBeats
+                ) < 0.001
+            );
+          if (!ghostDuration) {
+            throw new Error(
+              `SATB measure ${measure.index + 1} cannot represent ${expectedBeats} empty beats.`
+            );
+          }
+          const ghost = makeStaveNote(
+            VF,
+            [],
+            staff,
+            ghostDuration,
+            role.direction,
+            false
+          );
+          ghost.setStave(stave);
+          tickables.push(ghost);
+        }
+        const voice = new VF.Voice(voiceConfig)
+          .setStrict(false)
+          .addTickables(tickables);
+        return { voice, tickables, role: role.name, independent: true };
+      });
+    }
+
     return roles.map((role) => {
       const tickables = events.map((event) => {
         const pitches = satbPitchesForRole(
@@ -897,6 +1145,7 @@
     systemCount,
     hasTopAnalysisBoxes
   ) {
+    let labelDrawn = false;
     for (let systemIndex = 0; systemIndex < systemCount; systemIndex += 1) {
       const sectionAnchors = [];
       for (let eventIndex = bracket.start; eventIndex <= bracket.end; eventIndex += 1) {
@@ -920,31 +1169,34 @@
           "stroke-width": 2,
         })
       );
-      group.appendChild(
-        createSvgElement("rect", {
-          x: centre - 12,
-          y: y - 11,
-          width: 24,
-          height: 20,
-          rx: 5,
-          fill: "#dbeafe",
-        })
-      );
-      group.appendChild(
-        createSvgElement(
-          "text",
-          {
-            x: centre,
-            y: y + 4,
-            "text-anchor": "middle",
-            "font-family": "Inter, ui-sans-serif, sans-serif",
-            "font-size": 13,
-            "font-weight": 900,
-            fill: "#1e3a8a",
-          },
-          bracket.label
-        )
-      );
+      if (!labelDrawn || bracket.repeatLabel !== false) {
+        group.appendChild(
+          createSvgElement("rect", {
+            x: centre - 12,
+            y: y - 11,
+            width: 24,
+            height: 20,
+            rx: 5,
+            fill: "#dbeafe",
+          })
+        );
+        group.appendChild(
+          createSvgElement(
+            "text",
+            {
+              x: centre,
+              y: y + 4,
+              "text-anchor": "middle",
+              "font-family": "Inter, ui-sans-serif, sans-serif",
+              "font-size": 13,
+              "font-weight": 900,
+              fill: "#1e3a8a",
+            },
+            bracket.label
+          )
+        );
+        labelDrawn = true;
+      }
     }
   }
 
@@ -955,6 +1207,35 @@
       return references.find((reference) => reference.role === role) || null;
     }
     return references[0];
+  }
+
+  function independentSatbTies(normalizedScore) {
+    return SATB_VOICE_NAMES.flatMap((voiceName) => {
+      const stream = normalizedScore.measures.flatMap(
+        (measure) => measure.voiceStreams?.[voiceName] || []
+      );
+      return stream.flatMap((event, index) => {
+        if (!event.tieToNext) return [];
+        const next = stream[index + 1];
+        if (!next || !Number.isInteger(event._anchorIndex) ||
+            !Number.isInteger(next._anchorIndex)) {
+          throw new Error(
+            `SATB ${voiceName} tie has no following anchored note.`
+          );
+        }
+        return [{
+          from: event._anchorIndex,
+          to: next._anchorIndex,
+          staff: ["soprano", "alto"].includes(voiceName) ? "treble" : "bass",
+          voice: voiceName,
+          firstPitch: event.pitch,
+          lastPitch: next.pitch,
+          direction: ["soprano", "tenor"].includes(voiceName)
+            ? "above"
+            : "below",
+        }];
+      });
+    });
   }
 
   function drawTies(VF, context, ties, referenceMap, anchors) {
@@ -1088,9 +1369,17 @@
     const normalizedScore = normalizeMeasures(score);
     validateScoreData(normalizedScore, layout);
     const harmonicEvents = normalizeHarmonicEvents(score, normalizedScore);
+    const brackets = normalizeBrackets(score, normalizedScore);
     validateHarmonicEvents(normalizedScore, harmonicEvents);
     const systems = buildSystems(normalizedScore, score, width);
     const events = normalizedScore.measures.flatMap((measure) => measure.events);
+    const notationEvents = normalizedScore.measures.flatMap((measure) =>
+      measure.voiceStreams
+        ? SATB_VOICE_NAMES.flatMap(
+            (voiceName) => measure.voiceStreams[voiceName]
+          )
+        : measure.events
+    );
 
     const analysisPosition = (event) =>
       event.labelPosition || score.labelPosition || "bottom";
@@ -1100,7 +1389,7 @@
     const hasBottomAnalysisBoxes = harmonicEvents.some(
       (event) => event.analysisBox !== false && analysisPosition(event) !== "top"
     );
-    const hasBrackets = (score.brackets || []).length > 0;
+    const hasBrackets = brackets.length > 0;
     const topPadding =
       30 + (hasTopAnalysisBoxes ? 42 : 0) + (hasBrackets ? 34 : 0);
     const bottomPadding = hasBottomAnalysisBoxes ? 55 : 0;
@@ -1125,17 +1414,21 @@
     );
     target.dataset.eventCount = String(events.length);
     target.dataset.dottedEventCount = String(
-      events.filter(
+      notationEvents.filter(
         (event) => durationDetails(event.duration || "q").dots > 0
       ).length
     );
     target.dataset.restEventCount = String(
-      events.filter(
+      notationEvents.filter(
         (event) =>
+          event.rest ||
           eventIsRest(event, "treble") ||
           eventIsRest(event, "bass") ||
           (event.voiceRests || []).length > 0
       ).length
+    );
+    target.dataset.independentVoiceMeasureCount = String(
+      normalizedScore.measures.filter((measure) => measure.voiceStreams).length
     );
     target.dataset.harmonicEventCount = String(harmonicEvents.length);
     target.dataset.analysisBoxCount = String(
@@ -1259,7 +1552,8 @@
           showAnswer,
           measure.effectiveTimeSignature,
           references,
-          normalizedScore.mode
+          normalizedScore.mode,
+          measure
         );
         const bottomBundles = bottomStave
           ? buildStaffVoices(
@@ -1271,7 +1565,8 @@
               showAnswer,
               measure.effectiveTimeSignature,
               references,
-              normalizedScore.mode
+              normalizedScore.mode,
+              measure
             )
           : [];
         const bundles = [...topBundles, ...bottomBundles];
@@ -1305,8 +1600,20 @@
         });
 
         measure.events.forEach((event, eventIndexInMeasure) => {
-          const anchorNote =
-            topBundles[0]?.tickables[eventIndexInMeasure] ||
+          const eventReferences = references.get(event._index);
+          let anchorNote =
+            eventReferences?.treble?.[0]?.note ||
+            eventReferences?.bass?.[0]?.note;
+          if (!anchorNote && measure.voiceStreams) {
+            const beatSpan =
+              measure.expectedBeats || measure.effectiveTimeSignature.numerator;
+            const startX = topStave.getNoteStartX();
+            const endX = topStave.getNoteEndX();
+            const proportionalX =
+              startX + ((event._beat - 1) / beatSpan) * (endX - startX);
+            anchorNote = { getAbsoluteX: () => proportionalX };
+          }
+          anchorNote ||= topBundles[0]?.tickables[eventIndexInMeasure] ||
             bottomBundles[0]?.tickables[eventIndexInMeasure];
           anchors.set(event._index, {
             note: anchorNote,
@@ -1335,7 +1642,13 @@
         }).forEach((beam) => beam.setContext(context).draw());
       });
     }
-    drawTies(VF, context, score.ties, references, anchors);
+    drawTies(
+      VF,
+      context,
+      [...(score.ties || []), ...independentSatbTies(normalizedScore)],
+      references,
+      anchors
+    );
 
     const svg = canvas.querySelector("svg");
     if (svg) {
@@ -1374,7 +1687,7 @@
           width
         );
       });
-      (score.brackets || []).forEach((bracket) =>
+      brackets.forEach((bracket) =>
         drawBracket(
           decorationGroup,
           bracket,
@@ -1405,6 +1718,7 @@
     durationInBeats,
     normalizeMeasures,
     normalizeHarmonicEvents,
+    normalizeBrackets,
     validateChordIdentification,
   });
 })();

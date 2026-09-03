@@ -19,13 +19,36 @@
     <div id="all-questions" aria-hidden="true"></div>
     <pre id="results"></pre>
 
+    <script>
+      window.smokeRuntimeErrors = [];
+      window.addEventListener("error", (event) => {
+        window.smokeRuntimeErrors.push(event.error?.stack || event.message);
+        document.body.dataset.status = "fail";
+        document.querySelector("#results").textContent = JSON.stringify({
+          passed: false,
+          runtimeError: event.error?.stack || event.message,
+        }, null, 2);
+      });
+      window.addEventListener("unhandledrejection", (event) => {
+        document.body.dataset.status = "fail";
+        document.querySelector("#results").textContent = JSON.stringify({
+          passed: false,
+          runtimeError: event.reason?.stack || String(event.reason),
+        }, null, 2);
+      });
+    </script>
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../question-bank.js?v=2026-09-nzqa-bank"></script>
-    <script src="../score-renderer.js?v=2026-09-nzqa-bank"></script>
-    <script src="../question-validator.js?v=2026-09-nzqa-bank"></script>
+    <script src="../question-bank.js?v=2026-09-source-fidelity-4"></script>
+    <script src="../score-renderer.js?v=2026-09-source-fidelity-4"></script>
+    <script src="../question-validator.js?v=2026-09-source-fidelity-4"></script>
     <script>
       const renderer = window.CadenceScoreRenderer;
       const questions = window.CadenceData.questions;
+      if (!window.CadenceQuestionValidator) {
+        throw new Error(
+          `Validator failed to initialise:\n${window.smokeRuntimeErrors.join("\n")}`
+        );
+      }
       const validatorReport = window.CadenceQuestionValidator.report;
 
       const rhythmScore = {
@@ -131,6 +154,44 @@
         correctedC6,
         "C6"
       );
+      const expectedCommercialSequence = [
+        "C♯m(add9)", "Dmaj7", "Bm9", "G♯dim/B", "C♯7sus4", "C♯7",
+        "F♯m", "E♯dim7", "F♯m/E", "D♯m7(♭5)", "Dmaj7",
+      ];
+      const commercialReference = questions.find(
+        (question) => question.id === "nzqa-2024-commercial-chromatic-bass"
+      );
+      const commercialSequence = commercialReference.score.harmonicEvents.map(
+        (event) => event.modelLabel
+      );
+      const eSharpDiminishedEvent = commercialReference.score.measures[6].events[0];
+
+      const selfConsistentWrongReference = structuredClone(questions);
+      const corruptedCommercial = selfConsistentWrongReference.find(
+        (question) => question.id === "nzqa-2024-commercial-chromatic-bass"
+      );
+      corruptedCommercial.score.measures[6].events[0] = {
+        treble: ["A3", "C4", "E♭4", "F♯4"],
+        bass: ["F4"],
+        duration: "q",
+      };
+      Object.assign(corruptedCommercial.score.harmonicEvents[7], {
+        modelLabel: "F♯dim7/F",
+        chordSymbol: "F♯dim7/F",
+      });
+      const corruptedCommercialReport =
+        window.CadenceQuestionValidator.validate(selfConsistentWrongReference);
+
+      const independentBachIds = [
+        "nzqa-2021-bach-pivots",
+        "nzqa-2022-bach-c-aminor",
+        "nzqa-2023-bach-key-regions",
+        "nzqa-2024-bach-analysis",
+        "nzqa-2024-bach-satb",
+      ];
+      const independentBachReferences = independentBachIds.map((id) =>
+        questions.find((question) => question.id === id)
+      );
 
       const categoryRenderErrors = [];
       const renderedCategories = new Set();
@@ -214,6 +275,37 @@
           referenceCounts[2024] === 3 && referenceCounts[2022] === 1,
         originalAnalysisAndJazzTextureReviewPasses:
           validatorReport.reviewWarnings.length === 0,
+        sourceFidelityValidatorPasses:
+          validatorReport.sourceFidelityErrors.length === 0,
+        commercialSequenceMatchesPublishedSchedule:
+          JSON.stringify(commercialSequence) ===
+          JSON.stringify(expectedCommercialSequence),
+        eSharpDiminishedSpellingPreserved:
+          eSharpDiminishedEvent.treble.includes("E#4") &&
+          eSharpDiminishedEvent.bass.includes("E#2") &&
+          ![...eSharpDiminishedEvent.treble, ...eSharpDiminishedEvent.bass]
+            .some((pitch) => /^F(?:#|♯)?/.test(pitch)),
+        sourceFidelityRejectsSelfConsistentAlternative:
+          corruptedCommercialReport.musicTheoryErrors.every(
+            (error) => !error.includes("nzqa-2024-commercial-chromatic-bass")
+          ) &&
+          corruptedCommercialReport.sourceFidelityErrors.some(
+            (error) =>
+              error.includes("nzqa-2024-commercial-chromatic-bass") &&
+              error.includes("chordSymbols mismatch")
+          ),
+        bachReferencesUseIndependentVoiceStreams:
+          independentBachReferences.every(
+            (question) =>
+              question.sourceSpec.independentSatb === true &&
+              question.score.measures.every(
+                (measure) =>
+                  measure.voices &&
+                  ["soprano", "alto", "tenor", "bass"].every(
+                    (voiceName) => Array.isArray(measure.voices[voiceName])
+                  )
+              )
+          ),
         bothSourceTypesPresent:
           ["nzqa-reference", "original-practice"].every((sourceType) =>
             questions.some((question) => question.sourceType === sourceType)
