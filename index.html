@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en-NZ">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#172554" />
+    <meta
+      name="description"
+      content="Original AS 91421 harmonic and tonal conventions practice with paper-based answers and NCEA-style self-assessment."
+    />
+    <title>Cadence Lab | AS 91421 Practice</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Cadence Lab home">
+        <span class="brand-mark" aria-hidden="true">𝄞</span>
+        <span>
+          <strong>Cadence Lab</strong>
+          <small>AS 91421 practice</small>
+        </span>
+      </a>
+      <div class="standard-chip">Level 3 Music Studies</div>
+    </header>
+
+    <main class="app-shell">
+      <aside class="control-panel" aria-label="Question settings">
+        <div>
+          <p class="eyebrow">Practice setup</p>
+          <h1>Build a question</h1>
+          <p class="panel-intro">Choose a focus, write your answer on paper, then reveal the model and mark your evidence.</p>
+        </div>
+
+        <label class="field-label" for="category">Question type</label>
+        <select id="category">
+          <option value="mixed">Mixed practice</option>
+          <option value="analysis">Roman numeral chords</option>
+          <option value="modulation">Keys and modulation</option>
+          <option value="satb">SATB / vocal completion</option>
+          <option value="piano">Complete the piano part</option>
+          <option value="jazz">Jazz / rock chords</option>
+          <option value="features">Harmonic or tonal feature</option>
+        </select>
+
+        <label class="field-label" for="difficulty">Target level</label>
+        <select id="difficulty">
+          <option value="achievement">Achievement</option>
+          <option value="merit" selected>Merit</option>
+          <option value="excellence">Excellence</option>
+        </select>
+
+        <button class="button button-primary" id="new-question" type="button">
+          <span aria-hidden="true">↻</span>
+          Generate question
+        </button>
+
+        <div class="schedule-note">
+          <strong>How marking works</strong>
+          <p>Achievement rewards correct isolated evidence. Merit looks for secure consecutive work. Excellence requires an extended, convincing response.</p>
+        </div>
+      </aside>
+
+      <section class="workspace" aria-live="polite">
+        <article class="paper" id="print-area">
+          <div class="paper-heading">
+            <div>
+              <p class="eyebrow" id="question-family">Question family</p>
+              <h2 id="question-title">Loading question…</h2>
+            </div>
+            <div class="paper-meta">
+              <span id="difficulty-chip">Merit</span>
+              <span id="variant-chip">Variant 01</span>
+            </div>
+          </div>
+
+          <div class="instruction" id="question-context"></div>
+          <ol class="task-list" id="task-list"></ol>
+
+          <div class="score-frame">
+            <svg id="score" viewBox="0 0 1000 300" role="img" aria-labelledby="score-title score-desc">
+              <title id="score-title">Generated music score</title>
+              <desc id="score-desc">A short original music extract for harmonic analysis or completion.</desc>
+            </svg>
+          </div>
+
+          <div class="writing-space" id="writing-space" aria-hidden="true"></div>
+
+          <section class="answer-panel" id="answer-panel" hidden>
+            <div class="answer-banner">
+              <span class="answer-icon" aria-hidden="true">✓</span>
+              <div>
+                <p class="eyebrow">Model response</p>
+                <h3 id="answer-heading"></h3>
+              </div>
+            </div>
+            <div id="model-score-wrap" class="model-score-wrap" hidden>
+              <svg id="model-score" viewBox="0 0 1000 300" role="img" aria-label="Model realisation"></svg>
+            </div>
+            <div class="answer-copy" id="answer-copy"></div>
+
+            <div class="self-assess">
+              <div class="self-assess-heading">
+                <div>
+                  <p class="eyebrow">Assessment guide</p>
+                  <h3>Which evidence is present in your answer?</h3>
+                </div>
+                <div class="result-badge" id="result-badge">Not assessed</div>
+              </div>
+              <div class="criteria-grid" id="criteria-grid"></div>
+              <p class="judgement-note" id="judgement-note">Tick only the statements you can support from your written work.</p>
+            </div>
+          </section>
+        </article>
+
+        <div class="action-bar">
+          <button class="button button-ghost" id="print-question" type="button">
+            <span aria-hidden="true">⎙</span>
+            Print question
+          </button>
+          <button class="button button-reveal" id="reveal-answer" type="button">
+            <span aria-hidden="true">◉</span>
+            Reveal answer and guide
+          </button>
+        </div>
+
+        <p class="disclaimer">Original practice material informed by the published 2021–2024 AS 91421 assessment structure. This is not an official NZQA resource.</p>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
