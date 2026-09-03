@@ -6,11 +6,11 @@
     <meta name="theme-color" content="#172554" />
     <meta
       name="description"
-      content="Original AS 91421 harmonic and tonal conventions practice with paper-based answers and NCEA-style self-assessment."
+      content="AS 91421 harmonic and tonal conventions practice with clearly labelled NZQA reference reductions, original exercises and NCEA-style self-assessment."
     />
     <title>Cadence Lab | AS 91421 Practice</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=2026-09-data-contract" />
+    <link rel="stylesheet" href="./styles.css?v=2026-09-nzqa-bank" />
   </head>
   <body>
     <header class="topbar">
@@ -43,6 +43,13 @@
           <option value="features">Harmonic or tonal feature</option>
         </select>
 
+        <label class="field-label" for="source-type">Source</label>
+        <select id="source-type">
+          <option value="mixed">Mixed sources</option>
+          <option value="nzqa-reference">NZQA reference</option>
+          <option value="original-practice">Original practice</option>
+        </select>
+
         <label class="field-label" for="difficulty">Target level</label>
         <select id="difficulty">
           <option value="achievement">Achievement</option>
@@ -52,7 +59,7 @@
 
         <button class="button button-primary" id="new-question" type="button">
           <span aria-hidden="true">↻</span>
-          Generate question
+          New question
         </button>
 
         <div class="schedule-note">
@@ -69,12 +76,14 @@
               <h2 id="question-title">Loading question…</h2>
             </div>
             <div class="paper-meta">
+              <span id="source-chip">Original practice</span>
               <span id="difficulty-chip">Merit</span>
               <span id="variant-chip">Variant 01</span>
             </div>
           </div>
 
           <div class="instruction" id="question-context"></div>
+          <p class="source-attribution" id="source-attribution"></p>
           <ol class="task-list" id="task-list"></ol>
 
           <div class="score-frame">
@@ -123,13 +132,14 @@
           </button>
         </div>
 
-        <p class="disclaimer">Original practice material informed by the published 2021–2024 AS 91421 assessment structure. This is not an official NZQA resource.</p>
+        <p class="disclaimer">Reference reductions are clearly attributed; all other questions are original practice informed by the published 2021–2024 AS 91421 assessment structure. This is not an official NZQA resource.</p>
       </section>
     </main>
 
     <script src="./vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="./question-bank.js?v=2026-09-data-contract"></script>
-    <script src="./score-renderer.js?v=2026-09-data-contract"></script>
-    <script src="./app.js?v=2026-09-data-contract"></script>
+    <script src="./question-bank.js?v=2026-09-nzqa-bank"></script>
+    <script src="./score-renderer.js?v=2026-09-nzqa-bank"></script>
+    <script src="./question-validator.js?v=2026-09-nzqa-bank"></script>
+    <script src="./app.js?v=2026-09-nzqa-bank"></script>
   </body>
 </html>

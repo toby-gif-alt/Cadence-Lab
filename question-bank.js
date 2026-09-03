@@ -1,470 +1,17 @@
-const questionBank = [
-  {
-    id: "roman-c-g",
-    category: "analysis",
-    family: "Roman numeral analysis",
-    title: "Chorale modulation to the dominant",
-    context: "The passage begins in C major and modulates to G major. A pivot chord is used. Analyse the harmony in the boxes provided.",
-    tasks: {
-      A: ["Identify each chord using Roman numeral notation, including inversions and sevenths."],
-      M: ["Show the consecutive progression relative to the correct key."],
-      E: ["Identify the pivot chord relative to both keys and state its modulatory function."],
-    },
-    score: {
-      key: "C major → G major",
-      blankLabels: true,
-      labelPosition: "bottom",
-      chords: [
-        { treble: ["E4", "C5"], bass: ["C3", "G3"], givenLabel: "C: I", answerLabel: "C: I" },
-        { treble: ["C4", "A4"], bass: ["A2", "E3"], answerLabel: "vi" },
-        { treble: ["D4", "A4"], bass: ["F3", "A3"], answerLabel: "ii⁶" },
-        { treble: ["B3", "F4"], bass: ["G2", "D3"], answerLabel: "V⁷" },
-        { treble: ["C4", "E4"], bass: ["C3", "G3"], answerLabel: "I" },
-        { treble: ["C4", "G4"], bass: ["C3", "E3"], answerLabel: "I / G: IV" },
-        { treble: ["C4", "F#4", "A4"], bass: ["D3", "A3"], answerLabel: "V⁷" },
-        { treble: ["B3", "G4"], bass: ["G2", "D3"], answerLabel: "I" },
-      ],
-    },
-    answerHeading: "Chord analysis and pivot",
-    answer: [
-      "<strong>Progression:</strong> C: I – vi – ii⁶ – V⁷ – I – I / G: IV – V⁷ – I.",
-      "<strong>Pivot:</strong> the C-major chord functions first as I in C major and then as IV in G major. D7 supplies F♯, the new leading note, and resolves to G through a perfect cadence.",
-    ],
-    criteria: {
-      A: ["At least four isolated chords are correct relative to the stated key."],
-      M: ["At least five consecutive chords, including inversions or sevenths, form a secure analysis."],
-      E: ["The near-complete progression is correct and the pivot is labelled relative to both keys."],
-    },
-  },
-  {
-    id: "roman-a-c",
-    category: "analysis",
-    family: "Roman numeral analysis",
-    title: "Minor key to relative major",
-    context: "The extract begins in A minor and ends in C major. Analyse the chords and show the point at which one chord can be understood in both keys.",
-    tasks: {
-      A: ["Name the individual chords using Roman numerals."],
-      M: ["Analyse the progression as consecutive chords, including the first inversion."],
-      E: ["Label the pivot relative to both keys and explain how the cadence establishes C major."],
-    },
-    score: {
-      key: "A minor → C major",
-      blankLabels: true,
-      labelPosition: "bottom",
-      chords: [
-        { treble: ["C4", "A4"], bass: ["A2", "E3"], givenLabel: "a: i", answerLabel: "a: i" },
-        { treble: ["D4", "A4"], bass: ["F3", "A3"], answerLabel: "iv⁶" },
-        { treble: ["G#4", "D5"], bass: ["E3", "B3"], answerLabel: "V⁷" },
-        { treble: ["C4", "A4"], bass: ["A2", "E3"], answerLabel: "i" },
-        { treble: ["F4", "D5"], bass: ["D3", "A3"], answerLabel: "iv / C: ii" },
-        { treble: ["B3", "F4"], bass: ["G2", "D3"], answerLabel: "V⁷" },
-        { treble: ["C4", "E4", "G4"], bass: ["C3", "G3"], answerLabel: "I" },
-      ],
-    },
-    answerHeading: "Analysis in both keys",
-    answer: [
-      "<strong>Progression:</strong> a: i – iv⁶ – V⁷ – i – iv / C: ii – V⁷ – I.",
-      "<strong>Evidence:</strong> D minor acts as iv in A minor and ii in C major. The following G7–C progression is a perfect cadence in C major and firmly establishes the relative major.",
-    ],
-    criteria: {
-      A: ["At least three individual chords are correctly named."],
-      M: ["A secure consecutive progression is identified through the cadence."],
-      E: ["The pivot, cadence evidence and relationship to the original tonic are all explained correctly."],
-    },
-  },
-  {
-    id: "modulation-c-g-e",
-    category: "modulation",
-    family: "Keys and modulation",
-    title: "Locate two temporary key centres",
-    context: "The extract begins in C major. Sections X and Y establish temporary key centres. For each section, identify the key, give precise musical evidence, and state its relationship to C major.",
-    tasks: {
-      A: ["Identify the key of section X."],
-      M: ["Provide cadence or accidental evidence for both key centres."],
-      E: ["State the relationship of both keys to C major and explain how the harmony moves between them."],
-    },
-    score: {
-      key: "C major",
-      labelPosition: "bottom",
-      brackets: [{ start: 4, end: 5, label: "X" }, { start: 6, end: 7, label: "Y" }],
-      chords: [
-        { treble: ["E4", "C5"], bass: ["C3", "G3"] },
-        { treble: ["F4", "D5"], bass: ["D3", "A3"] },
-        { treble: ["B3", "F4"], bass: ["G2", "D3"] },
-        { treble: ["C4", "E4"], bass: ["C3", "G3"] },
-        { treble: ["C4", "F#4", "A4"], bass: ["D3", "A3"] },
-        { treble: ["B3", "G4"], bass: ["G2", "D3"] },
-        { treble: ["D#4", "A4"], bass: ["B2", "F#3"] },
-        { treble: ["B3", "G4"], bass: ["E3", "B3"] },
-      ],
-    },
-    answerHeading: "Key, evidence and relationship",
-    answer: [
-      "<strong>X: G major.</strong> F♯ appears as the raised leading note and D7–G forms a perfect cadence. G major is the dominant key of C major.",
-      "<strong>Y: E minor.</strong> D♯ is the raised leading note and B7–Em forms a perfect cadence. E minor is the relative minor of G major and the mediant key of C major.",
-    ],
-    criteria: {
-      A: ["At least one key is identified correctly."],
-      M: ["Both keys are supported with relevant accidental or cadence evidence."],
-      E: ["Both relationships are correct and the harmonic route is explained with specific evidence."],
-    },
-  },
-  {
-    id: "modulation-a-fsharp",
-    category: "modulation",
-    family: "Keys and modulation",
-    title: "From tonic major to relative minor",
-    context: "The passage begins in A major and closes in F-sharp minor. Identify where the new key becomes established and explain the function of the altered note E-sharp.",
-    tasks: {
-      A: ["Identify the final key."],
-      M: ["Give harmonic evidence showing where the new key is established."],
-      E: ["Explain the function of E♯ and the relationship of the new key to A major."],
-    },
-    score: {
-      key: "A major → F♯ minor",
-      brackets: [{ start: 4, end: 7, label: "X" }],
-      chords: [
-        { treble: ["C#4", "A4"], bass: ["A2", "E3"] },
-        { treble: ["D4", "F#4"], bass: ["D3", "A3"] },
-        { treble: ["D4", "G#4"], bass: ["E3", "B3"] },
-        { treble: ["C#4", "A4"], bass: ["A2", "E3"] },
-        { treble: ["E4", "C#5"], bass: ["A2", "E3"] },
-        { treble: ["B3", "F#4"], bass: ["B2", "F#3"] },
-        { treble: ["B3", "E#4", "G#4"], bass: ["C#3", "G#3"] },
-        { treble: ["C#4", "A4"], bass: ["F#2", "C#3"] },
-      ],
-    },
-    answerHeading: "Establishing the relative minor",
-    answer: [
-      "<strong>Final key:</strong> F♯ minor, the relative minor of A major.",
-      "<strong>Evidence:</strong> C♯7 resolves to F♯ minor in a perfect cadence. E♯ is the raised leading note of F♯ minor and the chordal third of C♯7, so it is not a non-harmonic note in that sonority.",
-    ],
-    criteria: {
-      A: ["F♯ minor is identified as the final key."],
-      M: ["The C♯7–F♯m cadence is used as precise evidence."],
-      E: ["The key relationship and E♯'s function as a chord tone and raised leading note are explained accurately."],
-    },
-  },
-  {
-    id: "satb-f-c",
-    category: "satb",
-    family: "SATB / vocal completion",
-    title: "Complete a chorale-style modulation",
-    context: "Complete the alto and tenor parts on paper. The passage begins in F major and modulates to C major. Continue the style of the outer parts and use the chord indications provided.",
-    tasks: {
-      A: ["Supply correct chord tones for the missing parts."],
-      M: ["Create a secure consecutive progression with smooth voice leading."],
-      E: ["Complete the full passage convincingly, including the pivot and cadence, while avoiding part crossing and exposed parallels."],
-    },
-    score: {
-      key: "F major → C major",
-      completion: true,
-      labelPosition: "bottom",
-      chords: [
-        { treble: ["A4", "F5"], bass: ["F2", "C3"], qTreble: ["F5"], qBass: ["F2"], givenLabel: "F: I", answerLabel: "F: I" },
-        { treble: ["Bb4", "D5"], bass: ["Bb2", "F3"], qTreble: ["D5"], qBass: ["Bb2"], givenLabel: "IV", answerLabel: "IV" },
-        { treble: ["Bb4", "E5"], bass: ["C3", "G3"], qTreble: ["E5"], qBass: ["C3"], givenLabel: "V⁷", answerLabel: "V⁷" },
-        { treble: ["A4", "F5"], bass: ["F2", "C3"], qTreble: ["F5"], qBass: ["F2"], givenLabel: "I / C: IV", answerLabel: "I / C: IV" },
-        { treble: ["B4", "F5"], bass: ["G2", "D3"], qTreble: ["F5"], qBass: ["G2"], givenLabel: "V⁷", answerLabel: "V⁷" },
-        { treble: ["G4", "E5"], bass: ["C3", "C4"], qTreble: ["E5"], qBass: ["C3"], givenLabel: "I", answerLabel: "I" },
-      ],
-    },
-    answerHeading: "One acceptable SATB realisation",
-    answer: [
-      "The model is one valid solution; other alto and tenor lines are possible.",
-      "Check that every vertical sonority contains the required chord, the leading note B rises to C at the final cadence, chord sevenths resolve down where appropriate, and no pair of parts creates consecutive perfect fifths or octaves.",
-    ],
-    criteria: {
-      A: ["At least four missing parts contain notes from the indicated chords."],
-      M: ["At least four consecutive chords are correctly realised with generally smooth voice leading."],
-      E: ["The extended passage is stylistically convincing, with a controlled cadence and no significant part-writing errors."],
-    },
-  },
-  {
-    id: "satb-gminor",
-    category: "satb",
-    family: "SATB / vocal completion",
-    title: "Realise a minor-key cadence",
-    context: "Complete the inner voices from the second chord onward. The passage is in G minor. Use the supplied Roman numerals and preserve a singable chorale texture.",
-    tasks: {
-      A: ["Place chord tones from the supplied harmonies in the missing voices."],
-      M: ["Join the chords into a secure progression and resolve the dominant seventh correctly."],
-      E: ["Produce a complete stylistic realisation with effective contrary or oblique motion into the final cadence."],
-    },
-    score: {
-      key: "G minor",
-      completion: true,
-      labelPosition: "bottom",
-      chords: [
-        { treble: ["Bb4", "G5"], bass: ["G2", "D3"], givenLabel: "g: i", answerLabel: "g: i" },
-        { treble: ["C5", "Eb5"], bass: ["Eb3", "G3"], qTreble: ["Eb5"], qBass: ["Eb3"], givenLabel: "iv⁶", answerLabel: "iv⁶" },
-        { treble: ["C5", "F#5"], bass: ["D3", "A3"], qTreble: ["F#5"], qBass: ["D3"], givenLabel: "V⁷", answerLabel: "V⁷" },
-        { treble: ["Bb4", "G5"], bass: ["G2", "D3"], qTreble: ["G5"], qBass: ["G2"], givenLabel: "i", answerLabel: "i" },
-        { treble: ["G4", "Eb5"], bass: ["Eb3", "Bb3"], qTreble: ["Eb5"], qBass: ["Eb3"], givenLabel: "VI", answerLabel: "VI" },
-        { treble: ["C5", "Eb5"], bass: ["A2", "Eb3"], qTreble: ["Eb5"], qBass: ["A2"], givenLabel: "ii°", answerLabel: "ii°" },
-        { treble: ["C5", "F#5"], bass: ["D3", "A3"], qTreble: ["F#5"], qBass: ["D3"], givenLabel: "V⁷", answerLabel: "V⁷" },
-        { treble: ["Bb4", "G5"], bass: ["G2", "D3"], qTreble: ["G5"], qBass: ["G2"], givenLabel: "i", answerLabel: "i" },
-      ],
-    },
-    answerHeading: "One acceptable inner-part solution",
-    answer: [
-      "Other voicings are valid if they realise the same chords and maintain the style.",
-      "Pay particular attention to F♯ resolving upward to G, the seventh C in D7 resolving downward, sensible spacing, and the absence of consecutive fifths and octaves.",
-    ],
-    criteria: {
-      A: ["Several isolated chords contain the correct notes."],
-      M: ["The dominant-to-tonic progressions are secure and the inner voices are mostly singable."],
-      E: ["The whole phrase is convincing, accurately resolved and stylistically consistent."],
-    },
-  },
-  {
-    id: "piano-d-f",
-    category: "piano",
-    family: "Piano completion",
-    title: "Complete the accompaniment and modulation",
-    context: "Complete the bass and inner parts on paper, continuing the broken-chord style of the opening. The passage begins in D minor and closes in F major.",
-    tasks: {
-      A: ["Use notes belonging to the supplied chord indications."],
-      M: ["Create a connected bass line and consistent accompaniment pattern."],
-      E: ["Realise the entire modulation convincingly and shape the final cadence in the established piano style."],
-    },
-    score: {
-      key: "D minor → F major",
-      completion: true,
-      labelPosition: "bottom",
-      chords: [
-        { treble: ["F4", "A4"], bass: ["D3", "A3"], givenLabel: "d: i", answerLabel: "d: i" },
-        { treble: ["D4", "G4", "Bb4"], bass: ["Bb2", "F3"], qTreble: ["Bb4"], qBass: [], givenLabel: "iv⁶", answerLabel: "iv⁶" },
-        { treble: ["C#4", "E4", "A4"], bass: ["A2", "E3"], qTreble: ["A4"], qBass: [], givenLabel: "V⁷", answerLabel: "V⁷" },
-        { treble: ["F4", "A4"], bass: ["D3", "A3"], qTreble: ["A4"], qBass: [], givenLabel: "i / F: vi", answerLabel: "i / F: vi" },
-        { treble: ["D4", "G4", "Bb4"], bass: ["G2", "D3"], qTreble: ["Bb4"], qBass: [], givenLabel: "ii", answerLabel: "ii" },
-        { treble: ["E4", "G4", "Bb4"], bass: ["C3", "G3"], qTreble: ["Bb4"], qBass: [], givenLabel: "V⁷", answerLabel: "V⁷" },
-        { treble: ["F4", "A4"], bass: ["F2", "C3"], qTreble: ["A4"], qBass: [], givenLabel: "I", answerLabel: "I" },
-      ],
-    },
-    answerHeading: "Model piano realisation",
-    answer: [
-      "The written texture may differ from the model, but it should preserve the opening pattern and make each supplied chord audible.",
-      "D minor serves as i in the opening key and vi in F major. The final G minor–C7–F progression functions as ii–V7–I in F.",
-    ],
-    criteria: {
-      A: ["At least four individual accompaniment chords use the correct pitch collection."],
-      M: ["A connected run of chords has an effective bass line and consistent texture."],
-      E: ["The full extract is stylistically convincing and the modulation and cadence are clearly realised."],
-    },
-  },
-  {
-    id: "piano-a-fsharp",
-    category: "piano",
-    family: "Piano completion",
-    title: "Continue a chordal piano texture",
-    context: "Complete the piano part beneath the given melody. Continue the rhythm and spacing of the first chord. The passage moves from A major to F-sharp minor.",
-    tasks: {
-      A: ["Supply correct bass notes and chord tones."],
-      M: ["Maintain the accompaniment pattern through consecutive chords."],
-      E: ["Create a fluent extended realisation that makes the change of key and final cadence convincing."],
-    },
-    score: {
-      key: "A major → F♯ minor",
-      completion: true,
-      labelPosition: "bottom",
-      chords: [
-        { treble: ["E4", "C#5"], bass: ["A2", "E3"], givenLabel: "A: I", answerLabel: "A: I" },
-        { treble: ["F#4", "D5"], bass: ["F#2", "A3"], qTreble: ["D5"], qBass: [], givenLabel: "IV⁶", answerLabel: "IV⁶" },
-        { treble: ["D4", "G#4", "B4"], bass: ["E3", "B3"], qTreble: ["B4"], qBass: [], givenLabel: "V⁷", answerLabel: "V⁷" },
-        { treble: ["E4", "C#5"], bass: ["A2", "E3"], qTreble: ["C#5"], qBass: [], givenLabel: "I / f♯: III", answerLabel: "I / f♯: III" },
-        { treble: ["B3", "E#4", "G#4"], bass: ["C#3", "G#3"], qTreble: ["G#4"], qBass: [], givenLabel: "V⁷", answerLabel: "V⁷" },
-        { treble: ["C#4", "A4"], bass: ["F#2", "C#3"], qTreble: ["A4"], qBass: [], givenLabel: "i", answerLabel: "i" },
-        { treble: ["D4", "F#4", "B4"], bass: ["B2", "F#3"], qTreble: ["B4"], qBass: [], givenLabel: "iv", answerLabel: "iv" },
-        { treble: ["B3", "E#4", "G#4"], bass: ["C#3", "G#3"], qTreble: ["G#4"], qBass: [], givenLabel: "V⁷", answerLabel: "V⁷" },
-        { treble: ["C#4", "A4"], bass: ["F#2", "C#3"], qTreble: ["A4"], qBass: [], givenLabel: "i", answerLabel: "i" },
-      ],
-    },
-    answerHeading: "Model accompaniment",
-    answer: [
-      "A major can act as III in F♯ minor before C♯7 establishes the new dominant. Other textures are acceptable if the chord progression, bass direction and stylistic pattern remain clear.",
-      "E♯ in C♯7 is the leading note of F♯ minor and should resolve upward to F♯.",
-    ],
-    criteria: {
-      A: ["Correct bass notes or chord tones are supplied in several places."],
-      M: ["The accompaniment forms a secure consecutive progression and the dominant resolves correctly."],
-      E: ["The complete texture is fluent, stylistically consistent and tonally convincing."],
-    },
-  },
-  {
-    id: "jazz-c-turnaround",
-    category: "jazz",
-    family: "Jazz / rock notation",
-    title: "Analyse an extended turnaround",
-    context: "Analyse the harmony using jazz / rock notation in the boxes above the stave. The first chord is provided.",
-    tasks: {
-      A: ["Identify the root and quality of each individual chord."],
-      M: ["Include sevenths, added notes and slash bass notes where they occur."],
-      E: ["Analyse the full progression and explain the function of A7 in context."],
-    },
-    score: {
-      key: "C major",
-      blankLabels: true,
-      labelPosition: "top",
-      chords: [
-        { treble: ["F4", "A4", "C5"], bass: ["D3"], givenLabel: "Dm7", answerLabel: "Dm7", expectedChordSymbol: "Dm7" },
-        { treble: ["F4", "B4", "D5"], bass: ["G2"], answerLabel: "G7", expectedChordSymbol: "G7" },
-        { treble: ["E4", "G4", "B4"], bass: ["C3"], answerLabel: "Cmaj7", expectedChordSymbol: "Cmaj7" },
-        { treble: ["C#4", "E4", "G4"], bass: ["A2"], answerLabel: "A7", expectedChordSymbol: "A7" },
-        { treble: ["F4", "A4", "C5"], bass: ["D3"], answerLabel: "Dm7", expectedChordSymbol: "Dm7" },
-        { treble: ["F4", "B4", "D5"], bass: ["G2"], answerLabel: "G7", expectedChordSymbol: "G7" },
-        { treble: ["E4", "G4", "A4"], bass: ["C3"], answerLabel: "C6", expectedChordSymbol: "C6" },
-      ],
-    },
-    answerHeading: "Chord symbols and function",
-    answer: [
-      "<strong>Progression:</strong> Dm7 – G7 – Cmaj7 – A7 – Dm7 – G7 – C6.",
-      "<strong>Function:</strong> A7 is a secondary dominant (V7 of ii). Its C♯ creates directed tension into Dm7 and extends the ii–V–I turnaround.",
-    ],
-    criteria: {
-      A: ["At least four roots and basic chord qualities are correct."],
-      M: ["A secure consecutive sequence includes the correct sevenths and alterations."],
-      E: ["The full progression is accurate and A7 is explained as a secondary dominant with specific evidence."],
-    },
-  },
-  {
-    id: "jazz-e-turnaround",
-    category: "jazz",
-    family: "Jazz / rock notation",
-    title: "Name the chords in a pop-jazz phrase",
-    context: "Write a jazz / rock symbol for each chord. Include chord quality, sevenths and the final added sixth.",
-    tasks: {
-      A: ["Identify each chord root and whether it is major or minor."],
-      M: ["Identify the consecutive progression with all sevenths."],
-      E: ["Explain how the chromatic dominant extends the phrase before the final cadence."],
-    },
-    score: {
-      key: "E major",
-      blankLabels: true,
-      labelPosition: "top",
-      chords: [
-        { treble: ["A4", "C#5", "E5"], bass: ["F#3"], givenLabel: "F♯m7", answerLabel: "F♯m7", expectedChordSymbol: "F♯m7" },
-        { treble: ["A4", "D#5", "F#5"], bass: ["B2"], answerLabel: "B7", expectedChordSymbol: "B7" },
-        { treble: ["G#4", "B4", "D#5"], bass: ["E3"], answerLabel: "Emaj7", expectedChordSymbol: "Emaj7" },
-        { treble: ["B3", "E#4", "G#4"], bass: ["C#3"], answerLabel: "C♯7", expectedChordSymbol: "C♯7" },
-        { treble: ["A4", "C#5", "E5"], bass: ["F#3"], answerLabel: "F♯m7", expectedChordSymbol: "F♯m7" },
-        { treble: ["A4", "D#5", "F#5"], bass: ["B2"], answerLabel: "B7", expectedChordSymbol: "B7" },
-        { treble: ["G#4", "B4", "C#5"], bass: ["E3"], answerLabel: "E6", expectedChordSymbol: "E6" },
-      ],
-    },
-    answerHeading: "Complete chord analysis",
-    answer: [
-      "<strong>Progression:</strong> F♯m7 – B7 – Emaj7 – C♯7 – F♯m7 – B7 – E6.",
-      "C♯7 is V7 of ii. E♯ is its chordal third and leading note into F♯; it is not a non-harmonic note in this sonority.",
-    ],
-    criteria: {
-      A: ["Four or more basic chord identities are correct."],
-      M: ["The consecutive progression includes accurate chord extensions."],
-      E: ["The whole progression and the secondary-dominant function are explained accurately."],
-    },
-  },
-  {
-    id: "feature-diminished",
-    category: "features",
-    family: "Harmonic feature",
-    title: "Explain a diminished seventh",
-    context: "Identify the function of the diminished seventh chord marked X and explain its effect in the progression. Support your response with evidence from the score.",
-    tasks: {
-      A: ["Name the harmonic device at X."],
-      M: ["Explain which chord it leads toward and how it does this."],
-      E: ["Analyse its function within the larger cadence and comment on its expressive effect."],
-    },
-    score: {
-      key: "C major",
-      labelPosition: "bottom",
-      brackets: [{ start: 3, end: 3, label: "X" }],
-      chords: [
-        { treble: ["E4", "C5"], bass: ["C3", "G3"] },
-        { treble: ["C4", "A4"], bass: ["A2", "E3"] },
-        { treble: ["F4", "D5"], bass: ["D3", "A3"] },
-        { treble: ["C4", "Eb4", "A4"], bass: ["F#3"] },
-        { treble: ["B3", "F4"], bass: ["G2", "D3"] },
-        { treble: ["C4", "E4", "G4"], bass: ["C3"] },
-      ],
-    },
-    answerHeading: "Function and effect",
-    answer: [
-      "<strong>X is F♯ diminished seventh:</strong> vii°7/V, a secondary leading-note chord directed toward G, the dominant of C major.",
-      "F♯ rises to G while E♭ can fall to D, intensifying the arrival on V. It decorates and strengthens the dominant area, increasing tension immediately before the final G7–C perfect cadence.",
-    ],
-    criteria: {
-      A: ["The diminished seventh is identified."],
-      M: ["Its resolution toward G or the dominant is explained with note or chord evidence."],
-      E: ["Its secondary function, voice-leading and role in strengthening the larger cadence are analysed."],
-    },
-  },
-  {
-    id: "feature-pedal",
-    category: "features",
-    family: "Tonal feature",
-    title: "Analyse a tonic pedal",
-    context: "Identify the harmonic device in the bass and explain how it affects tonality while the upper harmonies change.",
-    tasks: {
-      A: ["Identify the repeated or sustained bass note and name the device."],
-      M: ["Explain how it relates to the tonic and the changing chords above."],
-      E: ["Analyse the balance of stability and dissonance it creates across the phrase."],
-    },
-    score: {
-      key: "C major",
-      chords: [
-        { treble: ["E4", "G4", "C5"], bass: ["C3"] },
-        { treble: ["F4", "A4", "D5"], bass: ["C3"] },
-        { treble: ["F4", "A4", "C5"], bass: ["C3"] },
-        { treble: ["F4", "G4", "B4"], bass: ["C3"] },
-        { treble: ["E4", "G4", "C5"], bass: ["C3"] },
-      ],
-    },
-    answerHeading: "Tonic pedal analysis",
-    answer: [
-      "The repeated C in the bass is a <strong>tonic pedal</strong>. It anchors C major and provides tonal stability while the upper parts move through D minor, F and G-based harmonies.",
-      "At moments the pedal is not part of the chord above, producing controlled dissonance. The tension is temporary, while the unchanging bass keeps the tonic present and makes the final return to C feel settled.",
-    ],
-    criteria: {
-      A: ["C is correctly identified as a pedal note."],
-      M: ["The tonic relationship and changing upper harmonies are explained."],
-      E: ["The response analyses both the tonal stability and temporary dissonance, supported by score evidence."],
-    },
-  },
-  {
-    id: "feature-chromatic-bass",
-    category: "features",
-    family: "Harmonic feature",
-    title: "Interpret a descending chromatic bass",
-    context: "Analyse the bass line and explain how the harmonic rhythm and chromatic movement shape the phrase in A minor.",
-    tasks: {
-      A: ["Describe the direction and interval pattern of the bass line."],
-      M: ["Explain how the changing chords create forward motion."],
-      E: ["Analyse how chromatic descent, harmonic rhythm and the final cadence work together to control tension."],
-    },
-    score: {
-      key: "A minor",
-      chords: [
-        { treble: ["C4", "E4", "A4"], bass: ["A2"] },
-        { treble: ["C4", "E4", "A4"], bass: ["G#2"] },
-        { treble: ["C4", "E4", "G4"], bass: ["G2"] },
-        { treble: ["C4", "D#4", "A4"], bass: ["F#2"] },
-        { treble: ["C4", "E4", "A4"], bass: ["F2"] },
-        { treble: ["B3", "D4", "G#4"], bass: ["E2"] },
-        { treble: ["C4", "E4", "A4"], bass: ["A2"] },
-      ],
-    },
-    answerHeading: "Chromatic motion and tonal direction",
-    answer: [
-      "The bass descends chromatically A–G♯–G–F♯–F–E before returning to A. The semitone motion gives the phrase continuous direction even while several upper notes are retained.",
-      "The frequent harmonic changes and chromatic bass movement create momentum. The line reaches E7, the dominant seventh of A minor, before resolving to the tonic; therefore the chromatic sequence intensifies rather than weakens the final tonal arrival.",
-    ],
-    criteria: {
-      A: ["The chromatically descending bass is accurately described."],
-      M: ["The response explains how chord changes create momentum."],
-      E: ["The interaction of bass, harmonic rhythm, dominant function and final resolution is analysed with precise evidence."],
-    },
-  },
-];
+/*
+ * Hand-authored AS 91421 teaching templates.
+ *
+ * This file contains no transposition, random chord selection or procedural
+ * music generator. The small helpers below only keep repeated metadata and
+ * assessment wording consistent; every note, rhythm and harmonic event is
+ * explicitly authored in the question data.
+ */
+
+const sourceTypeNames = {
+  mixed: "Mixed sources",
+  "nzqa-reference": "NZQA reference",
+  "original-practice": "Original practice",
+};
 
 const categoryNames = {
   mixed: "Mixed practice",
@@ -476,8 +23,1652 @@ const categoryNames = {
   features: "Harmonic or tonal feature",
 };
 
+const rubricByCategory = {
+  analysis: {
+    tasks: {
+      A: ["Identify individual chords using Roman numerals, including inversions where shown."],
+      M: ["Analyse a secure run of consecutive chords in the correct local key."],
+      E: ["Complete the extended analysis and explain any pivot or contextual chord function."],
+    },
+    criteria: {
+      A: ["Several isolated chords are correct relative to the stated key."],
+      M: ["A consecutive progression is secure, including relevant inversions or sevenths."],
+      E: ["The near-complete progression and any pivot or contextual function are explained with precise evidence."],
+    },
+  },
+  modulation: {
+    tasks: {
+      A: ["Identify at least one local key centre."],
+      M: ["Support the key centres with accidentals, chord functions or cadence evidence."],
+      E: ["Explain the relationships to the tonic and how the harmony moves between the keys."],
+    },
+    criteria: {
+      A: ["At least one key is identified correctly."],
+      M: ["The key identifications are supported by relevant musical evidence."],
+      E: ["The key relationships and harmonic route are analysed comprehensively."],
+    },
+  },
+  satb: {
+    tasks: {
+      A: ["Supply chord tones in the missing voices."],
+      M: ["Join consecutive chords with singable voice leading and correct tendency-note resolutions."],
+      E: ["Complete the full phrase convincingly in chorale style, avoiding crossing and exposed parallels."],
+    },
+    criteria: {
+      A: ["Several isolated chords contain appropriate chord tones."],
+      M: ["A secure consecutive passage has controlled spacing and tendency-note resolution."],
+      E: ["The entire realisation is stylistically convincing, singable and free of significant part-writing errors."],
+    },
+  },
+  piano: {
+    tasks: {
+      A: ["Supply bass notes and chord tones that match the indications."],
+      M: ["Continue the accompaniment pattern through a secure consecutive progression."],
+      E: ["Realise the full phrase convincingly, preserving texture, register and cadence shape."],
+    },
+    criteria: {
+      A: ["Several isolated bass notes or chords are correct."],
+      M: ["The accompaniment forms a connected progression in a consistent piano texture."],
+      E: ["The extended realisation is fluent, stylistically appropriate and tonally convincing."],
+    },
+  },
+  jazz: {
+    tasks: {
+      A: ["Identify chord roots and basic qualities using jazz / rock notation."],
+      M: ["Analyse a consecutive progression, including sevenths, additions and slash bass notes."],
+      E: ["Complete the extended analysis and explain a contextual harmonic function or device."],
+    },
+    criteria: {
+      A: ["Several chord roots and qualities are correct."],
+      M: ["A consecutive sequence includes the defining extensions and bass notes."],
+      E: ["The extended progression and its contextual harmonic effect are explained with precise evidence."],
+    },
+  },
+  features: {
+    tasks: {
+      A: ["Identify the named harmonic or tonal feature."],
+      M: ["Describe how it operates, using evidence from the displayed notes and rhythm."],
+      E: ["Analyse its function and effect across the whole phrase."],
+    },
+    criteria: {
+      A: ["The feature is identified accurately."],
+      M: ["Its operation is explained with relevant score evidence."],
+      E: ["Its wider tonal, harmonic or expressive function is analysed comprehensively."],
+    },
+  },
+};
+
+function originalSource(focus) {
+  return {
+    creator: "Cadence Lab",
+    title: focus,
+    acknowledgement: "Original practice material written for Cadence Lab.",
+  };
+}
+
+function nzqaSource(year, question, part, extract, creator, title, location) {
+  return {
+    year,
+    question,
+    part,
+    extract,
+    creator,
+    title,
+    location,
+    acknowledgement:
+      "Teaching reduction transcribed from the named 2021–2024 NZQA examination extract; answer evidence checked against the matching published assessment schedule.",
+  };
+}
+
+function measuredScore(config) {
+  return {
+    timeSignature: "4/4",
+    measuresPerSystem: 2,
+    ...config,
+  };
+}
+
+function harmonicBox(measure, beat, event, modelLabel, details = {}) {
+  return {
+    measure,
+    beat,
+    event,
+    analysisBox: true,
+    modelLabel,
+    ...details,
+  };
+}
+
+function createQuestion(config) {
+  const rubric = rubricByCategory[config.category];
+  return {
+    ...config,
+    tasks: config.tasks || rubric.tasks,
+    criteria: config.criteria || rubric.criteria,
+  };
+}
+
+const questionBank = [
+  createQuestion({
+    id: "nzqa-2021-bach-pivots",
+    category: "analysis",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(
+      2021,
+      "Question One",
+      "(a)",
+      "Extract One",
+      "J. S. Bach",
+      "Nun lob’, mein’ Seel’, den Herren",
+      "bars 1–8, exam p.2; schedule p.3"
+    ),
+    family: "Roman numeral analysis",
+    title: "Reference: two related-key pivots",
+    context:
+      "This compact harmonic reduction follows the published A-major passage into F-sharp minor and back. Analyse every boxed change and label each pivot in both keys.",
+    score: measuredScore({
+      key: "A major → F♯ minor → A major",
+      keySignature: "A",
+      timeSignature: "3/4",
+      labelPosition: "bottom",
+      caption: "NZQA reference • 2021 Q1(a), Extract One • harmonic reduction",
+      measures: [
+        { events: [
+          { treble: ["C#4", "E4"], bass: ["A2", "E3"], duration: "q" },
+          { treble: ["A3", "C#4"], bass: ["F#2", "C#3"], duration: "q" },
+          { treble: ["F#4", "A4"], bass: ["D3"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["E4", "G#4", "B4"], bass: ["D3"], duration: "q" },
+          { treble: ["C#4", "E4", "A4"], bass: ["A2"], duration: "q" },
+          { treble: ["C#4", "F#4"], bass: ["A2"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["D4", "F#4"], bass: ["B2"], duration: "q" },
+          { treble: ["E#4", "G#4", "B4"], bass: ["C#3"], duration: "q" },
+          { treble: ["A3", "C#4"], bass: ["F#2"], duration: "q" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["D4", "F#4"], bass: ["B2"], duration: "q" },
+          { treble: ["D4", "E4", "G#4", "B4"], bass: ["E3"], duration: "q" },
+          { treble: ["C#4", "E4"], bass: ["A2"], duration: "q" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "A: I", { localKey: "A major", romanNumeral: "I", chordSymbol: "A", questionLabel: "A: I" }),
+        harmonicBox(1, 2, 1, "vi", { localKey: "A major", romanNumeral: "vi", chordSymbol: "F♯m" }),
+        harmonicBox(1, 3, 2, "IV", { localKey: "A major", romanNumeral: "IV", chordSymbol: "D" }),
+        harmonicBox(2, 1, 0, "V⁷d", { localKey: "A major", romanNumeral: "V7d", chordSymbol: "E7/D" }),
+        harmonicBox(2, 2, 1, "I", { localKey: "A major", romanNumeral: "I", chordSymbol: "A" }),
+        harmonicBox(2, 3, 2, "A: vi / f♯: i⁶", { localKey: "F♯ minor", romanNumeral: "i6", chordSymbol: "F♯m/A" }),
+        harmonicBox(3, 1, 0, "iv", { localKey: "F♯ minor", romanNumeral: "iv", chordSymbol: "Bm" }),
+        harmonicBox(3, 2, 1, "V⁷", { localKey: "F♯ minor", romanNumeral: "V7", chordSymbol: "C♯7" }),
+        harmonicBox(3, 3, 2, "f♯: i / A: vi", { localKey: "F♯ minor", romanNumeral: "i", chordSymbol: "F♯m" }),
+        harmonicBox(4, 1, 0, "A: ii", { localKey: "A major", romanNumeral: "ii", chordSymbol: "Bm" }),
+        harmonicBox(4, 2, 1, "V⁷", { localKey: "A major", romanNumeral: "V7", chordSymbol: "E7" }),
+        harmonicBox(4, 3, 2, "I", { localKey: "A major", romanNumeral: "I", chordSymbol: "A" }),
+      ],
+    }),
+    answerHeading: "Reference analysis",
+    answer: [
+      "<strong>Progression:</strong> A: I–vi–IV–V7d–I–vi6 / F♯ minor: i6–iv–V7–i / A: vi–ii–V7–I.",
+      "F♯ minor is the relative minor of A major. F♯ minor can be heard as vi in A and i in the new key; the later F♯-minor tonic also reconnects as vi before the final E7–A perfect cadence.",
+    ],
+  }),
+  createQuestion({
+    id: "nzqa-2022-bach-c-aminor",
+    category: "analysis",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(
+      2022,
+      "Question One",
+      "(a)",
+      "Extract One",
+      "J. S. Bach",
+      "Was mein Gott will, das",
+      "bars 0–5, exam p.2; schedule p.3"
+    ),
+    family: "Roman numeral analysis",
+    title: "Reference: C major to A minor",
+    context:
+      "Analyse the chordal reduction through the pivot into A minor. The final dominant includes the raised leading note needed for the minor-key cadence.",
+    score: measuredScore({
+      key: "C major → A minor",
+      keySignature: "C",
+      labelPosition: "bottom",
+      caption: "NZQA reference • 2022 Q1(a), Extract One • harmonic reduction",
+      measures: [
+        { events: [
+          { treble: ["C4", "E4", "A4"], bass: ["A2"], duration: "h" },
+          { treble: ["F4", "A4", "C5"], bass: ["F2"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["D4", "F4", "B4"], bass: ["G2"], duration: "q" },
+          { treble: ["C4", "E4", "G4"], bass: ["C3"], duration: "q" },
+          { treble: ["C4", "E4", "A4"], bass: ["A2"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["D4", "F4", "A4"], bass: ["F2"], duration: "h" },
+          { treble: ["D4", "G#4", "B4"], bass: ["E3"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["C4", "E4", "A4"], bass: ["A2"], duration: "w" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "C: vi", { localKey: "C major", romanNumeral: "vi", chordSymbol: "Am", questionLabel: "C: vi" }),
+        harmonicBox(1, 3, 1, "IV", { localKey: "C major", romanNumeral: "IV", chordSymbol: "F" }),
+        harmonicBox(2, 1, 0, "V⁷", { localKey: "C major", romanNumeral: "V7", chordSymbol: "G7" }),
+        harmonicBox(2, 2, 1, "I", { localKey: "C major", romanNumeral: "I", chordSymbol: "C" }),
+        harmonicBox(2, 3, 2, "C: vi / a: i", { localKey: "A minor", romanNumeral: "i", chordSymbol: "Am" }),
+        harmonicBox(3, 1, 0, "iv⁶", { localKey: "A minor", romanNumeral: "iv6", chordSymbol: "Dm/F" }),
+        harmonicBox(3, 3, 1, "V⁷", { localKey: "A minor", romanNumeral: "V7", chordSymbol: "E7" }),
+        harmonicBox(4, 1, 0, "i", { localKey: "A minor", romanNumeral: "i", chordSymbol: "Am" }),
+      ],
+    }),
+    answerHeading: "Reference analysis",
+    answer: [
+      "<strong>Progression:</strong> C: vi–IV–V7–I–vi / A minor: i–iv6–V7–i.",
+      "A minor is C major’s relative minor. A minor is the pivot (vi in C, i in A minor); G♯ in E7 is the new raised leading note and E7–Am forms a perfect cadence.",
+    ],
+  }),
+  createQuestion({
+    id: "analysis-c-g",
+    category: "analysis",
+    sourceType: "original-practice",
+    source: originalSource("C-major chorale moving to the dominant"),
+    family: "Roman numeral analysis",
+    title: "Original: modulation to the dominant",
+    context:
+      "The passage begins in C major and ends in G major. Analyse the boxed harmonies and show the common chord in both keys.",
+    score: measuredScore({
+      key: "C major → G major",
+      keySignature: "C",
+      labelPosition: "bottom",
+      caption: "Original practice • C major to G major",
+      measures: [
+        { events: [
+          { treble: ["E4", "G4", "C5"], bass: ["C3"], duration: "h" },
+          { treble: ["F4", "A4", "C5"], bass: ["F2"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["E4", "G4", "C5"], bass: ["C3"], duration: "h" },
+          { treble: ["C4", "F#4", "A4"], bass: ["D3"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["D4", "G4", "B4"], bass: ["G2"], duration: "w" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "C: I", { localKey: "C major", romanNumeral: "I", chordSymbol: "C", questionLabel: "C: I" }),
+        harmonicBox(1, 3, 1, "IV", { localKey: "C major", romanNumeral: "IV", chordSymbol: "F" }),
+        harmonicBox(2, 1, 0, "C: I / G: IV", { localKey: "G major", romanNumeral: "IV", chordSymbol: "C" }),
+        harmonicBox(2, 3, 1, "V⁷", { localKey: "G major", romanNumeral: "V7", chordSymbol: "D7" }),
+        harmonicBox(3, 1, 0, "I", { localKey: "G major", romanNumeral: "I", chordSymbol: "G" }),
+      ],
+    }),
+    answerHeading: "Analysis and pivot",
+    answer: [
+      "<strong>Progression:</strong> C: I–IV–I / G: IV–V7–I.",
+      "C major is the common chord: I in C and IV in G. F♯ in D7 supplies G major’s leading note before the perfect cadence D7–G.",
+    ],
+  }),
+  createQuestion({
+    id: "analysis-a-c",
+    category: "analysis",
+    sourceType: "original-practice",
+    source: originalSource("A-minor phrase moving to the relative major"),
+    family: "Roman numeral analysis",
+    title: "Original: minor to relative major",
+    context:
+      "Analyse the consecutive harmonies and label the D-minor common chord relative to A minor and C major.",
+    score: measuredScore({
+      key: "A minor → C major",
+      keySignature: "Am",
+      labelPosition: "bottom",
+      caption: "Original practice • A minor to C major",
+      measures: [
+        { events: [
+          { treble: ["C4", "E4", "A4"], bass: ["A2"], duration: "h" },
+          { treble: ["D4", "F4", "A4"], bass: ["D3"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["D4", "F4", "A4"], bass: ["D3"], duration: "h" },
+          { treble: ["D4", "F4", "B4"], bass: ["G2"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["E4", "G4", "C5"], bass: ["C3"], duration: "w" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "a: i", { localKey: "A minor", romanNumeral: "i", chordSymbol: "Am", questionLabel: "a: i" }),
+        harmonicBox(1, 3, 1, "iv", { localKey: "A minor", romanNumeral: "iv", chordSymbol: "Dm" }),
+        harmonicBox(2, 1, 0, "a: iv / C: ii", { localKey: "C major", romanNumeral: "ii", chordSymbol: "Dm" }),
+        harmonicBox(2, 3, 1, "V⁷", { localKey: "C major", romanNumeral: "V7", chordSymbol: "G7" }),
+        harmonicBox(3, 1, 0, "I", { localKey: "C major", romanNumeral: "I", chordSymbol: "C" }),
+      ],
+    }),
+    answerHeading: "Analysis in both keys",
+    answer: [
+      "D minor is iv in A minor and ii in C major. G7–C then confirms the relative major with a perfect cadence.",
+    ],
+  }),
+  createQuestion({
+    id: "analysis-gminor-bflat",
+    category: "analysis",
+    sourceType: "original-practice",
+    source: originalSource("G-minor phrase moving to B-flat major"),
+    family: "Roman numeral analysis",
+    title: "Original: relative-major pivot",
+    context:
+      "Analyse this G-minor phrase as it turns toward B-flat major. Include inversion figures and the shared E-flat harmony.",
+    score: measuredScore({
+      key: "G minor → B♭ major",
+      keySignature: "Gm",
+      labelPosition: "bottom",
+      caption: "Original practice • G minor to B-flat major",
+      measures: [
+        { events: [
+          { treble: ["Bb3", "D4", "G4"], bass: ["G2"], duration: "q" },
+          { treble: ["G3", "Bb3", "Eb4"], bass: ["Eb3"], duration: "q" },
+          { treble: ["A3", "C4", "F#4"], bass: ["D3"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["G3", "Bb3", "Eb4"], bass: ["Eb3"], duration: "h" },
+          { treble: ["A3", "C4", "Eb4"], bass: ["F2"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["Bb3", "D4", "F4"], bass: ["Bb2"], duration: "w" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "g: i", { localKey: "G minor", romanNumeral: "i", chordSymbol: "Gm", questionLabel: "g: i" }),
+        harmonicBox(1, 2, 1, "VI", { localKey: "G minor", romanNumeral: "VI", chordSymbol: "E♭" }),
+        harmonicBox(1, 3, 2, "V⁷", { localKey: "G minor", romanNumeral: "V7", chordSymbol: "D7" }),
+        harmonicBox(2, 1, 0, "g: VI / B♭: IV", { localKey: "B♭ major", romanNumeral: "IV", chordSymbol: "E♭" }),
+        harmonicBox(2, 3, 1, "V⁷", { localKey: "B♭ major", romanNumeral: "V7", chordSymbol: "F7" }),
+        harmonicBox(3, 1, 0, "I", { localKey: "B♭ major", romanNumeral: "I", chordSymbol: "B♭" }),
+      ],
+    }),
+    answerHeading: "Relative-major analysis",
+    answer: [
+      "E♭ is VI in G minor and IV in B♭ major. The following F7–B♭ perfect cadence establishes the relative major.",
+    ],
+  }),
+  createQuestion({
+    id: "analysis-dminor-f",
+    category: "analysis",
+    sourceType: "original-practice",
+    source: originalSource("D-minor phrase moving to F major"),
+    family: "Roman numeral analysis",
+    title: "Original: cadence into the relative major",
+    context:
+      "Analyse the progression, including the first-inversion G-minor chord and the D-minor pivot into F major.",
+    score: measuredScore({
+      key: "D minor → F major",
+      keySignature: "Dm",
+      labelPosition: "bottom",
+      caption: "Original practice • D minor to F major",
+      measures: [
+        { events: [
+          { treble: ["F4", "A4"], bass: ["D3"], duration: "h" },
+          { treble: ["D4", "G4", "Bb4"], bass: ["Bb2"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["C#4", "E4", "G4"], bass: ["A2"], duration: "h" },
+          { treble: ["F4", "A4"], bass: ["D3"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["E4", "G4", "Bb4"], bass: ["C3"], duration: "h" },
+          { treble: ["F4", "A4", "C5"], bass: ["F2"], duration: "h" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "d: i", { localKey: "D minor", romanNumeral: "i", chordSymbol: "Dm", questionLabel: "d: i" }),
+        harmonicBox(1, 3, 1, "iv⁶", { localKey: "D minor", romanNumeral: "iv6", chordSymbol: "Gm/B♭" }),
+        harmonicBox(2, 1, 0, "V⁷", { localKey: "D minor", romanNumeral: "V7", chordSymbol: "A7" }),
+        harmonicBox(2, 3, 1, "d: i / F: vi", { localKey: "F major", romanNumeral: "vi", chordSymbol: "Dm" }),
+        harmonicBox(3, 1, 0, "V⁷", { localKey: "F major", romanNumeral: "V7", chordSymbol: "C7" }),
+        harmonicBox(3, 3, 1, "I", { localKey: "F major", romanNumeral: "I", chordSymbol: "F" }),
+      ],
+    }),
+    answerHeading: "Relative-major analysis",
+    answer: [
+      "The D-minor tonic becomes vi in F major. C7–F provides the perfect-cadence evidence that confirms the relative major.",
+    ],
+  }),
+  createQuestion({
+    id: "nzqa-2022-mendelssohn-regions",
+    category: "modulation",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(
+      2022,
+      "Question Two",
+      "(a)",
+      "Extract Four",
+      "Felix Mendelssohn",
+      "Variations Sérieuses, Op. 54",
+      "bars 1–8, exam p.4; schedule p.6"
+    ),
+    family: "Keys and modulation",
+    title: "Reference: D minor through G minor to F",
+    context:
+      "Identify the temporary G-minor region X and the final F-major region Y. Give cadence evidence and explain each relationship to D minor.",
+    score: measuredScore({
+      key: "D minor → G minor → F major",
+      keySignature: "Dm",
+      timeSignature: "2/4",
+      labelPosition: "bottom",
+      caption: "NZQA reference • 2022 Q2(a), Extract Four • harmonic reduction",
+      brackets: [
+        { start: 1, end: 2, label: "X" },
+        { start: 5, end: 6, label: "Y" },
+      ],
+      measures: [
+        { events: [
+          { treble: ["F4", "A4"], bass: ["D3"], duration: "q" },
+          { treble: ["C4", "F#4", "A4"], bass: ["D3"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["D4", "G4", "Bb4"], bass: ["G2"], duration: "q" },
+          { treble: ["C#4", "E4", "G4"], bass: ["A2"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["F4", "A4"], bass: ["D3"], duration: "q" },
+          { treble: ["E4", "G4", "Bb4"], bass: ["C3"], duration: "q" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["F4", "A4", "C5"], bass: ["F2"], duration: "h" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "d: i", { localKey: "D minor", romanNumeral: "i", chordSymbol: "Dm", questionLabel: "d: i" }),
+        harmonicBox(1, 2, 1, "g: V⁷", { localKey: "G minor", romanNumeral: "V7", chordSymbol: "D7" }),
+        harmonicBox(2, 1, 0, "g: i", { localKey: "G minor", romanNumeral: "i", chordSymbol: "Gm" }),
+        harmonicBox(2, 2, 1, "d: V⁷", { localKey: "D minor", romanNumeral: "V7", chordSymbol: "A7" }),
+        harmonicBox(3, 1, 0, "d: i / F: vi", { localKey: "F major", romanNumeral: "vi", chordSymbol: "Dm" }),
+        harmonicBox(3, 2, 1, "F: V⁷", { localKey: "F major", romanNumeral: "V7", chordSymbol: "C7" }),
+        harmonicBox(4, 1, 0, "F: I", { localKey: "F major", romanNumeral: "I", chordSymbol: "F" }),
+      ],
+    }),
+    answerHeading: "Key centres and relationships",
+    answer: [
+      "<strong>X: G minor.</strong> D7 contains F♯ and resolves to G minor; G minor is the subdominant key of D minor.",
+      "<strong>Y: F major.</strong> D minor is reused as vi, then C7–F gives a perfect cadence. F major is D minor’s relative major.",
+    ],
+  }),
+  createQuestion({
+    id: "nzqa-2023-bach-key-regions",
+    category: "modulation",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(
+      2023,
+      "Question One",
+      "(b)",
+      "Extract Two",
+      "J. S. Bach",
+      "Durch Adams Fall ist ganz verderbt",
+      "bars 4–10, exam p.3; schedule p.4"
+    ),
+    family: "Keys and modulation",
+    title: "Reference: three key regions from G minor",
+    context:
+      "Name sections X, Y and Z, cite their leading notes or cadences, and state each relationship to the G-minor tonic.",
+    score: measuredScore({
+      key: "G minor with E♭, C minor and F regions",
+      keySignature: "Gm",
+      labelPosition: "bottom",
+      caption: "NZQA reference • 2023 Q1(b), Extract Two • cadential reduction",
+      brackets: [
+        { start: 1, end: 2, label: "X" },
+        { start: 3, end: 4, label: "Y" },
+        { start: 5, end: 6, label: "Z" },
+      ],
+      measures: [
+        { events: [
+          { treble: ["Bb3", "D4", "G4"], bass: ["G2"], duration: "h" },
+          { treble: ["D4", "F4", "Ab4"], bass: ["Bb2"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["Eb4", "G4", "Bb4"], bass: ["Eb3"], duration: "h" },
+          { treble: ["D4", "F4", "B4"], bass: ["G2"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["C4", "Eb4", "G4"], bass: ["C3"], duration: "h" },
+          { treble: ["E4", "G4", "Bb4"], bass: ["C3"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["F4", "A4", "C5"], bass: ["F2"], duration: "w" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "g: i", { localKey: "G minor", romanNumeral: "i", chordSymbol: "Gm", questionLabel: "g: i" }),
+        harmonicBox(1, 3, 1, "E♭: V⁷", { localKey: "E♭ major", romanNumeral: "V7", chordSymbol: "B♭7" }),
+        harmonicBox(2, 1, 0, "E♭: I", { localKey: "E♭ major", romanNumeral: "I", chordSymbol: "E♭" }),
+        harmonicBox(2, 3, 1, "c: V⁷", { localKey: "C minor", romanNumeral: "V7", chordSymbol: "G7" }),
+        harmonicBox(3, 1, 0, "c: i", { localKey: "C minor", romanNumeral: "i", chordSymbol: "Cm" }),
+        harmonicBox(3, 3, 1, "F: V⁷", { localKey: "F major", romanNumeral: "V7", chordSymbol: "C7" }),
+        harmonicBox(4, 1, 0, "F: I", { localKey: "F major", romanNumeral: "I", chordSymbol: "F" }),
+      ],
+    }),
+    answerHeading: "Reference key evidence",
+    answer: [
+      "<strong>X: E♭ major</strong>, supported by B♭7–E♭; it is the relative major of the subdominant.",
+      "<strong>Y: C minor</strong>, supported by B-natural and G7–Cm; it is the subdominant. <strong>Z: F major</strong>, supported by E-natural and C7–F; it is the relative major of the dominant.",
+    ],
+  }),
+  createQuestion({
+    id: "modulation-c-g-e",
+    category: "modulation",
+    sourceType: "original-practice",
+    source: originalSource("Two temporary key centres from C major"),
+    family: "Keys and modulation",
+    title: "Original: dominant then mediant minor",
+    context:
+      "Identify X and Y, give exact cadence evidence, and state each relationship to the C-major tonic.",
+    score: measuredScore({
+      key: "C major",
+      keySignature: "C",
+      caption: "Original practice • temporary G major and E minor",
+      brackets: [
+        { start: 2, end: 3, label: "X" },
+        { start: 4, end: 5, label: "Y" },
+      ],
+      measures: [
+        { events: [
+          { treble: ["E4", "G4", "C5"], bass: ["C3"], duration: "h" },
+          { treble: ["F4", "A4", "C5"], bass: ["F2"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["C4", "F#4", "A4"], bass: ["D3"], duration: "h" },
+          { treble: ["D4", "G4", "B4"], bass: ["G2"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["D#4", "F#4", "A4"], bass: ["B2"], duration: "h" },
+          { treble: ["E4", "G4", "B4"], bass: ["E3"], duration: "h" },
+        ] },
+      ],
+      harmonicEvents: [],
+    }),
+    answerHeading: "Keys, evidence and relationships",
+    answer: [
+      "<strong>X: G major.</strong> F♯ and the D7–G perfect cadence establish the dominant key.",
+      "<strong>Y: E minor.</strong> D♯ and B7–Em establish the mediant minor, which is also G major’s relative minor.",
+    ],
+  }),
+  createQuestion({
+    id: "modulation-a-fsharp",
+    category: "modulation",
+    sourceType: "original-practice",
+    source: originalSource("A major moving to its relative minor"),
+    family: "Keys and modulation",
+    title: "Original: raised leading note in F-sharp minor",
+    context:
+      "Identify the final key and explain the harmonic function of E-sharp in the approach to the cadence.",
+    score: measuredScore({
+      key: "A major → F♯ minor",
+      keySignature: "A",
+      caption: "Original practice • A major to F-sharp minor",
+      brackets: [{ start: 2, end: 4, label: "X" }],
+      measures: [
+        { events: [
+          { treble: ["C#4", "E4", "A4"], bass: ["A2"], duration: "h" },
+          { treble: ["D4", "F#4", "A4"], bass: ["D3"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["C#4", "F#4", "A4"], bass: ["F#2"], duration: "h" },
+          { treble: ["B3", "E#4", "G#4"], bass: ["C#3"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["C#4", "F#4", "A4"], bass: ["F#2"], duration: "w" },
+        ] },
+      ],
+      harmonicEvents: [],
+    }),
+    answerHeading: "Establishing the relative minor",
+    answer: [
+      "The final key is F♯ minor, the relative minor of A major. E♯ is the raised leading note and chordal third of C♯7; C♯7–F♯m is the confirming perfect cadence.",
+    ],
+  }),
+  createQuestion({
+    id: "modulation-gminor-eb-f",
+    category: "modulation",
+    sourceType: "original-practice",
+    source: originalSource("Related key regions from G minor"),
+    family: "Keys and modulation",
+    title: "Original: relative major and relative of dominant",
+    context:
+      "Sections X and Y cadence in two related major keys. Identify them, give evidence and relate each to G minor.",
+    score: measuredScore({
+      key: "G minor",
+      keySignature: "Gm",
+      caption: "Original practice • related regions from G minor",
+      brackets: [
+        { start: 1, end: 2, label: "X" },
+        { start: 3, end: 4, label: "Y" },
+      ],
+      measures: [
+        { events: [
+          { treble: ["Bb3", "D4", "G4"], bass: ["G2"], duration: "h" },
+          { treble: ["D4", "F4", "Ab4"], bass: ["Bb2"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["Eb4", "G4", "Bb4"], bass: ["Eb3"], duration: "h" },
+          { treble: ["E4", "G4", "Bb4"], bass: ["C3"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["F4", "A4", "C5"], bass: ["F2"], duration: "w" },
+        ] },
+      ],
+      harmonicEvents: [],
+    }),
+    answerHeading: "Related-key evidence",
+    answer: [
+      "X is E♭ major, supported by B♭7–E♭; it is G minor’s relative major. Y is F major, supported by E-natural and C7–F; it is the relative major of the dominant key, D minor.",
+    ],
+  }),
+  createQuestion({
+    id: "modulation-e-b-csharp",
+    category: "modulation",
+    sourceType: "original-practice",
+    source: originalSource("Dominant and relative-minor regions from E major"),
+    family: "Keys and modulation",
+    title: "Original: two sharp-key centres",
+    context:
+      "Identify X and Y and explain how A-sharp and B-sharp clarify the two local keys.",
+    score: measuredScore({
+      key: "E major",
+      keySignature: "E",
+      caption: "Original practice • E major, B major and C-sharp minor",
+      brackets: [
+        { start: 2, end: 3, label: "X" },
+        { start: 4, end: 5, label: "Y" },
+      ],
+      measures: [
+        { events: [
+          { treble: ["G#4", "B4", "E5"], bass: ["E3"], duration: "h" },
+          { treble: ["A4", "C#5", "E5"], bass: ["A2"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["E4", "A#4", "C#5"], bass: ["F#2"], duration: "h" },
+          { treble: ["F#4", "B4", "D#5"], bass: ["B2"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["D#4", "F#4", "B#4"], bass: ["G#2"], duration: "h" },
+          { treble: ["E4", "G#4", "C#5"], bass: ["C#3"], duration: "h" },
+        ] },
+      ],
+      harmonicEvents: [],
+    }),
+    answerHeading: "Two local cadences",
+    answer: [
+      "X is B major, the dominant of E, established by F♯7–B and its A♯ leading note. Y is C♯ minor, E major’s relative minor, established by G♯7–C♯m and B♯ as its raised leading note.",
+    ],
+  }),
+  createQuestion({
+    id: "nzqa-2024-bach-satb",
+    category: "satb",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(
+      2024,
+      "Question One",
+      "(c)",
+      "Extract Three",
+      "J. S. Bach",
+      "Herzlich lieb hab’ ich dich, o Herr",
+      "bars 18–19, exam p.3; schedule p.4"
+    ),
+    family: "SATB / vocal completion",
+    title: "Reference: chorale-style completion",
+    context:
+      "Complete the inner voices beneath the supplied soprano and bass. Use the indicated harmonies, retain the quaver motion, and include the two passing notes without reclassifying chord tones as non-harmonic.",
+    score: measuredScore({
+      key: "C major → G major",
+      keySignature: "C",
+      layout: "satb",
+      completion: true,
+      labelPosition: "bottom",
+      caption: "NZQA reference • 2024 Q1(c), Extract Three • SATB teaching reduction",
+      measures: [
+        { events: [
+          { voices: { soprano: "E5", alto: "G4", tenor: "E3", bass: "C3" }, questionVoices: { soprano: "E5", bass: "C3" }, duration: "q" },
+          { voices: { soprano: "D5", alto: "G4", tenor: "D3", bass: "B2" }, questionVoices: { soprano: "D5", bass: "B2" }, duration: "q" },
+          { voices: { soprano: "C5", alto: "A4", tenor: "E3", bass: "A2" }, questionVoices: { soprano: "C5", bass: "A2" }, duration: "q" },
+          { voices: { soprano: "B4", alto: "G4", tenor: "E3", bass: "G2" }, questionVoices: { soprano: "B4", bass: "G2" }, duration: "q" },
+        ] },
+        { events: [
+          { voices: { soprano: "D5", alto: "G4", tenor: "E3", bass: "C3" }, questionVoices: { soprano: "D5", bass: "C3" }, duration: "q" },
+          { voices: { soprano: "E5", alto: "A4", tenor: "F3", bass: "D3" }, questionVoices: { soprano: "E5", bass: "D3" }, duration: "8" },
+          { voices: { soprano: "F#5", alto: "A4", tenor: "F#3", bass: "D3" }, questionVoices: { soprano: "F#5", bass: "D3" }, duration: "8" },
+          { voices: { soprano: "G5", alto: "B4", tenor: "D3", bass: "G2" }, questionVoices: { soprano: "G5", bass: "G2" }, duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { voices: { soprano: "C5", alto: "G4", tenor: "E3", bass: "C3" }, questionVoices: { soprano: "C5", bass: "C3" }, duration: "q" },
+          { voices: { soprano: "C5", alto: "F#4", tenor: "A3", bass: "D3" }, questionVoices: { soprano: "C5", bass: "D3" }, duration: "q" },
+          { voices: { soprano: "B4", alto: "G4", tenor: "D3", bass: "G2" }, questionVoices: { soprano: "B4", bass: "G2" }, duration: "h" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "C: I", { questionLabel: "C: I", chordSymbol: "C" }),
+        harmonicBox(1, 2, 1, "V⁶", { questionLabel: "V⁶", chordSymbol: "G/B" }),
+        harmonicBox(1, 3, 2, "vi", { questionLabel: "vi", chordSymbol: "Am" }),
+        harmonicBox(1, 4, 3, "iii⁶", { questionLabel: "iii⁶", chordSymbol: "Em/G" }),
+        harmonicBox(2, 1, 0, "C: I / G: IV", { questionLabel: "I / G: IV", chordSymbol: "C", validationPitches: ["C4", "E4", "G4"], bassPitch: "C3" }),
+        harmonicBox(2, 2, 1, "G: V", { questionLabel: "V", chordSymbol: "D", validationPitches: ["D4", "F♯4", "A4"], bassPitch: "D3" }),
+        harmonicBox(2, 3, 3, "I", { questionLabel: "I", chordSymbol: "G" }),
+        harmonicBox(3, 1, 0, "IV", { questionLabel: "IV", chordSymbol: "C" }),
+        harmonicBox(3, 2, 1, "V⁷", { questionLabel: "V⁷", chordSymbol: "D7" }),
+        harmonicBox(3, 3, 2, "I", { questionLabel: "I", chordSymbol: "G" }),
+      ],
+      nonHarmonicNotes: [
+        { measure: 2, event: 1, pitch: "E5", chordSymbol: "D", type: "passing note" },
+        { measure: 2, event: 1, pitch: "F3", chordSymbol: "D", type: "passing note" },
+      ],
+    }),
+    answerHeading: "One acceptable SATB realisation",
+    answer: [
+      "The model supplies independent alto and tenor lines; other solutions are possible. The quaver A–B in the soprano passes between chordal notes while the D harmony remains active.",
+      "Check voice order, singable ranges, resolution of F♯ to G, and the absence of consecutive perfect fifths or octaves.",
+    ],
+  }),
+  createQuestion({
+    id: "satb-f-c",
+    category: "satb",
+    sourceType: "original-practice",
+    source: originalSource("Chorale-style F-major modulation"),
+    family: "SATB / vocal completion",
+    title: "Original: F major to C major",
+    context:
+      "Complete alto and tenor beneath the given outer parts. Preserve common tones through the pivot and resolve the final dominant seventh correctly.",
+    score: measuredScore({
+      key: "F major → C major",
+      keySignature: "F",
+      layout: "satb",
+      completion: true,
+      labelPosition: "bottom",
+      caption: "Original practice • SATB in F major and C major",
+      measures: [
+        { events: [
+          { voices: { soprano: "A4", alto: "F4", tenor: "C3", bass: "F2" }, questionVoices: { soprano: "A4", bass: "F2" }, duration: "q" },
+          { voices: { soprano: "Bb4", alto: "F4", tenor: "D3", bass: "Bb2" }, questionVoices: { soprano: "Bb4", bass: "Bb2" }, duration: "q" },
+          { voices: { soprano: "Bb4", alto: "E4", tenor: "G3", bass: "C3" }, questionVoices: { soprano: "Bb4", bass: "C3" }, duration: "q" },
+          { voices: { soprano: "A4", alto: "F4", tenor: "C3", bass: "F2" }, questionVoices: { soprano: "A4", bass: "F2" }, duration: "q" },
+        ] },
+        { events: [
+          { voices: { soprano: "C5", alto: "F4", tenor: "A3", bass: "C3" }, questionVoices: { soprano: "C5", bass: "C3" }, duration: "h" },
+          { voices: { soprano: "B4", alto: "F4", tenor: "D3", bass: "G2" }, questionVoices: { soprano: "B4", bass: "G2" }, duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { voices: { soprano: "C5", alto: "G4", tenor: "E3", bass: "C3" }, questionVoices: { soprano: "C5", bass: "C3" }, duration: "w" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "F: I", { questionLabel: "F: I", chordSymbol: "F" }),
+        harmonicBox(1, 2, 1, "IV", { questionLabel: "IV", chordSymbol: "B♭" }),
+        harmonicBox(1, 3, 2, "V⁷", { questionLabel: "V⁷", chordSymbol: "C7" }),
+        harmonicBox(1, 4, 3, "I", { questionLabel: "I", chordSymbol: "F" }),
+        harmonicBox(2, 1, 0, "F: I⁶4 / C: IV⁶4", { questionLabel: "I⁶4 / C: IV⁶4", chordSymbol: "F/C" }),
+        harmonicBox(2, 3, 1, "C: V⁷", { questionLabel: "V⁷", chordSymbol: "G7" }),
+        harmonicBox(3, 1, 0, "I", { questionLabel: "I", chordSymbol: "C" }),
+      ],
+    }),
+    answerHeading: "One acceptable SATB realisation",
+    answer: [
+      "The F chord over C keeps the common tones A and F while functioning as a pivot into C major. B rises to C and the seventh F in G7 falls to E at the cadence.",
+    ],
+  }),
+  createQuestion({
+    id: "satb-gminor",
+    category: "satb",
+    sourceType: "original-practice",
+    source: originalSource("G-minor chorale cadence"),
+    family: "SATB / vocal completion",
+    title: "Original: minor-key cadence",
+    context:
+      "Fill the inner parts, keeping the soprano and bass intact. Treat F-sharp as the raised leading note and resolve the dominant seventh by step.",
+    score: measuredScore({
+      key: "G minor",
+      keySignature: "Gm",
+      layout: "satb",
+      completion: true,
+      labelPosition: "bottom",
+      caption: "Original practice • SATB cadence in G minor",
+      measures: [
+        { events: [
+          { voices: { soprano: "G5", alto: "Bb4", tenor: "D3", bass: "G2" }, questionVoices: { soprano: "G5", bass: "G2" }, duration: "h" },
+          { voices: { soprano: "G5", alto: "C5", tenor: "Eb3", bass: "C3" }, questionVoices: { soprano: "G5", bass: "C3" }, duration: "h" },
+        ] },
+        { events: [
+          { voices: { soprano: "F#5", alto: "C5", tenor: "A3", bass: "D3" }, questionVoices: { soprano: "F#5", bass: "D3" }, duration: "h" },
+          { voices: { soprano: "G5", alto: "Bb4", tenor: "D3", bass: "G2" }, questionVoices: { soprano: "G5", bass: "G2" }, duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { voices: { soprano: "Eb5", alto: "G4", tenor: "C3", bass: "C3" }, questionVoices: { soprano: "Eb5", bass: "C3" }, duration: "q" },
+          { voices: { soprano: "D5", alto: "F#4", tenor: "A3", bass: "D3" }, questionVoices: { soprano: "D5", bass: "D3" }, duration: "q" },
+          { voices: { soprano: "G5", alto: "Bb4", tenor: "D3", bass: "G2" }, questionVoices: { soprano: "G5", bass: "G2" }, duration: "h" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "g: i", { questionLabel: "g: i", chordSymbol: "Gm" }),
+        harmonicBox(1, 3, 1, "iv", { questionLabel: "iv", chordSymbol: "Cm" }),
+        harmonicBox(2, 1, 0, "V⁷", { questionLabel: "V⁷", chordSymbol: "D7" }),
+        harmonicBox(2, 3, 1, "i", { questionLabel: "i", chordSymbol: "Gm" }),
+        harmonicBox(3, 1, 0, "iv", { questionLabel: "iv", chordSymbol: "Cm" }),
+        harmonicBox(3, 2, 1, "V", { questionLabel: "V", chordSymbol: "D" }),
+        harmonicBox(3, 3, 2, "i", { questionLabel: "i", chordSymbol: "Gm" }),
+      ],
+    }),
+    answerHeading: "One acceptable inner-part solution",
+    answer: [
+      "F♯ resolves to G at the principal cadence and C, the seventh of D7, resolves down to B♭. Contrary motion between soprano and bass strengthens the close.",
+    ],
+  }),
+  createQuestion({
+    id: "satb-c-aminor",
+    category: "satb",
+    sourceType: "original-practice",
+    source: originalSource("C-major chorale turning to A minor"),
+    family: "SATB / vocal completion",
+    title: "Original: relative-minor chorale",
+    context:
+      "Complete the alto and tenor lines through the move from C major to A minor. Keep each voice in range and make G-sharp resolve to A.",
+    score: measuredScore({
+      key: "C major → A minor",
+      keySignature: "C",
+      layout: "satb",
+      completion: true,
+      labelPosition: "bottom",
+      caption: "Original practice • SATB in C major and A minor",
+      measures: [
+        { events: [
+          { voices: { soprano: "G4", alto: "E4", tenor: "C3", bass: "C3" }, questionVoices: { soprano: "G4", bass: "C3" }, duration: "q" },
+          { voices: { soprano: "A4", alto: "F4", tenor: "C3", bass: "F2" }, questionVoices: { soprano: "A4", bass: "F2" }, duration: "q" },
+          { voices: { soprano: "B4", alto: "F4", tenor: "D3", bass: "G2" }, questionVoices: { soprano: "B4", bass: "G2" }, duration: "q" },
+          { voices: { soprano: "C5", alto: "E4", tenor: "A3", bass: "A2" }, questionVoices: { soprano: "C5", bass: "A2" }, duration: "q" },
+        ] },
+        { events: [
+          { voices: { soprano: "D5", alto: "A4", tenor: "F3", bass: "D3" }, questionVoices: { soprano: "D5", bass: "D3" }, duration: "h" },
+          { voices: { soprano: "B4", alto: "G#4", tenor: "D4", bass: "E3" }, questionVoices: { soprano: "B4", bass: "E3" }, duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { voices: { soprano: "A4", alto: "E4", tenor: "C3", bass: "A2" }, questionVoices: { soprano: "A4", bass: "A2" }, duration: "w" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "C: I", { questionLabel: "C: I", chordSymbol: "C" }),
+        harmonicBox(1, 2, 1, "IV", { questionLabel: "IV", chordSymbol: "F" }),
+        harmonicBox(1, 3, 2, "V⁷", { questionLabel: "V⁷", chordSymbol: "G7" }),
+        harmonicBox(1, 4, 3, "C: vi / a: i", { questionLabel: "vi / a: i", chordSymbol: "Am" }),
+        harmonicBox(2, 1, 0, "a: iv", { questionLabel: "iv", chordSymbol: "Dm" }),
+        harmonicBox(2, 3, 1, "V⁷", { questionLabel: "V⁷", chordSymbol: "E7" }),
+        harmonicBox(3, 1, 0, "i", { questionLabel: "i", chordSymbol: "Am" }),
+      ],
+    }),
+    answerHeading: "One acceptable relative-minor solution",
+    answer: [
+      "A minor serves as vi in C and i in the new key. At the close, G♯ rises to A while the seventh D in E7 falls to C.",
+    ],
+  }),
+  createQuestion({
+    id: "piano-d-f",
+    category: "piano",
+    sourceType: "original-practice",
+    source: originalSource("Broken-chord piano modulation from D minor to F major"),
+    family: "Piano completion",
+    title: "Original: broken-chord modulation",
+    context:
+      "Continue the quaver accompaniment beneath the supplied melody. Preserve the opening pattern and make the final ii–V7–I in F major clear.",
+    score: measuredScore({
+      key: "D minor → F major",
+      keySignature: "Dm",
+      timeSignature: "6/8",
+      layout: "piano",
+      completion: true,
+      labelPosition: "bottom",
+      caption: "Original practice • piano completion in D minor and F major",
+      measures: [
+        { events: [
+          { treble: ["F4", "A4"], qTreble: ["A4"], bass: ["D3"], qBass: ["D3"], duration: "8" },
+          { treble: ["A4", "D5"], qTreble: ["D5"], bass: ["A2"], qBass: ["A2"], duration: "8" },
+          { treble: ["F4", "A4"], qTreble: ["A4"], bass: ["D3"], qBass: ["D3"], duration: "8" },
+          { treble: ["G4", "Bb4"], qTreble: ["Bb4"], bass: ["G2"], qBass: ["G2"], duration: "8" },
+          { treble: ["Bb4", "D5"], qTreble: ["D5"], bass: ["D3"], qBass: ["D3"], duration: "8" },
+          { treble: ["G4", "Bb4"], qTreble: ["Bb4"], bass: ["G2"], qBass: ["G2"], duration: "8" },
+        ] },
+        { events: [
+          { treble: ["F4", "A4"], qTreble: ["A4"], bass: ["D3"], qBass: [], duration: "8" },
+          { treble: ["A4", "D5"], qTreble: ["D5"], bass: ["A2"], qBass: [], duration: "8" },
+          { treble: ["F4", "A4"], qTreble: ["A4"], bass: ["D3"], qBass: [], duration: "8" },
+          { treble: ["E4", "G4", "Bb4"], qTreble: ["Bb4"], bass: ["C3"], qBass: [], duration: "8" },
+          { treble: ["G4", "C5"], qTreble: ["C5"], bass: ["G2"], qBass: [], duration: "8" },
+          { treble: ["E4", "Bb4"], qTreble: ["Bb4"], bass: ["C3"], qBass: [], duration: "8" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["F4", "A4"], qTreble: ["A4"], bass: ["F2"], qBass: [], duration: "8" },
+          { treble: ["A4", "C5"], qTreble: ["C5"], bass: ["C3"], qBass: [], duration: "8" },
+          { treble: ["F4", "A4"], qTreble: ["A4"], bass: ["F3"], qBass: [], duration: "8" },
+          { treble: ["G4", "Bb4"], qTreble: ["Bb4"], bass: ["G2"], qBass: [], duration: "8" },
+          { treble: ["E4", "G4", "Bb4"], qTreble: ["G4"], bass: ["C3"], qBass: [], duration: "8" },
+          { treble: ["F4", "A4"], qTreble: ["A4"], bass: ["F2"], qBass: [], duration: "8" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "d: i", { questionLabel: "d: i" }),
+        harmonicBox(1, 4, 3, "iv", { questionLabel: "iv" }),
+        harmonicBox(2, 1, 0, "d: i / F: vi", { questionLabel: "i / F: vi" }),
+        harmonicBox(2, 4, 3, "F: V⁷", { questionLabel: "V⁷" }),
+        harmonicBox(3, 1, 0, "F: I", { questionLabel: "I" }),
+        harmonicBox(3, 4, 3, "ii–V⁷–I", { questionLabel: "ii–V⁷–I" }),
+      ],
+    }),
+    answerHeading: "Model broken-chord accompaniment",
+    answer: [
+      "The model keeps the quaver pulse and alternates bass and chord members. D minor functions as i initially and vi in F; the final Gm–C7–F gesture makes the new tonic explicit.",
+    ],
+  }),
+  createQuestion({
+    id: "piano-a-fsharp",
+    category: "piano",
+    sourceType: "original-practice",
+    source: originalSource("Chordal piano texture moving from A major to F-sharp minor"),
+    family: "Piano completion",
+    title: "Original: chordal texture into the relative minor",
+    context:
+      "Complete the missing bass and inner notes while retaining the crotchet chord pattern. Make the E-sharp in C-sharp 7 resolve convincingly.",
+    score: measuredScore({
+      key: "A major → F♯ minor",
+      keySignature: "A",
+      layout: "piano",
+      completion: true,
+      labelPosition: "bottom",
+      caption: "Original practice • piano completion in A major and F-sharp minor",
+      measures: [
+        { events: [
+          { treble: ["E4", "A4", "C#5"], qTreble: ["C#5"], bass: ["A2"], qBass: ["A2"], duration: "q" },
+          { treble: ["F#4", "A4", "D5"], qTreble: ["D5"], bass: ["D3"], qBass: ["D3"], duration: "q" },
+          { treble: ["D4", "G#4", "B4"], qTreble: ["B4"], bass: ["E3"], qBass: ["E3"], duration: "q" },
+          { treble: ["E4", "A4", "C#5"], qTreble: ["C#5"], bass: ["A2"], qBass: ["A2"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["C#4", "F#4", "A4"], qTreble: ["A4"], bass: ["F#2"], qBass: [], duration: "h" },
+          { treble: ["B3", "E#4", "G#4"], qTreble: ["G#4"], bass: ["C#3"], qBass: [], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["C#4", "F#4", "A4"], qTreble: ["A4"], bass: ["F#2"], qBass: [], duration: "w" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "A: I", { questionLabel: "A: I" }),
+        harmonicBox(1, 2, 1, "IV", { questionLabel: "IV" }),
+        harmonicBox(1, 3, 2, "V⁷", { questionLabel: "V⁷" }),
+        harmonicBox(1, 4, 3, "I / f♯: III", { questionLabel: "I / f♯: III" }),
+        harmonicBox(2, 1, 0, "f♯: i", { questionLabel: "i" }),
+        harmonicBox(2, 3, 1, "V⁷", { questionLabel: "V⁷" }),
+        harmonicBox(3, 1, 0, "i", { questionLabel: "i" }),
+      ],
+    }),
+    answerHeading: "Model chordal accompaniment",
+    answer: [
+      "The texture preserves the supplied chord rhythm and register. E♯ is the chordal third of C♯7 and leading note of F♯ minor, so it resolves upward to F♯.",
+    ],
+  }),
+  createQuestion({
+    id: "piano-g-c",
+    category: "piano",
+    sourceType: "original-practice",
+    source: originalSource("Phrase-based piano completion from G major to C major"),
+    family: "Piano completion",
+    title: "Original: accompaniment across a phrase boundary",
+    context:
+      "Continue the left-hand pattern after the rest and shape the second phrase toward a cadence in C major. The tied melody note must remain visible across the barline.",
+    score: measuredScore({
+      key: "G major → C major",
+      keySignature: "G",
+      layout: "piano",
+      completion: true,
+      labelPosition: "bottom",
+      caption: "Original practice • piano phrases in G major and C major",
+      measures: [
+        { events: [
+          { treble: ["D4", "G4", "B4"], qTreble: ["B4"], bass: ["G2"], qBass: ["G2"], duration: "q" },
+          { treble: ["E4", "G4", "C5"], qTreble: ["C5"], bass: ["C3"], qBass: ["C3"], duration: "q" },
+          { treble: ["C4", "F#4", "A4"], qTreble: ["A4"], bass: ["D3"], qBass: ["D3"], duration: "q" },
+          { treble: ["E4", "G4", "C5"], qTreble: ["C5"], bass: ["C3"], qBass: ["C3"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["E4", "G4", "C5"], qTreble: ["C5"], bass: ["C3"], qBass: [], duration: "h" },
+          { treble: [], qTreble: [], trebleRest: true, bass: ["G2"], qBass: [], duration: "q" },
+          { treble: ["D4", "F4", "B4"], qTreble: ["B4"], bass: ["G2"], qBass: [], duration: "q" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["E4", "G4", "C5"], qTreble: ["C5"], bass: ["C3"], qBass: [], duration: "w" },
+        ] },
+      ],
+      ties: [{ from: 3, to: 4, staff: "treble", firstPitch: "C5", lastPitch: "C5" }],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "G: I", { questionLabel: "G: I" }),
+        harmonicBox(1, 2, 1, "G: IV / C: I", { questionLabel: "IV / C: I" }),
+        harmonicBox(1, 3, 2, "G: V⁷", { questionLabel: "V⁷" }),
+        harmonicBox(1, 4, 3, "G: IV / C: I", { questionLabel: "IV / C: I" }),
+        harmonicBox(2, 1, 0, "C: I", { questionLabel: "C: I" }),
+        harmonicBox(2, 4, 2, "V⁷", { questionLabel: "V⁷" }),
+        harmonicBox(3, 1, 0, "I", { questionLabel: "I" }),
+      ],
+    }),
+    answerHeading: "Model phrase continuation",
+    answer: [
+      "The rest articulates the phrase without stopping the bass motion. C major first appears as IV in G and then becomes the new tonic; G7–C confirms it at the close.",
+    ],
+  }),
+  createQuestion({
+    id: "piano-bflat-gminor",
+    category: "piano",
+    sourceType: "original-practice",
+    source: originalSource("Dotted-rhythm piano completion in B-flat major and G minor"),
+    family: "Piano completion",
+    title: "Original: dotted melody into G minor",
+    context:
+      "Complete the chordal accompaniment under the dotted melody. Retain the 3/4 metre and make the final dominant-to-tonic motion in G minor clear.",
+    score: measuredScore({
+      key: "B♭ major → G minor",
+      keySignature: "Bb",
+      timeSignature: "3/4",
+      layout: "piano",
+      completion: true,
+      labelPosition: "bottom",
+      caption: "Original practice • dotted piano phrase in B-flat and G minor",
+      measures: [
+        { events: [
+          { treble: ["D4", "F4", "Bb4"], qTreble: ["Bb4"], bass: ["Bb2"], qBass: ["Bb2"], duration: "qd" },
+          { treble: ["C4", "Eb4", "A4"], qTreble: ["A4"], bass: ["F3"], qBass: ["F3"], duration: "8" },
+          { treble: ["D4", "F4", "Bb4"], qTreble: ["Bb4"], bass: ["Bb2"], qBass: ["Bb2"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["D4", "G4", "Bb4"], qTreble: ["Bb4"], bass: ["G2"], qBass: [], duration: "qd" },
+          { treble: ["C4", "F#4", "A4"], qTreble: ["A4"], bass: ["D3"], qBass: [], duration: "8" },
+          { treble: ["C4", "F#4", "A4"], qTreble: ["F#4"], bass: ["D3"], qBass: [], duration: "q" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["D4", "G4", "Bb4"], qTreble: ["G4"], bass: ["G2"], qBass: [], duration: "hd" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "B♭: I", { questionLabel: "B♭: I" }),
+        harmonicBox(1, 3, 2, "I / g: III", { questionLabel: "I / g: III" }),
+        harmonicBox(2, 1, 0, "g: i", { questionLabel: "g: i" }),
+        harmonicBox(2, 3, 2, "V⁷", { questionLabel: "V⁷" }),
+        harmonicBox(3, 1, 0, "i", { questionLabel: "i" }),
+      ],
+    }),
+    answerHeading: "Model dotted-rhythm accompaniment",
+    answer: [
+      "The model preserves the dotted-quarter–eighth gesture and supplies stable chord spacing beneath it. F♯ in D7 leads to G and confirms the relative minor.",
+    ],
+  }),
+  createQuestion({
+    id: "nzqa-2021-valentine-techniques",
+    category: "jazz",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(
+      2021,
+      "Question Three",
+      "(a)",
+      "Extract Six",
+      "Richard Rodgers and Lorenz Hart",
+      "My Funny Valentine",
+      "bars 21–29, exam pp.8–9; schedule pp.8–9"
+    ),
+    family: "Jazz / rock notation",
+    title: "Reference: minor-line harmony and tonic pedal",
+    context:
+      "Name the chords in the descending inner-line reduction, identify the tonic pedal, and classify the marked melody notes using their active chord—not the surrounding key alone.",
+    score: measuredScore({
+      key: "C minor",
+      keySignature: "Cm",
+      layout: "piano",
+      labelPosition: "top",
+      caption: "NZQA reference • 2021 Q3(a), Extract Six • technique reduction",
+      measures: [
+        { events: [
+          { treble: ["C4", "Eb4", "G4"], bass: ["C3"], duration: "q" },
+          { treble: ["C4", "Eb4", "G4", "D5"], bass: ["C3"], duration: "q" },
+          { treble: ["C4", "Eb4", "G4"], bass: ["C3"], duration: "q" },
+          { treble: ["C4", "Eb4", "G4", "F4"], bass: ["C3"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["B3", "Eb4", "G4", "C5"], bass: ["C3"], duration: "q" },
+          { treble: ["B3", "Eb4", "G4"], bass: ["C3"], duration: "q" },
+          { treble: ["B3", "Eb4", "G4", "Db5"], bass: ["C3"], duration: "q" },
+          { treble: ["B3", "Eb4", "G4"], bass: ["C3"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["Bb3", "Eb4", "G4", "C5"], bass: ["C3"], duration: "h" },
+          { treble: ["Bb3", "Eb4", "G4"], bass: ["C3"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["A3", "Eb4", "G4", "C5"], bass: ["C3"], duration: "w" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["F3", "Ab3", "C4"], bass: ["C3"], duration: "w" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "Cm", { chordSymbol: "Cm", questionLabel: "Cm", validationPitches: ["C4", "E♭4", "G4"], bassPitch: "C3" }),
+        harmonicBox(2, 1, 0, "Cm(maj7)", { chordSymbol: "Cm(maj7)", validationPitches: ["C4", "E♭4", "G4", "B4"], bassPitch: "C3" }),
+        harmonicBox(3, 1, 0, "Cm7", { chordSymbol: "Cm7", validationPitches: ["C4", "E♭4", "G4", "B♭4"], bassPitch: "C3" }),
+        harmonicBox(4, 1, 0, "Cm6", { chordSymbol: "Cm6", validationPitches: ["C4", "E♭4", "G4", "A4"], bassPitch: "C3" }),
+        harmonicBox(5, 1, 0, "Fm/C", { chordSymbol: "Fm/C", questionLabel: "Fm", validationPitches: ["F3", "A♭3", "C4"], bassPitch: "C3" }),
+      ],
+      nonHarmonicNotes: [
+        { measure: 1, event: 1, pitch: "D5", chordSymbol: "Cm", type: "auxiliary note" },
+        { measure: 1, event: 3, pitch: "F4", chordSymbol: "Cm", type: "accented passing note" },
+        { measure: 2, event: 2, pitch: "D♭5", chordSymbol: "Cm(maj7)", type: "appoggiatura" },
+      ],
+    }),
+    answerHeading: "Reference harmonic techniques",
+    answer: [
+      "The inner line C–B–B♭–A descends chromatically through Cm, Cm(maj7), Cm7 and Cm6. The repeated C bass is a tonic pedal: it anchors the tonic while the upper harmony and melody create controlled dissonance.",
+      "The marked examples are an auxiliary D, an accented passing F and an appoggiatura D♭; each lies outside the active chord at that moment.",
+    ],
+  }),
+  createQuestion({
+    id: "nzqa-2024-commercial-chromatic-bass",
+    category: "jazz",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(
+      2024,
+      "Question Three",
+      "(a)",
+      "Extract Six",
+      "Phillip Norman",
+      "Love is Commercial",
+      "bars 16–28, exam pp.8–9; schedule p.9"
+    ),
+    family: "Jazz / rock notation",
+    title: "Reference: one chord per bar over chromatic bass",
+    context:
+      "Analyse the chord symbols above the score, then explain how the measured harmonic rhythm and the descending bass in the final five bars change the phrase’s direction.",
+    score: measuredScore({
+      key: "D major / F♯ minor area",
+      keySignature: "D",
+      layout: "piano",
+      labelPosition: "top",
+      caption: "NZQA reference • 2024 Q3(a), Extract Six • harmonic reduction",
+      brackets: [{ start: 2, end: 6, label: "bars 24–28" }],
+      measures: [
+        { events: [{ treble: ["C#4", "D4", "F#4", "A4"], bass: ["D3"], duration: "w" }] },
+        { events: [{ treble: ["C#4", "D4", "F#4", "A4"], bass: ["D3"], duration: "w" }] },
+        { events: [{ treble: ["A3", "C#4", "F#4"], bass: ["F#2"], duration: "w" }] },
+        { events: [{ treble: ["A3", "C4", "Eb4", "F#4"], bass: ["F2"], duration: "w" }] },
+        { events: [{ treble: ["A3", "C#4", "F#4"], bass: ["E2"], duration: "w" }] },
+        { events: [{ treble: ["F#3", "A3", "C#4"], bass: ["D#2"], duration: "w" }] },
+        { endBarline: "final", events: [{ treble: ["C#4", "D4", "F#4", "A4"], bass: ["D2"], duration: "w" }] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "Dmaj7", { chordSymbol: "Dmaj7", questionLabel: "Dmaj7" }),
+        harmonicBox(2, 1, 0, "Dmaj7", { chordSymbol: "Dmaj7" }),
+        harmonicBox(3, 1, 0, "F♯m", { chordSymbol: "F♯m" }),
+        harmonicBox(4, 1, 0, "F♯dim7/F", { chordSymbol: "F♯dim7/F" }),
+        harmonicBox(5, 1, 0, "F♯m/E", { chordSymbol: "F♯m/E" }),
+        harmonicBox(6, 1, 0, "D♯m7♭5", { chordSymbol: "D♯m7♭5" }),
+        harmonicBox(7, 1, 0, "Dmaj7", { chordSymbol: "Dmaj7" }),
+      ],
+    }),
+    answerHeading: "Reference chord analysis and effect",
+    answer: [
+      "The final bass descends F♯–F–E–D♯–D while the chord colour changes above it, contrasting with the earlier static D bass.",
+      "The score shows one harmonic event in each of the final five 4/4 measures. That regular one-chord-per-bar rhythm and the chromatic bass provide momentum and forward direction.",
+    ],
+  }),
+  createQuestion({
+    id: "jazz-c-turnaround",
+    category: "jazz",
+    sourceType: "original-practice",
+    source: originalSource("C-major extended turnaround"),
+    family: "Jazz / rock notation",
+    title: "Original: secondary-dominant turnaround",
+    context:
+      "Write a chord symbol in every box and explain how A7 extends the turnaround. Include the final added sixth.",
+    score: measuredScore({
+      key: "C major",
+      keySignature: "C",
+      labelPosition: "top",
+      caption: "Original practice • C-major jazz turnaround",
+      measures: [
+        { events: [
+          { treble: ["F4", "A4", "C5"], bass: ["D3"], duration: "h" },
+          { treble: ["F4", "B4", "D5"], bass: ["G2"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["E4", "G4", "B4"], bass: ["C3"], duration: "h" },
+          { treble: ["C#4", "E4", "G4"], bass: ["A2"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["F4", "A4", "C5"], bass: ["D3"], duration: "h" },
+          { treble: ["F4", "B4", "D5"], bass: ["G2"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["E4", "G4", "A4"], bass: ["C3"], duration: "w" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "Dm7", { chordSymbol: "Dm7", questionLabel: "Dm7" }),
+        harmonicBox(1, 3, 1, "G7", { chordSymbol: "G7" }),
+        harmonicBox(2, 1, 0, "Cmaj7", { chordSymbol: "Cmaj7" }),
+        harmonicBox(2, 3, 1, "A7", { chordSymbol: "A7" }),
+        harmonicBox(3, 1, 0, "Dm7", { chordSymbol: "Dm7" }),
+        harmonicBox(3, 3, 1, "G7", { chordSymbol: "G7" }),
+        harmonicBox(4, 1, 0, "C6", { chordSymbol: "C6" }),
+      ],
+    }),
+    answerHeading: "Chord symbols and function",
+    answer: [
+      "<strong>Progression:</strong> Dm7–G7–Cmaj7–A7–Dm7–G7–C6. A7 is V7 of ii: C♯ directs the harmony into Dm7 before the final ii–V–I.",
+      "The final C6 voicing is C–E–G–A. In this G7-to-tonic context, C6 is the intended and musically appropriate analysis.",
+    ],
+  }),
+  createQuestion({
+    id: "jazz-e-turnaround",
+    category: "jazz",
+    sourceType: "original-practice",
+    source: originalSource("E-major pop-jazz turnaround"),
+    family: "Jazz / rock notation",
+    title: "Original: pop-jazz phrase in E",
+    context:
+      "Name the chords, including sevenths and the final added sixth. Explain the function of C-sharp 7.",
+    score: measuredScore({
+      key: "E major",
+      keySignature: "E",
+      labelPosition: "top",
+      caption: "Original practice • E-major pop-jazz turnaround",
+      measures: [
+        { events: [
+          { treble: ["A4", "C#5", "E5"], bass: ["F#3"], duration: "h" },
+          { treble: ["A4", "D#5", "F#5"], bass: ["B2"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["G#4", "B4", "D#5"], bass: ["E3"], duration: "h" },
+          { treble: ["B3", "E#4", "G#4"], bass: ["C#3"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["A4", "C#5", "E5"], bass: ["F#3"], duration: "h" },
+          { treble: ["A4", "D#5", "F#5"], bass: ["B2"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["G#4", "B4", "C#5"], bass: ["E3"], duration: "w" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "F♯m7", { chordSymbol: "F♯m7", questionLabel: "F♯m7" }),
+        harmonicBox(1, 3, 1, "B7", { chordSymbol: "B7" }),
+        harmonicBox(2, 1, 0, "Emaj7", { chordSymbol: "Emaj7" }),
+        harmonicBox(2, 3, 1, "C♯7", { chordSymbol: "C♯7" }),
+        harmonicBox(3, 1, 0, "F♯m7", { chordSymbol: "F♯m7" }),
+        harmonicBox(3, 3, 1, "B7", { chordSymbol: "B7" }),
+        harmonicBox(4, 1, 0, "E6", { chordSymbol: "E6" }),
+      ],
+    }),
+    answerHeading: "Complete chord analysis",
+    answer: [
+      "C♯7 is V7 of ii. E♯ is its chordal third and leading note into F♯, so it is not a non-harmonic note in that sonority.",
+    ],
+  }),
+  createQuestion({
+    id: "jazz-blues-secondary",
+    category: "jazz",
+    sourceType: "original-practice",
+    source: originalSource("Blues-inflected turnaround with a diminished connector"),
+    family: "Jazz / rock notation",
+    title: "Original: blues colour and diminished link",
+    context:
+      "Identify the eight chord symbols and explain how the diminished seventh connects F7 to the tonic over G.",
+    score: measuredScore({
+      key: "C major / blues",
+      keySignature: "C",
+      labelPosition: "top",
+      caption: "Original practice • blues-inflected turnaround",
+      measures: [
+        { events: [
+          { treble: ["E4", "G4", "Bb4"], bass: ["C3"], duration: "h" },
+          { treble: ["A3", "C4", "Eb4"], bass: ["F2"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["A3", "C4", "Eb4"], bass: ["F#2"], duration: "h" },
+          { treble: ["E4", "G4", "C5"], bass: ["G2"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["C#4", "E4", "G4"], bass: ["A2"], duration: "h" },
+          { treble: ["F4", "A4", "C5"], bass: ["D3"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["F4", "B4", "D5"], bass: ["G2"], duration: "h" },
+          { treble: ["E4", "G4", "A4"], bass: ["C3"], duration: "h" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "C7", { chordSymbol: "C7", questionLabel: "C7" }),
+        harmonicBox(1, 3, 1, "F7", { chordSymbol: "F7" }),
+        harmonicBox(2, 1, 0, "F♯dim7", { chordSymbol: "F♯dim7" }),
+        harmonicBox(2, 3, 1, "C/G", { chordSymbol: "C/G" }),
+        harmonicBox(3, 1, 0, "A7", { chordSymbol: "A7" }),
+        harmonicBox(3, 3, 1, "Dm7", { chordSymbol: "Dm7" }),
+        harmonicBox(4, 1, 0, "G7", { chordSymbol: "G7" }),
+        harmonicBox(4, 3, 1, "C6", { chordSymbol: "C6" }),
+      ],
+    }),
+    answerHeading: "Blues turnaround analysis",
+    answer: [
+      "F♯dim7 intensifies the semitone approach into G bass and C/G. A7 then functions as V7 of ii before the conventional Dm7–G7–C6 close.",
+    ],
+  }),
+  createQuestion({
+    id: "jazz-sus-line",
+    category: "jazz",
+    sourceType: "original-practice",
+    source: originalSource("Suspended-dominant jazz phrase"),
+    family: "Jazz / rock notation",
+    title: "Original: suspended dominant and ninths",
+    context:
+      "Name the extended chords and distinguish G7sus4 from its resolution to G7. Explain why the suspension delays dominant resolution.",
+    score: measuredScore({
+      key: "C major",
+      keySignature: "C",
+      labelPosition: "top",
+      caption: "Original practice • suspended-dominant jazz phrase",
+      measures: [
+        { events: [
+          { treble: ["F4", "A4", "C5", "E5"], bass: ["D3"], duration: "h" },
+          { treble: ["F4", "C5", "D5"], bass: ["G2"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["F4", "B4", "D5"], bass: ["G2"], duration: "h" },
+          { treble: ["D4", "E4", "G4", "B4"], bass: ["C3"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["C#4", "E4", "G4"], bass: ["A2"], duration: "h" },
+          { treble: ["F4", "A4", "C5", "E5"], bass: ["D3"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["F4", "B4", "D5"], bass: ["G2"], duration: "h" },
+          { treble: ["E4", "G4", "A4"], bass: ["C3"], duration: "h" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "Dm9", { chordSymbol: "Dm9", questionLabel: "Dm9" }),
+        harmonicBox(1, 3, 1, "G7sus4", { chordSymbol: "G7sus4" }),
+        harmonicBox(2, 1, 0, "G7", { chordSymbol: "G7" }),
+        harmonicBox(2, 3, 1, "Cmaj9", { chordSymbol: "Cmaj9" }),
+        harmonicBox(3, 1, 0, "A7", { chordSymbol: "A7" }),
+        harmonicBox(3, 3, 1, "Dm9", { chordSymbol: "Dm9" }),
+        harmonicBox(4, 1, 0, "G7", { chordSymbol: "G7" }),
+        harmonicBox(4, 3, 1, "C6", { chordSymbol: "C6" }),
+      ],
+    }),
+    answerHeading: "Suspension and extensions",
+    answer: [
+      "The C in G7sus4 replaces B and delays the dominant’s leading-note pull. Its fall to B forms G7, which then resolves to Cmaj9; the second half uses A7 as V7 of ii.",
+    ],
+  }),
+  createQuestion({
+    id: "nzqa-2023-poulenc-pedal",
+    category: "features",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(
+      2023,
+      "Question Two",
+      "(a)",
+      "Extract Four",
+      "Francis Poulenc",
+      "Novelette No. 1 in C minor",
+      "bars 1–5, exam p.5; schedule p.6"
+    ),
+    family: "Harmonic or tonal feature",
+    title: "Reference: tonic pedal with dissonance",
+    context:
+      "Identify the bass device in this 3/8 teaching reduction and explain how it can establish C while creating dissonance against the changing upper harmony.",
+    score: measuredScore({
+      key: "C major area",
+      keySignature: "C",
+      timeSignature: "3/8",
+      layout: "piano",
+      caption: "NZQA reference • 2023 Q2(a), Extract Four • pedal-note reduction",
+      measures: [
+        { events: [
+          { treble: ["E4", "G4", "C5"], bass: ["C3"], duration: "8" },
+          { treble: ["G4", "C5", "E5"], bass: ["C3"], duration: "8" },
+          { treble: ["E4", "G4", "C5"], bass: ["C3"], duration: "8" },
+        ] },
+        { events: [
+          { treble: ["F4", "A4", "D5"], bass: ["C3"], duration: "8" },
+          { treble: ["A4", "D5", "F5"], bass: ["C3"], duration: "8" },
+          { treble: ["F4", "A4", "D5"], bass: ["C3"], duration: "8" },
+        ] },
+        { events: [
+          { treble: ["F4", "A4", "C5"], bass: ["C3"], duration: "8" },
+          { treble: ["A4", "C5", "F5"], bass: ["C3"], duration: "8" },
+          { treble: ["F4", "A4", "C5"], bass: ["C3"], duration: "8" },
+        ] },
+        { events: [
+          { treble: ["F4", "G4", "B4", "D5"], bass: ["C3"], duration: "8" },
+          { treble: ["G4", "B4", "D5", "F5"], bass: ["C3"], duration: "8" },
+          { treble: ["F4", "G4", "B4", "D5"], bass: ["C3"], duration: "8" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["E4", "G4", "C5"], bass: ["C3"], duration: "qd" },
+        ] },
+      ],
+      harmonicEvents: [
+        { measure: 1, beat: 1, event: 0, analysisBox: false, chordSymbol: "C" },
+        { measure: 2, beat: 1, event: 0, analysisBox: false, chordSymbol: "Dm/C" },
+        { measure: 3, beat: 1, event: 0, analysisBox: false, chordSymbol: "F/C" },
+        { measure: 4, beat: 1, event: 0, analysisBox: false, chordSymbol: "G7/C" },
+        { measure: 5, beat: 1, event: 0, analysisBox: false, chordSymbol: "C" },
+      ],
+    }),
+    answerHeading: "Reference pedal analysis",
+    answer: [
+      "The repeated C is a tonic pedal. It establishes and continually recalls the C tonic while D-minor, F and G7 sonorities create changing degrees of dissonance above it.",
+      "That combination of tonal stability and upper-part friction is the function identified in the 2023 assessment schedule.",
+    ],
+  }),
+  createQuestion({
+    id: "feature-diminished",
+    category: "features",
+    sourceType: "original-practice",
+    source: originalSource("Secondary diminished seventh decorating a cadence"),
+    family: "Harmonic or tonal feature",
+    title: "Original: diminished seventh before the dominant",
+    context:
+      "Identify chord X, describe its voice leading and explain how it strengthens the larger cadence in C major.",
+    score: measuredScore({
+      key: "C major",
+      keySignature: "C",
+      labelPosition: "bottom",
+      caption: "Original practice • diminished-seventh function",
+      brackets: [{ start: 2, end: 2, label: "X" }],
+      measures: [
+        { events: [
+          { treble: ["E4", "G4", "C5"], bass: ["C3"], duration: "h" },
+          { treble: ["F4", "A4", "D5"], bass: ["D3"], duration: "h" },
+        ] },
+        { events: [
+          { treble: ["C4", "Eb4", "A4"], bass: ["F#3"], duration: "h" },
+          { treble: ["B3", "D4", "F4"], bass: ["G2"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["C4", "E4", "G4"], bass: ["C3"], duration: "w" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "I", { localKey: "C major", romanNumeral: "I", chordSymbol: "C", questionLabel: "C: I" }),
+        harmonicBox(1, 3, 1, "ii", { localKey: "C major", romanNumeral: "ii", chordSymbol: "Dm" }),
+        harmonicBox(2, 1, 0, "vii°7/V", { localKey: "C major", romanNumeral: "vii7/V", chordSymbol: "F♯dim7" }),
+        harmonicBox(2, 3, 1, "V⁷", { localKey: "C major", romanNumeral: "V7", chordSymbol: "G7" }),
+        harmonicBox(3, 1, 0, "I", { localKey: "C major", romanNumeral: "I", chordSymbol: "C" }),
+      ],
+    }),
+    answerHeading: "Function and effect",
+    answer: [
+      "X is F♯ diminished seventh, vii°7/V. F♯ rises to G while E♭ falls to D, intensifying the dominant arrival. It decorates and strengthens the G7–C perfect cadence.",
+    ],
+  }),
+  createQuestion({
+    id: "feature-pedal",
+    category: "features",
+    sourceType: "original-practice",
+    source: originalSource("Tonic pedal beneath changing upper harmonies"),
+    family: "Harmonic or tonal feature",
+    title: "Original: tonic pedal across a phrase",
+    context:
+      "Identify the bass device and explain the balance of stability and dissonance it creates as the upper chords change.",
+    score: measuredScore({
+      key: "C major",
+      keySignature: "C",
+      timeSignature: "3/4",
+      layout: "piano",
+      caption: "Original practice • tonic pedal in C major",
+      measures: [
+        { events: [{ treble: ["E4", "G4", "C5"], bass: ["C3"], duration: "hd" }] },
+        { events: [{ treble: ["F4", "A4", "D5"], bass: ["C3"], duration: "hd" }] },
+        { events: [{ treble: ["F4", "A4", "C5"], bass: ["C3"], duration: "hd" }] },
+        { endBarline: "final", events: [{ treble: ["E4", "G4", "C5"], bass: ["C3"], duration: "hd" }] },
+      ],
+      harmonicEvents: [
+        { measure: 1, beat: 1, event: 0, analysisBox: false, chordSymbol: "C" },
+        { measure: 2, beat: 1, event: 0, analysisBox: false, chordSymbol: "Dm/C" },
+        { measure: 3, beat: 1, event: 0, analysisBox: false, chordSymbol: "F/C" },
+        { measure: 4, beat: 1, event: 0, analysisBox: false, chordSymbol: "C" },
+      ],
+    }),
+    answerHeading: "Tonic-pedal analysis",
+    answer: [
+      "C is a tonic pedal. It keeps the tonic present while the D-minor and F sonorities create temporary friction above it, making the final consonant C chord feel settled.",
+    ],
+  }),
+  createQuestion({
+    id: "feature-chromatic-bass",
+    category: "features",
+    sourceType: "original-practice",
+    source: originalSource("Descending chromatic bass in A minor"),
+    family: "Harmonic or tonal feature",
+    title: "Original: descending chromatic bass",
+    context:
+      "Describe the bass pattern and explain how the notated harmonic changes lead to the final cadence in A minor.",
+    score: measuredScore({
+      key: "A minor",
+      keySignature: "Am",
+      layout: "piano",
+      labelPosition: "bottom",
+      caption: "Original practice • chromatic bass in A minor",
+      measures: [
+        { events: [
+          { treble: ["C4", "E4", "A4"], bass: ["A2"], duration: "q" },
+          { treble: ["C4", "E4", "A4"], bass: ["G#2"], duration: "q" },
+          { treble: ["C4", "E4", "G4"], bass: ["G2"], duration: "q" },
+          { treble: ["C4", "D#4", "A4"], bass: ["F#2"], duration: "q" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["C4", "E4", "A4"], bass: ["F2"], duration: "q" },
+          { treble: ["B3", "D4", "G#4"], bass: ["E2"], duration: "q" },
+          { treble: ["C4", "E4", "A4"], bass: ["A2"], duration: "h" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "Am", { chordSymbol: "Am", questionLabel: "Am" }),
+        harmonicBox(1, 2, 1, "Am/G♯", { chordSymbol: "Am/G♯" }),
+        harmonicBox(1, 3, 2, "C/G", { chordSymbol: "C/G" }),
+        harmonicBox(1, 4, 3, "F♯dim7", { chordSymbol: "F♯dim7" }),
+        harmonicBox(2, 1, 0, "Am/F", { chordSymbol: "Am/F" }),
+        harmonicBox(2, 2, 1, "E7", { chordSymbol: "E7" }),
+        harmonicBox(2, 3, 2, "Am", { chordSymbol: "Am" }),
+      ],
+    }),
+    answerHeading: "Chromatic motion and tonal direction",
+    answer: [
+      "The bass descends A–G♯–G–F♯–F–E before returning to A. The semitone motion gives the phrase continuous direction while several upper notes are retained.",
+      "The frequent harmonic changes and chromatic bass movement create momentum. E7 then resolves to the A-minor tonic, so the chromatic sequence intensifies the final tonal arrival.",
+    ],
+  }),
+  createQuestion({
+    id: "feature-nonharmonic",
+    category: "features",
+    sourceType: "original-practice",
+    source: originalSource("Chord-tone versus non-harmonic-note classification"),
+    family: "Harmonic or tonal feature",
+    title: "Original: classify notes against the active chord",
+    context:
+      "The active harmony is Gmaj7 for the whole bar. Explain why F-sharp is chordal and classify the marked A at beat 2.",
+    score: measuredScore({
+      key: "G major",
+      keySignature: "G",
+      layout: "piano",
+      caption: "Original practice • active-chord note classification",
+      measures: [
+        { endBarline: "final", events: [
+          { treble: ["B3", "D4", "F#4", "G4"], bass: ["G2"], duration: "q" },
+          { treble: ["B3", "D4", "F#4", "G4", "A4"], bass: ["G2"], duration: "q" },
+          { treble: ["B3", "D4", "F#4", "G4"], bass: ["G2"], duration: "q" },
+          { treble: ["B3", "D4", "F#4", "G4"], bass: ["G2"], duration: "q" },
+        ] },
+      ],
+      harmonicEvents: [
+        { measure: 1, beat: 1, event: 0, analysisBox: false, chordSymbol: "Gmaj7" },
+      ],
+      nonHarmonicNotes: [
+        { measure: 1, event: 1, pitch: "A4", chordSymbol: "Gmaj7", type: "passing note" },
+      ],
+    }),
+    answerHeading: "Active-chord classification",
+    answer: [
+      "F♯ is the major seventh of Gmaj7, so it belongs to the active chord and is not a non-harmonic note. A lies outside G–B–D–F♯ and passes by step between chord tones, so A is the non-harmonic passing note.",
+    ],
+  }),
+  createQuestion({
+    id: "feature-harmonic-rhythm",
+    category: "features",
+    sourceType: "original-practice",
+    source: originalSource("Measured harmonic-rhythm acceleration"),
+    family: "Harmonic or tonal feature",
+    title: "Original: harmonic rhythm before a cadence",
+    context:
+      "Compare the rate of harmonic change in all three measures and explain how the acceleration shapes the cadence. Cite the displayed beats and barlines.",
+    score: measuredScore({
+      key: "D major",
+      keySignature: "D",
+      labelPosition: "bottom",
+      caption: "Original practice • measured harmonic-rhythm acceleration",
+      measures: [
+        { events: [{ treble: ["F#4", "A4", "D5"], bass: ["D3"], duration: "w" }] },
+        { events: [
+          { treble: ["G4", "B4", "D5"], bass: ["G2"], duration: "h" },
+          { treble: ["F#4", "A4", "D5"], bass: ["D3"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["G4", "B4", "E5"], bass: ["E3"], duration: "q" },
+          { treble: ["E4", "G4", "A4", "C#5"], bass: ["A2"], duration: "q" },
+          { treble: ["F#4", "A4", "D5"], bass: ["D3"], duration: "q" },
+          { treble: ["F#4", "A4", "D5"], bass: ["D3"], duration: "q" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "I", { localKey: "D major", romanNumeral: "I", chordSymbol: "D", questionLabel: "D: I" }),
+        harmonicBox(2, 1, 0, "IV", { localKey: "D major", romanNumeral: "IV", chordSymbol: "G" }),
+        harmonicBox(2, 3, 1, "I", { localKey: "D major", romanNumeral: "I", chordSymbol: "D" }),
+        harmonicBox(3, 1, 0, "ii", { localKey: "D major", romanNumeral: "ii", chordSymbol: "Em" }),
+        harmonicBox(3, 2, 1, "V⁷", { localKey: "D major", romanNumeral: "V7", chordSymbol: "A7" }),
+        harmonicBox(3, 3, 2, "I", { localKey: "D major", romanNumeral: "I", chordSymbol: "D" }),
+      ],
+    }),
+    answerHeading: "Measured harmonic-rhythm evidence",
+    answer: [
+      "Measure 1 sustains one harmony for four beats; measure 2 has two half-note harmonies; measure 3 changes on successive quarter-note beats before the tonic is repeated.",
+      "The acceleration increases urgency into ii–V7–I. This claim is supported by explicit 4/4 metre, durations and barlines in the displayed score.",
+    ],
+  }),
+];
 
 window.CadenceData = Object.freeze({
   questions: Object.freeze(questionBank),
   categories: Object.freeze(categoryNames),
+  sourceTypes: Object.freeze(sourceTypeNames),
 });

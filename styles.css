@@ -160,7 +160,16 @@ select:focus-visible, button:focus-visible, input:focus-visible {
 .paper-heading h2 { margin: 5px 0 0; font: 700 clamp(1.65rem, 3vw, 2.25rem)/1.15 Georgia, "Times New Roman", serif; }
 .paper-meta { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .paper-meta span { border-radius: 999px; padding: 6px 10px; background: var(--blue-soft); color: var(--navy-2); font-size: .78rem; font-weight: 800; }
+.paper-meta .source-nzqa-reference { background: #fff3cd; color: #75510a; }
+.paper-meta .source-original-practice { background: #e7f6ef; color: #0b624e; }
 .instruction { margin-top: 24px; max-width: 880px; color: #2f3b4c; }
+.source-attribution {
+  margin: 8px 0 0;
+  max-width: 900px;
+  color: #64748b;
+  font-size: .8rem;
+  font-weight: 650;
+}
 .task-list { margin: 12px 0 24px; padding-left: 1.4rem; max-width: 900px; }
 .task-list li { margin: 7px 0; padding-left: 4px; }
 

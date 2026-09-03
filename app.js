@@ -1,7 +1,11 @@
 (function () {
   "use strict";
 
-  const { questions: questionBank, categories: categoryNames } =
+  const {
+    questions: questionBank,
+    categories: categoryNames,
+    sourceTypes: sourceTypeNames,
+  } =
     window.CadenceData;
   const scoreRenderer = window.CadenceScoreRenderer;
   const levelOrder = { achievement: 1, merit: 2, excellence: 3 };
@@ -18,6 +22,7 @@
   let resizeFrame = null;
 
   const categorySelect = document.querySelector("#category");
+  const sourceSelect = document.querySelector("#source-type");
   const difficultySelect = document.querySelector("#difficulty");
   const answerPanel = document.querySelector("#answer-panel");
   const revealButton = document.querySelector("#reveal-answer");
@@ -34,15 +39,32 @@
 
   function chooseQuestion() {
     const category = categorySelect.value;
-    const pool =
-      category === "mixed"
-        ? questionBank
-        : questionBank.filter((question) => question.category === category);
+    const sourceType = sourceSelect.value;
+    let pool = questionBank.filter(
+      (question) =>
+        (category === "mixed" || question.category === category) &&
+        (sourceType === "mixed" || question.sourceType === sourceType)
+    );
+    if (!pool.length) {
+      categorySelect.value = "mixed";
+      pool = questionBank.filter(
+        (question) =>
+          sourceType === "mixed" || question.sourceType === sourceType
+      );
+    }
     let candidates = pool.filter((question) => question.id !== lastQuestionId);
     if (!candidates.length) candidates = pool;
     const picked = candidates[Math.floor(Math.random() * candidates.length)];
     lastQuestionId = picked.id;
     return picked;
+  }
+
+  function sourceDescription(question) {
+    const source = question.source;
+    if (question.sourceType === "nzqa-reference") {
+      return `${source.year} ${source.question} ${source.part}, ${source.extract} · ${source.creator}, “${source.title}” · ${source.location}.`;
+    }
+    return `${source.creator} original practice · ${source.title}.`;
   }
 
   function visibleTasks(question, difficulty) {
@@ -93,8 +115,13 @@
     document.querySelector("#question-context").textContent = question.context;
     document.querySelector("#difficulty-chip").textContent =
       `Target: ${difficultyName}`;
+    const sourceChip = document.querySelector("#source-chip");
+    sourceChip.textContent = sourceTypeNames[question.sourceType];
+    sourceChip.className = `source-chip source-${question.sourceType}`;
     document.querySelector("#variant-chip").textContent =
       `Practice set ${String(setNumber).padStart(2, "0")}`;
+    document.querySelector("#source-attribution").textContent =
+      sourceDescription(question);
     document.querySelector("#task-list").innerHTML = visibleTasks(
       question,
       difficulty
@@ -189,6 +216,7 @@
     .querySelector("#new-question")
     .addEventListener("click", () => renderQuestion());
   categorySelect.addEventListener("change", () => renderQuestion());
+  sourceSelect.addEventListener("change", () => renderQuestion());
   difficultySelect.addEventListener("change", () =>
     renderQuestion(currentQuestion || chooseQuestion())
   );
@@ -215,8 +243,10 @@
 
   window.CadenceLab = Object.freeze({
     categoryNames,
+    sourceTypeNames,
     questions: questionBank,
     rendererVersion: scoreRenderer.version,
+    validationReport: window.CadenceQuestionValidator.report,
     showQuestion: showQuestionById,
     getCurrentQuestion: () => currentQuestion,
   });
@@ -227,6 +257,9 @@
   const requestedQuestion = questionBank.find(
     (question) => question.id === requestedQuestionId
   );
-  if (requestedQuestion) categorySelect.value = requestedQuestion.category;
+  if (requestedQuestion) {
+    categorySelect.value = requestedQuestion.category;
+    sourceSelect.value = requestedQuestion.sourceType;
+  }
   renderQuestion(requestedQuestion || undefined);
 })();
