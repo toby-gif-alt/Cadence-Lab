@@ -4,11 +4,14 @@
   const VEXFLOW_VERSION = "4.2.5";
   const SVG_NS = "http://www.w3.org/2000/svg";
   const DEFAULT_TIME_SIGNATURE = "4/4";
-  const DEFAULT_DURATION = "q";
+  const DEFAULT_EXPLICIT_DURATION = "q";
+  const LEGACY_EVENT_DURATION = "w";
   const MIN_RENDER_WIDTH = 520;
   const MAX_RENDER_WIDTH = 1040;
   const MEASURE_MIN_WIDTH = 330;
+  const LEGACY_EVENT_MIN_WIDTH = 90;
   const MARGIN_X = 42;
+  const SATB_VOICE_NAMES = ["soprano", "alto", "tenor", "bass"];
 
   const durationAliases = {
     "1": "w",
@@ -27,14 +30,6 @@
     sixteenth: "16",
   };
 
-  const durationInQuarterBeats = {
-    w: 4,
-    h: 2,
-    q: 1,
-    "8": 0.5,
-    "16": 0.25,
-  };
-
   function getVexFlow() {
     const vex = window.Vex?.Flow || window.Vex;
     if (!vex?.Renderer || !vex?.StaveNote) {
@@ -48,7 +43,7 @@
   }
 
   function normalizeDuration(value) {
-    const key = String(value || DEFAULT_DURATION).toLowerCase();
+    const key = String(value || DEFAULT_EXPLICIT_DURATION).toLowerCase();
     const duration = durationAliases[key];
     if (!duration) {
       throw new Error(`Unsupported note duration: ${value}`);
@@ -114,30 +109,32 @@
     return value[staff] || value.all || value.default || null;
   }
 
-  function eventDuration(event, staff) {
-    return normalizeDuration(
-      event[`${staff}Duration`] || event.duration || DEFAULT_DURATION
-    );
-  }
-
-  function measureCapacity(timeSignature) {
-    return timeSignature.numerator * (4 / timeSignature.denominator);
+  function eventDuration(event, staff, scoreMode) {
+    const suppliedDuration = event[`${staff}Duration`] ?? event.duration;
+    if (suppliedDuration != null) return normalizeDuration(suppliedDuration);
+    return scoreMode === "legacy"
+      ? LEGACY_EVENT_DURATION
+      : DEFAULT_EXPLICIT_DURATION;
   }
 
   function normalizeMeasures(score) {
-    const timeSignature = parseTimeSignature(score.timeSignature);
     const initialKeySignature =
       score.keySignature || inferKeySignature(score.key);
     let globalIndex = 0;
     let currentKeySignature = initialKeySignature;
 
     if (Array.isArray(score.measures) && score.measures.length) {
-      return score.measures.map((source, measureIndex) => {
+      let currentTimeSignature = parseTimeSignature(score.timeSignature);
+      const measures = score.measures.map((source, measureIndex) => {
         const measure = Array.isArray(source) ? { events: source } : source;
         const events = measure.events || measure.chords || [];
         if (measure.keySignature) currentKeySignature = measure.keySignature;
+        if (measure.timeSignature) {
+          currentTimeSignature = parseTimeSignature(measure.timeSignature);
+        }
         return {
           index: measureIndex,
+          mode: "explicit",
           events: events.map((event) => ({
             ...event,
             _index: globalIndex++,
@@ -146,57 +143,34 @@
           effectiveKeySignature: currentKeySignature,
           cancelKeySignature: measure.cancelKeySignature || null,
           timeSignature: measure.timeSignature || null,
+          effectiveTimeSignature: currentTimeSignature,
+          beginBarline: measure.beginBarline || null,
+          endBarline: measure.endBarline || measure.barline || null,
         };
       });
+      return { mode: "explicit", measures };
     }
 
-    const measures = [];
-    const capacity = measureCapacity(timeSignature);
-    let beatCount = 0;
-    let events = [];
-
-    (score.chords || []).forEach((event) => {
-      const duration = normalizeDuration(event.duration || DEFAULT_DURATION);
-      const beats = durationInQuarterBeats[duration];
-      if (events.length && beatCount + beats > capacity) {
-        measures.push({
-          index: measures.length,
-          events,
+    return {
+      mode: "legacy",
+      measures: [
+        {
+          index: 0,
+          mode: "legacy",
+          events: (score.chords || []).map((event) => ({
+            ...event,
+            _index: globalIndex++,
+          })),
           keySignature: null,
           effectiveKeySignature: currentKeySignature,
           cancelKeySignature: null,
           timeSignature: null,
-        });
-        events = [];
-        beatCount = 0;
-      }
-      events.push({ ...event, _index: globalIndex++ });
-      beatCount += beats;
-      if (Math.abs(beatCount - capacity) < 0.0001) {
-        measures.push({
-          index: measures.length,
-          events,
-          keySignature: null,
-          effectiveKeySignature: currentKeySignature,
-          cancelKeySignature: null,
-          timeSignature: null,
-        });
-        events = [];
-        beatCount = 0;
-      }
-    });
-
-    if (events.length) {
-      measures.push({
-        index: measures.length,
-        events,
-        keySignature: null,
-        effectiveKeySignature: currentKeySignature,
-        cancelKeySignature: null,
-        timeSignature: null,
-      });
-    }
-    return measures;
+          effectiveTimeSignature: parseTimeSignature(DEFAULT_TIME_SIGNATURE),
+          beginBarline: null,
+          endBarline: null,
+        },
+      ],
+    };
   }
 
   function visiblePitches(event, staff, showAnswer) {
@@ -221,17 +195,333 @@
     return note;
   }
 
-  function splitSatbPitches(pitches, staff) {
+  function splitSatbPitches(pitches, staff, eventIndex) {
     if (!pitches.length) return { upper: [], lower: [] };
     if (pitches.length === 1) {
       return staff === "treble"
         ? { upper: pitches, lower: [] }
         : { upper: [], lower: pitches };
     }
+    if (pitches.length !== 2) {
+      throw new Error(
+        `SATB event ${eventIndex + 1} has ${pitches.length} pitches on the ${staff} stave. ` +
+          "Legacy SATB input supports at most two pitches per stave; use event.voices with soprano, alto, tenor and bass fields for richer data."
+      );
+    }
     return {
       upper: [pitches[pitches.length - 1]],
       lower: [pitches[0]],
     };
+  }
+
+  function normalizeSatbVoiceValue(value, voiceName, eventIndex, sourceName) {
+    if (value == null) return [];
+    const pitches = Array.isArray(value) ? value : [value];
+    if (pitches.length > 1) {
+      throw new Error(
+        `SATB event ${eventIndex + 1} ${sourceName}.${voiceName} contains ${pitches.length} pitches. ` +
+          "Each named SATB voice must contain at most one pitch."
+      );
+    }
+    return pitches;
+  }
+
+  function selectedSatbVoices(event, showAnswer) {
+    const hasModelVoices = Object.hasOwn(event, "voices");
+    const hasQuestionVoices = Object.hasOwn(event, "questionVoices");
+    if (!hasModelVoices && !hasQuestionVoices) return null;
+    if (!hasModelVoices) {
+      throw new Error(
+        `SATB event ${event._index + 1} supplies questionVoices without model voices.`
+      );
+    }
+    if (
+      ["treble", "bass", "qTreble", "qBass"].some((field) =>
+        Object.hasOwn(event, field)
+      )
+    ) {
+      throw new Error(
+        `SATB event ${event._index + 1} mixes named voices with legacy stave pitches. ` +
+          "Use either event.voices/questionVoices or treble/bass/qTreble/qBass."
+      );
+    }
+
+    const source = !showAnswer && hasQuestionVoices
+      ? event.questionVoices
+      : event.voices;
+    if (!source || typeof source !== "object" || Array.isArray(source)) {
+      throw new Error(
+        `SATB event ${event._index + 1} must provide named voice data as an object.`
+      );
+    }
+    const unknownNames = Object.keys(source).filter(
+      (name) => !SATB_VOICE_NAMES.includes(name)
+    );
+    if (unknownNames.length) {
+      throw new Error(
+        `SATB event ${event._index + 1} has unknown voice field(s): ${unknownNames.join(", ")}.`
+      );
+    }
+    return Object.fromEntries(
+      SATB_VOICE_NAMES.map((voiceName) => [
+        voiceName,
+        normalizeSatbVoiceValue(
+          source[voiceName],
+          voiceName,
+          event._index,
+          !showAnswer && hasQuestionVoices ? "questionVoices" : "voices"
+        ),
+      ])
+    );
+  }
+
+  function satbPitchesForRole(event, staff, role, showAnswer) {
+    const namedVoices = selectedSatbVoices(event, showAnswer);
+    if (namedVoices) return namedVoices[role];
+    const split = splitSatbPitches(
+      visiblePitches(event, staff, showAnswer),
+      staff,
+      event._index
+    );
+    return split[role === "soprano" || role === "tenor" ? "upper" : "lower"];
+  }
+
+  const naturalPitchClasses = {
+    c: 0,
+    d: 2,
+    e: 4,
+    f: 5,
+    g: 7,
+    a: 9,
+    b: 11,
+  };
+
+  function pitchClass(parsedPitch) {
+    const accidentalOffset = [...parsedPitch.accidental].reduce(
+      (total, accidental) =>
+        total + (accidental === "#" ? 1 : accidental === "b" ? -1 : 0),
+      0
+    );
+    return (naturalPitchClasses[parsedPitch.letter] + accidentalOffset + 12) % 12;
+  }
+
+  function parseChordSymbol(value) {
+    const normalized = normalizeAccidental(value)
+      .replaceAll("Δ", "maj")
+      .replaceAll("ø", "m7b5")
+      .replaceAll("°", "dim")
+      .replaceAll(" ", "");
+    const rootMatch = /^([A-Ga-g])([#b]?)(.*)$/.exec(normalized);
+    if (!rootMatch) throw new Error(`Unsupported chord symbol: ${value}`);
+
+    const root = `${rootMatch[1]}${rootMatch[2]}`;
+    let quality = rootMatch[3];
+    let bass = null;
+    const slashMatch = /^(.*)\/([A-Ga-g])([#b]?)$/.exec(quality);
+    if (slashMatch) {
+      quality = slashMatch[1];
+      bass = `${slashMatch[2]}${slashMatch[3]}`;
+    }
+
+    const lowerQuality = quality.toLowerCase();
+    let intervals;
+    if (/^(m7b5|half-?dim)/.test(lowerQuality)) {
+      intervals = [0, 3, 6, 10];
+    } else if (/^(dim7|o7)/.test(lowerQuality)) {
+      intervals = [0, 3, 6, 9];
+    } else if (/^(dim|o)/.test(lowerQuality)) {
+      intervals = [0, 3, 6];
+    } else if (/^(m|min)maj9/.test(lowerQuality)) {
+      intervals = [0, 2, 3, 7, 11];
+    } else if (/^(m|min)9/.test(lowerQuality)) {
+      intervals = [0, 2, 3, 7, 10];
+    } else if (/^maj9/.test(lowerQuality)) {
+      intervals = [0, 2, 4, 7, 11];
+    } else if (/^9/.test(lowerQuality)) {
+      intervals = [0, 2, 4, 7, 10];
+    } else if (/^(m|min)maj7/.test(lowerQuality)) {
+      intervals = [0, 3, 7, 11];
+    } else if (/^(m|min)7/.test(lowerQuality)) {
+      intervals = [0, 3, 7, 10];
+    } else if (/^maj7/.test(lowerQuality)) {
+      intervals = [0, 4, 7, 11];
+    } else if (/^7/.test(lowerQuality)) {
+      intervals = [0, 4, 7, 10];
+    } else if (/^(m|min)6/.test(lowerQuality)) {
+      intervals = [0, 3, 7, 9];
+    } else if (/^6/.test(lowerQuality)) {
+      intervals = [0, 4, 7, 9];
+    } else if (/^sus2/.test(lowerQuality)) {
+      intervals = [0, 2, 7];
+    } else if (/^sus4|^sus/.test(lowerQuality)) {
+      intervals = [0, 5, 7];
+    } else if (/^(m|min)add9/.test(lowerQuality)) {
+      intervals = [0, 2, 3, 7];
+    } else if (/^add9/.test(lowerQuality)) {
+      intervals = [0, 2, 4, 7];
+    } else if (/^(m|min)$/.test(lowerQuality)) {
+      intervals = [0, 3, 7];
+    } else if (lowerQuality === "" || /^maj$/.test(lowerQuality)) {
+      intervals = [0, 4, 7];
+    } else {
+      throw new Error(`Unsupported chord quality in symbol: ${value}`);
+    }
+
+    return {
+      source: String(value),
+      rootPitchClass: pitchClass(parsePitch(`${root}4`)),
+      bassPitchClass: bass == null ? null : pitchClass(parsePitch(`${bass}4`)),
+      intervals,
+    };
+  }
+
+  function eventPitches(event) {
+    if (event.voices && typeof event.voices === "object") {
+      return SATB_VOICE_NAMES.flatMap((voiceName) => {
+        const value = event.voices[voiceName];
+        return value == null ? [] : Array.isArray(value) ? value : [value];
+      });
+    }
+    return [...(event.treble || []), ...(event.bass || [])];
+  }
+
+  function eventBassPitch(event) {
+    const value = event.voices?.bass ?? event.bass?.[0];
+    if (value == null) return null;
+    return Array.isArray(value) ? value[0] || null : value;
+  }
+
+  function validateChordIdentification(event, expectedSymbol) {
+    const symbols = event.acceptableChordSymbols || [
+      expectedSymbol || event.expectedChordSymbol,
+    ];
+    if (!symbols[0]) {
+      throw new Error("Chord-identification validation needs an expected symbol.");
+    }
+    const actualPitchClasses = new Set(
+      eventPitches(event).map((pitch) => pitchClass(parsePitch(pitch)))
+    );
+    const bassPitch = eventBassPitch(event);
+    const actualBassPitchClass = bassPitch == null
+      ? null
+      : pitchClass(parsePitch(bassPitch));
+    const analyses = symbols.map((symbol) => {
+      const parsed = parseChordSymbol(symbol);
+      const requiredPitchClasses = new Set(
+        parsed.intervals.map((interval) => (parsed.rootPitchClass + interval) % 12)
+      );
+      const missingPitchClasses = [...requiredPitchClasses].filter(
+        (value) => !actualPitchClasses.has(value)
+      );
+      const extraPitchClasses = [...actualPitchClasses].filter(
+        (value) => !requiredPitchClasses.has(value)
+      );
+      const bassMismatch =
+        parsed.bassPitchClass != null &&
+        parsed.bassPitchClass !== actualBassPitchClass;
+      return {
+        symbol,
+        valid:
+          missingPitchClasses.length === 0 &&
+          extraPitchClasses.length === 0 &&
+          !bassMismatch,
+        missingPitchClasses,
+        extraPitchClasses,
+        bassMismatch,
+      };
+    });
+    return {
+      valid: analyses.some((analysis) => analysis.valid),
+      actualPitchClasses: [...actualPitchClasses].sort((a, b) => a - b),
+      analyses,
+    };
+  }
+
+  function validateScoreData(normalizedScore, layout) {
+    const events = normalizedScore.measures.flatMap((measure) => measure.events);
+    events.forEach((event) => {
+      if (event.expectedChordSymbol || event.acceptableChordSymbols) {
+        const validation = validateChordIdentification(event);
+        if (!validation.valid) {
+          const expected = (
+            event.acceptableChordSymbols || [event.expectedChordSymbol]
+          ).join(" or ");
+          throw new Error(
+            `Chord-identification event ${event._index + 1} does not uniquely support ${expected}.`
+          );
+        }
+      }
+      if (layout === "satb") {
+        if (event.voices || event.questionVoices) {
+          selectedSatbVoices(event, true);
+          selectedSatbVoices(event, false);
+        } else {
+          [true, false].forEach((showAnswer) => {
+            splitSatbPitches(
+              visiblePitches(event, "treble", showAnswer),
+              "treble",
+              event._index
+            );
+            splitSatbPitches(
+              visiblePitches(event, "bass", showAnswer),
+              "bass",
+              event._index
+            );
+          });
+        }
+      }
+    });
+  }
+
+  function buildSystems(normalizedScore, score, width) {
+    if (normalizedScore.mode === "explicit") {
+      const measuresPerSystem =
+        score.measuresPerSystem ||
+        Math.max(1, Math.floor((width - MARGIN_X * 2) / MEASURE_MIN_WIDTH));
+      const systems = [];
+      for (
+        let index = 0;
+        index < normalizedScore.measures.length;
+        index += measuresPerSystem
+      ) {
+        systems.push(normalizedScore.measures.slice(index, index + measuresPerSystem));
+      }
+      return systems;
+    }
+
+    const source = normalizedScore.measures[0];
+    const eventsPerSystem =
+      score.eventsPerSystem ||
+      Math.max(1, Math.floor((width - MARGIN_X * 2) / LEGACY_EVENT_MIN_WIDTH));
+    const systems = [];
+    for (let index = 0; index < source.events.length; index += eventsPerSystem) {
+      systems.push([
+        {
+          ...source,
+          index: systems.length,
+          events: source.events.slice(index, index + eventsPerSystem),
+        },
+      ]);
+    }
+    return systems.length ? systems : [[source]];
+  }
+
+  function barlineType(VF, value, fallback) {
+    if (value == null) return fallback;
+    const key = String(value).toLowerCase().replaceAll("_", "-");
+    const typeName = {
+      none: "NONE",
+      single: "SINGLE",
+      double: "DOUBLE",
+      end: "END",
+      final: "END",
+      "repeat-begin": "REPEAT_BEGIN",
+      "repeat-start": "REPEAT_BEGIN",
+      "repeat-end": "REPEAT_END",
+      "repeat-both": "REPEAT_BOTH",
+    }[key];
+    if (!typeName) throw new Error(`Unsupported barline type: ${value}`);
+    return VF.Barline.type[typeName];
   }
 
   function addReference(VF, referenceMap, eventIndex, staff, note, role) {
@@ -250,7 +540,8 @@
     layout,
     showAnswer,
     timeSignature,
-    referenceMap
+    referenceMap,
+    scoreMode
   ) {
     const voiceConfig = {
       num_beats: timeSignature.numerator,
@@ -263,7 +554,7 @@
           VF,
           visiblePitches(event, staff, showAnswer),
           staff,
-          eventDuration(event, staff),
+          eventDuration(event, staff, scoreMode),
           undefined
         );
         note.setStave(stave);
@@ -276,21 +567,22 @@
       return [{ voice, tickables }];
     }
 
-    const roles = [
-      { name: "upper", direction: VF.Stem.UP },
-      { name: "lower", direction: VF.Stem.DOWN },
-    ];
+    const roles = staff === "treble"
+      ? [
+          { name: "soprano", direction: VF.Stem.UP },
+          { name: "alto", direction: VF.Stem.DOWN },
+        ]
+      : [
+          { name: "tenor", direction: VF.Stem.UP },
+          { name: "bass", direction: VF.Stem.DOWN },
+        ];
     return roles.map((role) => {
       const tickables = events.map((event) => {
-        const split = splitSatbPitches(
-          visiblePitches(event, staff, showAnswer),
-          staff
-        );
         const note = makeStaveNote(
           VF,
-          split[role.name],
+          satbPitchesForRole(event, staff, role.name, showAnswer),
           staff,
-          eventDuration(event, staff),
+          eventDuration(event, staff, scoreMode),
           role.direction
         );
         note.setStave(stave);
@@ -310,13 +602,14 @@
     measure,
     systemIndex,
     measureIndexInSystem,
-    timeSignature
+    scoreMode
   ) {
     const isSystemStart = measureIndexInSystem === 0;
     const shouldShowKey = isSystemStart || measure.keySignature;
     const shouldShowTime =
-      (systemIndex === 0 && measureIndexInSystem === 0) ||
-      Boolean(measure.timeSignature);
+      scoreMode === "explicit" &&
+      ((systemIndex === 0 && measureIndexInSystem === 0) ||
+        Boolean(measure.timeSignature));
 
     if (isSystemStart) stave.addClef(clef);
     if (shouldShowKey) {
@@ -325,7 +618,9 @@
       if (key) stave.addKeySignature(key, cancelKey || undefined);
     }
     if (shouldShowTime) {
-      stave.addTimeSignature(measure.timeSignature || timeSignature.text);
+      stave.addTimeSignature(
+        measure.timeSignature || measure.effectiveTimeSignature.text
+      );
     }
   }
 
@@ -544,14 +839,10 @@
       target.closest(".paper")?.getBoundingClientRect().width ||
       900;
     const width = Math.round(clamp(measuredWidth, MIN_RENDER_WIDTH, MAX_RENDER_WIDTH));
-    const measures = normalizeMeasures(score);
-    const measuresPerSystem =
-      score.measuresPerSystem ||
-      Math.max(1, Math.floor((width - MARGIN_X * 2) / MEASURE_MIN_WIDTH));
-    const systems = [];
-    for (let index = 0; index < measures.length; index += measuresPerSystem) {
-      systems.push(measures.slice(index, index + measuresPerSystem));
-    }
+    const normalizedScore = normalizeMeasures(score);
+    validateScoreData(normalizedScore, layout);
+    const systems = buildSystems(normalizedScore, score, width);
+    const events = normalizedScore.measures.flatMap((measure) => measure.events);
 
     const needsTopSpace =
       score.labelPosition === "top" || (score.brackets || []).length > 0;
@@ -569,6 +860,14 @@
     target.dataset.renderer = `VexFlow ${VEXFLOW_VERSION}`;
     target.dataset.scoreMode = showAnswer ? "model" : "question";
     target.dataset.systemCount = String(systems.length);
+    target.dataset.notationStructure =
+      normalizedScore.mode === "explicit"
+        ? "explicit-measures"
+        : "legacy-harmonic-events";
+    target.dataset.measureCount = String(
+      normalizedScore.mode === "explicit" ? normalizedScore.measures.length : 0
+    );
+    target.dataset.eventCount = String(events.length);
 
     const caption = document.createElement("div");
     caption.className = "score-caption";
@@ -585,7 +884,6 @@
     context.setFillStyle("#172033");
     context.setStrokeStyle("#172033");
 
-    const timeSignature = parseTimeSignature(score.timeSignature);
     const references = new Map();
     const anchors = new Map();
     const allVoiceBundles = [];
@@ -600,16 +898,32 @@
 
       systemMeasures.forEach((measure, measureIndexInSystem) => {
         const x = MARGIN_X + measureIndexInSystem * staveWidth;
-        const isFinalMeasure = absoluteMeasureIndex === measures.length - 1;
+        const isLegacy = normalizedScore.mode === "legacy";
+        const isFinalMeasure =
+          absoluteMeasureIndex === normalizedScore.measures.length - 1;
         const topClef = layout === "bass" ? "bass" : "treble";
         const topStave = new VF.Stave(x, topY, staveWidth);
         topStave.setBegBarType(
-          measureIndexInSystem === 0
-            ? VF.Barline.type.SINGLE
-            : VF.Barline.type.NONE
+          barlineType(
+            VF,
+            measure.beginBarline,
+            isLegacy
+              ? VF.Barline.type.NONE
+              : measureIndexInSystem === 0
+                ? VF.Barline.type.SINGLE
+                : VF.Barline.type.NONE
+          )
         );
         topStave.setEndBarType(
-          isFinalMeasure ? VF.Barline.type.END : VF.Barline.type.SINGLE
+          barlineType(
+            VF,
+            measure.endBarline,
+            isLegacy
+              ? VF.Barline.type.NONE
+              : isFinalMeasure
+                ? VF.Barline.type.END
+                : VF.Barline.type.SINGLE
+          )
         );
         addStaveModifiers(
           topStave,
@@ -617,7 +931,7 @@
           measure,
           systemIndex,
           measureIndexInSystem,
-          timeSignature
+          normalizedScore.mode
         );
         topStave.setContext(context).draw();
 
@@ -625,12 +939,26 @@
         if (hasTwoStaves) {
           bottomStave = new VF.Stave(x, bottomY, staveWidth);
           bottomStave.setBegBarType(
-            measureIndexInSystem === 0
-              ? VF.Barline.type.SINGLE
-              : VF.Barline.type.NONE
+            barlineType(
+              VF,
+              measure.beginBarline,
+              isLegacy
+                ? VF.Barline.type.NONE
+                : measureIndexInSystem === 0
+                  ? VF.Barline.type.SINGLE
+                  : VF.Barline.type.NONE
+            )
           );
           bottomStave.setEndBarType(
-            isFinalMeasure ? VF.Barline.type.END : VF.Barline.type.SINGLE
+            barlineType(
+              VF,
+              measure.endBarline,
+              isLegacy
+                ? VF.Barline.type.NONE
+                : isFinalMeasure
+                  ? VF.Barline.type.END
+                  : VF.Barline.type.SINGLE
+            )
           );
           addStaveModifiers(
             bottomStave,
@@ -638,7 +966,7 @@
             measure,
             systemIndex,
             measureIndexInSystem,
-            timeSignature
+            normalizedScore.mode
           );
           bottomStave.setContext(context).draw();
         }
@@ -656,8 +984,9 @@
           topStave,
           layout,
           showAnswer,
-          timeSignature,
-          references
+          measure.effectiveTimeSignature,
+          references,
+          normalizedScore.mode
         );
         const bottomBundles = bottomStave
           ? buildStaffVoices(
@@ -667,8 +996,9 @@
               bottomStave,
               layout,
               showAnswer,
-              timeSignature,
-              references
+              measure.effectiveTimeSignature,
+              references,
+              normalizedScore.mode
             )
           : [];
         const bundles = [...topBundles, ...bottomBundles];
@@ -724,12 +1054,14 @@
       );
     });
 
-    allVoiceBundles.forEach((bundle) => {
-      VF.Beam.generateBeams(bundle.tickables, {
-        beam_rests: false,
-        maintain_stem_directions: layout === "satb",
-      }).forEach((beam) => beam.setContext(context).draw());
-    });
+    if (normalizedScore.mode === "explicit") {
+      allVoiceBundles.forEach((bundle) => {
+        VF.Beam.generateBeams(bundle.tickables, {
+          beam_rests: false,
+          maintain_stem_directions: layout === "satb",
+        }).forEach((beam) => beam.setContext(context).draw());
+      });
+    }
     drawTies(VF, context, score.ties, references, anchors);
 
     const svg = canvas.querySelector("svg");
@@ -750,7 +1082,7 @@
         class: "score-decorations",
         "aria-hidden": "true",
       });
-      measures.flatMap((measure) => measure.events).forEach((event) => {
+      events.forEach((event) => {
         const anchor = anchors.get(event._index);
         if (!anchor) return;
         const label = showAnswer ? event.answerLabel : event.givenLabel;
@@ -774,6 +1106,7 @@
       height,
       systems: systems.length,
       version: VEXFLOW_VERSION,
+      notationStructure: target.dataset.notationStructure,
     };
   }
 
@@ -782,5 +1115,6 @@
     version: VEXFLOW_VERSION,
     parsePitch,
     normalizeDuration,
+    validateChordIdentification,
   });
 })();
