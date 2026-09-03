@@ -10,7 +10,7 @@
     />
     <title>Cadence Lab | AS 91421 Practice</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=2026-09-notation" />
   </head>
   <body>
     <header class="topbar">
@@ -78,13 +78,12 @@
           <ol class="task-list" id="task-list"></ol>
 
           <div class="score-frame">
-            <svg id="score" viewBox="0 0 1000 300" role="img" aria-labelledby="score-title score-desc">
-              <title id="score-title">Generated music score</title>
-              <desc id="score-desc">A short original music extract for harmonic analysis or completion.</desc>
-            </svg>
+            <div
+              id="score"
+              role="img"
+              aria-label="A short original music extract for harmonic analysis or completion."
+            ></div>
           </div>
-
-          <div class="writing-space" id="writing-space" aria-hidden="true"></div>
 
           <section class="answer-panel" id="answer-panel" hidden>
             <div class="answer-banner">
@@ -95,7 +94,7 @@
               </div>
             </div>
             <div id="model-score-wrap" class="model-score-wrap" hidden>
-              <svg id="model-score" viewBox="0 0 1000 300" role="img" aria-label="Model realisation"></svg>
+              <div id="model-score" role="img" aria-label="Model realisation"></div>
             </div>
             <div class="answer-copy" id="answer-copy"></div>
 
@@ -128,6 +127,9 @@
       </section>
     </main>
 
-    <script src="./app.js"></script>
+    <script src="./vendor/vexflow-bravura-4.2.5.js"></script>
+    <script src="./question-bank.js?v=2026-09-notation"></script>
+    <script src="./score-renderer.js?v=2026-09-notation"></script>
+    <script src="./app.js?v=2026-09-notation"></script>
   </body>
 </html>

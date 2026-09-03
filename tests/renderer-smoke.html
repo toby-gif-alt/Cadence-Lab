@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en-NZ">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cadence Lab renderer smoke test</title>
+    <style>
+      body { margin: 20px; font-family: sans-serif; }
+      .fixture { width: 780px; margin-bottom: 24px; border: 1px solid #ddd; }
+      #results { white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <h1>Cadence Lab renderer smoke test</h1>
+    <div class="fixture" id="enharmonic"></div>
+    <div class="fixture" id="bass"></div>
+    <div class="fixture" id="beams-and-ties"></div>
+    <div class="fixture" id="multi-system"></div>
+    <div class="fixture" id="satb-question"></div>
+    <div class="fixture" id="satb-model"></div>
+    <pre id="results"></pre>
+
+    <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
+    <script src="../score-renderer.js?v=2026-09-notation"></script>
+    <script>
+      const renderer = window.CadenceScoreRenderer;
+      const enharmonicScore = {
+        key: "C major",
+        keySignature: "C",
+        layout: "treble",
+        measures: [
+          {
+            events: [
+              { treble: ["F♯4"], duration: "quarter" },
+              { treble: ["G♭4"], duration: "q" },
+              { treble: ["E♯4"], duration: "q" },
+              { treble: ["F4"], duration: "q" },
+            ],
+          },
+          {
+            events: [
+              { treble: ["B♭4"], duration: "half" },
+              { treble: ["A♯4"], duration: "h" },
+            ],
+          },
+          {
+            events: [{ treble: ["C5", "E5", "G5"], duration: "whole" }],
+          },
+        ],
+      };
+      const bassScore = {
+        key: "D minor",
+        keySignature: "Dm",
+        layout: "bass",
+        chords: [
+          { bass: ["D2", "A2"], duration: "h" },
+          { bass: ["C#2", "A2"], duration: "h" },
+        ],
+      };
+      const beamsAndTiesScore = {
+        key: "G major",
+        keySignature: "G",
+        layout: "piano",
+        chords: Array.from({ length: 8 }, (_, index) => ({
+          treble: [index % 2 ? "B4" : "A4"],
+          bass: [index % 2 ? "G3" : "D3"],
+          duration: "8",
+        })),
+        ties: [{ from: 0, to: 1, staff: "treble" }],
+      };
+      const multiSystemScore = {
+        key: "F major",
+        keySignature: "F",
+        layout: "grand",
+        measuresPerSystem: 2,
+        chords: Array.from({ length: 8 }, (_, index) => ({
+          treble: [index % 2 ? "A4" : "C5"],
+          bass: [index % 2 ? "F3" : "C3"],
+          duration: "h",
+        })),
+        ties: [{ from: 3, to: 4, staff: "treble" }],
+      };
+      const satbScore = {
+        key: "F major",
+        keySignature: "F",
+        layout: "satb",
+        completion: true,
+        chords: [
+          {
+            treble: ["A4", "F5"],
+            bass: ["F2", "C3"],
+            qTreble: ["F5"],
+            qBass: ["F2"],
+            duration: "q",
+          },
+          {
+            treble: ["B♭4", "G5"],
+            bass: ["G2", "D3"],
+            qTreble: ["G5"],
+            qBass: ["G2"],
+            duration: "q",
+          },
+        ],
+      };
+
+      renderer.render(document.querySelector("#enharmonic"), enharmonicScore);
+      renderer.render(document.querySelector("#bass"), bassScore);
+      renderer.render(
+        document.querySelector("#beams-and-ties"),
+        beamsAndTiesScore
+      );
+      renderer.render(document.querySelector("#multi-system"), multiSystemScore);
+      renderer.render(document.querySelector("#satb-question"), satbScore);
+      renderer.render(document.querySelector("#satb-model"), satbScore, {
+        showAnswer: true,
+      });
+
+      const pitchSpellings = ["F♯4", "G♭4", "E♯4", "F4", "B♭4", "A♯4"].map(
+        (pitch) => renderer.parsePitch(pitch)
+      );
+      const assertions = {
+        versionPinned: renderer.version === "4.2.5",
+        allEnharmonicsParsed:
+          pitchSpellings.map((pitch) => pitch.accidental).join(",") ===
+          "#,b,#,,b,#",
+        trebleLayout:
+          document.querySelector("#enharmonic").dataset.layout === "treble",
+        bassLayout: document.querySelector("#bass").dataset.layout === "bass",
+        durationAliases:
+          ["quarter", "half", "whole"].map(renderer.normalizeDuration).join() ===
+          "q,h,w",
+        keySignatureRendered:
+          document.querySelectorAll("#enharmonic .vf-keysignature").length > 0,
+        chordsRendered:
+          document.querySelectorAll("#enharmonic .vf-stavenote").length === 7,
+        beamsRendered:
+          document.querySelectorAll("#beams-and-ties .vf-beam").length > 0,
+        tieRendered:
+          document.querySelectorAll("#beams-and-ties .vf-stavetie").length > 0,
+        crossSystemTieRendered:
+          document.querySelectorAll("#multi-system .vf-stavetie").length === 2,
+        multiSystemWrapped:
+          Number(document.querySelector("#multi-system").dataset.systemCount) > 1,
+        satbUsesFourVoices:
+          document.querySelectorAll("#satb-model .vf-stavenote").length === 8,
+        completionOmitsNotes:
+          document.querySelectorAll("#satb-question .vf-stavenote").length <
+          document.querySelectorAll("#satb-model .vf-stavenote").length,
+      };
+      const passed = Object.values(assertions).every(Boolean);
+      document.body.dataset.status = passed ? "pass" : "fail";
+      document.querySelector("#results").textContent = JSON.stringify(
+        { passed, assertions },
+        null,
+        2
+      );
+    </script>
+  </body>
+</html>
