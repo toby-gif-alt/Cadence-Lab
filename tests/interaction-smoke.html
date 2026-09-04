@@ -20,8 +20,8 @@
     <script src="../question-bank.js?v=2026-09-interaction-3"></script>
     <script src="../score-renderer.js?v=2026-09-interaction-3"></script>
     <script src="../question-validator.js?v=2026-09-interaction-3"></script>
-    <script src="../student-answer.js?v=2026-09-interaction-4"></script>
-    <script src="../playback-engine.js?v=2026-09-interaction-3"></script>
+    <script src="../student-answer.js?v=2026-09-interaction-5"></script>
+    <script src="../playback-engine.js?v=2026-09-interaction-5"></script>
     <script>
       const results = document.querySelector("#results");
       const assertions = {};
@@ -90,8 +90,63 @@
           const firstId = satbState.measures[0].voices.alto[0].id;
           satbState = answer.select(satbState, firstId);
           satbState = answer.toggleTie(satbState, satbQuestion);
-          assert("tieCanCrossABarline",
+          assert("contiguousCrossBarlineTiePasses",
             satbState.measures[0].voices.alto[0].tieToNext === true
+          );
+          let contiguousTieState = answer.create(satbQuestion);
+          contiguousTieState = answer.insert(contiguousTieState, satbQuestion, {
+            voice: "alto", measure: 1, beat: 1,
+            pitches: ["C4"], duration: "q",
+          });
+          const contiguousTieStart = contiguousTieState.selectedId;
+          contiguousTieState = answer.insert(contiguousTieState, satbQuestion, {
+            voice: "alto", measure: 1, beat: 2,
+            pitches: ["C4"], duration: "q",
+          });
+          contiguousTieState = answer.select(contiguousTieState, contiguousTieStart);
+          contiguousTieState = answer.toggleTie(contiguousTieState, satbQuestion);
+          assert("contiguousSamePitchTieWithinBarPasses",
+            contiguousTieState.measures[0].voices.alto[0].tieToNext === true
+          );
+
+          let gapTieState = answer.create(satbQuestion);
+          gapTieState = answer.insert(gapTieState, satbQuestion, {
+            voice: "alto", measure: 1, beat: 1,
+            pitches: ["C4"], duration: "q",
+          });
+          const gapTieStart = gapTieState.selectedId;
+          gapTieState = answer.insert(gapTieState, satbQuestion, {
+            voice: "alto", measure: 1, beat: 3,
+            pitches: ["C4"], duration: "q",
+          });
+          gapTieState = answer.select(gapTieState, gapTieStart);
+          assert("samePitchSeparatedByGapCannotTie",
+            expectedError(
+              () => answer.toggleTie(gapTieState, satbQuestion),
+              "noncontiguous-tie"
+            )
+          );
+
+          let crossBarRestState = answer.create(satbQuestion);
+          crossBarRestState = answer.insert(crossBarRestState, satbQuestion, {
+            voice: "alto", measure: 1, beat: 1,
+            pitches: ["C4"], duration: "w",
+          });
+          const crossBarRestStart = crossBarRestState.selectedId;
+          crossBarRestState = answer.insert(crossBarRestState, satbQuestion, {
+            voice: "alto", measure: 2, beat: 1,
+            pitches: [], duration: "q", rest: true,
+          });
+          crossBarRestState = answer.insert(crossBarRestState, satbQuestion, {
+            voice: "alto", measure: 2, beat: 2,
+            pitches: ["C4"], duration: "q",
+          });
+          crossBarRestState = answer.select(crossBarRestState, crossBarRestStart);
+          assert("crossBarlineTieWithInitialRestFails",
+            expectedError(
+              () => answer.toggleTie(crossBarRestState, satbQuestion),
+              "noncontiguous-tie"
+            )
           );
           satbState = answer.select(satbState, secondId);
           satbState = answer.applyAccidental(satbState, satbQuestion, "#");
@@ -288,6 +343,36 @@
               priorEvents: [{ beat: 1, pitches: ["E#5"] }],
             }) === "E#5"
           );
+          function applyKeySignaturePitch(keySignature, initialPitch) {
+            const fixture = JSON.parse(JSON.stringify(satbQuestion));
+            fixture.id = `key-signature-${keySignature}-${initialPitch}`;
+            fixture.score.keySignature = keySignature;
+            let state = answer.create(fixture);
+            state = answer.insert(state, fixture, {
+              voice: "alto", measure: 1, beat: 1,
+              pitches: [initialPitch], duration: "q",
+            });
+            state = answer.applyAccidental(state, fixture, "");
+            const semanticPitch = state.measures[0].voices.alto[0].pitches[0];
+            const renderedPitch = answer.composeScore(fixture, state)
+              .measures[0].voices.alto[0].pitch;
+            const playbackPitch = playback.buildTimeline(
+              answer.scoreForPlayback(fixture, state, "student"), 88
+            ).notes[0].pitch;
+            return { semanticPitch, renderedPitch, playbackPitch };
+          }
+          const gMajorKeyPitch = applyKeySignaturePitch("G", "Fn5");
+          const fMajorKeyPitch = applyKeySignaturePitch("F", "Bn4");
+          const cMajorKeyPitch = applyKeySignaturePitch("C", "F#5");
+          assert("useKeySignatureResolvesGMajorFSharp",
+            Object.values(gMajorKeyPitch).every((pitch) => pitch === "F#5")
+          );
+          assert("useKeySignatureResolvesFMajorBFlat",
+            Object.values(fMajorKeyPitch).every((pitch) => pitch === "Bb4")
+          );
+          assert("useKeySignatureResolvesCMajorFNatural",
+            Object.values(cMajorKeyPitch).every((pitch) => pitch === "F5")
+          );
           const history = new answer.History(answer.create(satbQuestion));
           history.commit(toolState);
           const undone = history.undo();
@@ -386,6 +471,19 @@
             timeline60.measureStarts.join(",") === "0,4" &&
             timeline60.notes.some((note) => note.pitch === "B4" && note.startBeat === 4) &&
             timeline60.notes.some((note) => note.pitch === "C3" && note.startBeat === 4)
+          );
+          const forcedGapTieState = JSON.parse(JSON.stringify(gapTieState));
+          forcedGapTieState.measures[0].voices.alto[0].tieToNext = true;
+          const gapTieTimeline = playback.buildTimeline(
+            answer.scoreForPlayback(satbQuestion, forcedGapTieState, "student"), 60
+          );
+          const separatedCs = gapTieTimeline.notes.filter(
+            (note) => note.pitch === "C4" && note.voice === "alto"
+          );
+          assert("playbackDoesNotSustainThroughGeneratedGap",
+            separatedCs.length === 2 &&
+            separatedCs[0].startBeat === 0 && separatedCs[0].durationBeats === 1 &&
+            separatedCs[1].startBeat === 2 && separatedCs[1].durationBeats === 1
           );
 
           const studentOnly = playback.buildTimeline(

@@ -138,7 +138,9 @@
           (candidate) =>
             candidate.streamEventOrder === note.streamEventOrder + 1 &&
             candidate.pitch === note.pitch &&
-            candidate.startBeat >= note.startBeat
+            Math.abs(
+              candidate.startBeat - (note.startBeat + note.durationBeats)
+            ) < 0.001
         );
         if (next) links.push([note, next]);
       });
@@ -160,7 +162,12 @@
           (!tie.voice || note.voice === tie.voice) &&
           (!tie.lastPitch || note.pitch === tie.lastPitch)
       );
-      if (first && last) links.push([first, last]);
+      if (
+        first && last &&
+        Math.abs(last.startBeat - (first.startBeat + first.durationBeats)) < 0.001
+      ) {
+        links.push([first, last]);
+      }
     });
 
     const continuationIds = new Set();

@@ -90,6 +90,14 @@
     return { numerator: Number(match[1]), denominator: Number(match[2]), text: signature };
   }
 
+  function keySignatureAt(question, measureNumber) {
+    let signature = question.score.keySignature || "C";
+    for (let index = 0; index < measureNumber; index += 1) {
+      signature = question.score.measures[index]?.keySignature || signature;
+    }
+    return signature;
+  }
+
   function measureCapacity(question, measureNumber) {
     return question.score.measures[measureNumber - 1]?.expectedBeats ||
       timeSignatureAt(question, measureNumber).numerator;
@@ -446,18 +454,40 @@
     if (!located || !isEditable(question, located.measure, located.voice)) {
       throw new AnswerError("locked-region", "The supplied notation is locked.");
     }
-    let following = located.stream[located.eventIndex + 1];
-    if (!following) {
-      for (
-        let measure = located.measure + 1;
-        measure <= next.measures.length && !following;
-        measure += 1
-      ) {
-        following = streamFor(next, measure, located.voice)[0];
+    if (located.event.tieToNext) {
+      located.event.tieToNext = false;
+      return withRevision(next);
+    }
+    if (located.event.rest || !located.event.pitches.length) {
+      throw new AnswerError("invalid-tie", "A tie must begin on a pitched note.");
+    }
+
+    const denominator = timeSignatureAt(question, located.measure).denominator;
+    const selected = eventStarts(located.stream, denominator).find(
+      (item) => item.event.id === located.event.id
+    );
+    const endBeat = selected.beat + selected.beats;
+    const barlineBeat = measureCapacity(question, located.measure) + 1;
+    let following = null;
+    if (endBeat < barlineBeat - 0.001) {
+      following = eventStarts(located.stream, denominator).find(
+        (item) => Math.abs(item.beat - endBeat) < 0.001
+      )?.event || null;
+    } else if (Math.abs(endBeat - barlineBeat) < 0.001) {
+      const nextMeasure = located.measure + 1;
+      if (nextMeasure <= next.measures.length) {
+        const nextDenominator = timeSignatureAt(question, nextMeasure).denominator;
+        following = eventStarts(
+          streamFor(next, nextMeasure, located.voice),
+          nextDenominator
+        ).find((item) => Math.abs(item.beat - 1) < 0.001)?.event || null;
       }
     }
-    if (!following) {
-      throw new AnswerError("missing-tie-target", "Enter the following note before adding a tie.");
+    if (!following || following.rest || !following.pitches?.length) {
+      throw new AnswerError(
+        "noncontiguous-tie",
+        "A tie needs the following pitched event to begin exactly when this note ends."
+      );
     }
     const commonPitch = located.event.pitches.some((pitch) =>
       following.pitches.includes(pitch)
@@ -465,7 +495,7 @@
     if (!commonPitch) {
       throw new AnswerError("invalid-tie", "A tie needs the same pitch in the following note or chord.");
     }
-    located.event.tieToNext = !located.event.tieToNext;
+    located.event.tieToNext = true;
     return withRevision(next);
   }
 
@@ -478,11 +508,15 @@
       throw new AnswerError("missing-pitch", "Select a pitched note first.");
     }
     const symbol = normalizeAccidental(accidental);
+    const keySignature = keySignatureAt(question, located.measure);
     const pitches = located.event.pitches.map((pitch) => {
       const match = /^([A-Ga-g])(?:##|bb|#|b|n)?(-?\d+)$/.exec(
         normalizeAccidental(pitch)
       );
-      return match ? `${match[1].toUpperCase()}${symbol}${match[2]}` : pitch;
+      if (!match) return pitch;
+      const letter = match[1].toUpperCase();
+      const resolved = symbol || keyAccidental(keySignature, letter);
+      return `${letter}${resolved}${match[2]}`;
     });
     return updateSelected(state, question, { pitches });
   }
