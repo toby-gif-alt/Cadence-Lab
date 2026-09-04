@@ -8,6 +8,7 @@
   } = window.CadenceData;
   const scoreRenderer = window.CadenceScoreRenderer;
   const answerModel = window.CadenceStudentAnswer;
+  const structuredModel = window.CadenceStructuredAnswer;
   const PlaybackEngine = window.CadencePlayback.PlaybackEngine;
   const levelOrder = { achievement: 1, merit: 2, excellence: 3 };
   const levelNames = {
@@ -25,6 +26,7 @@
 
   let currentQuestion = null;
   let studentAnswer = null;
+  let structuredAnswer = null;
   let answerHistory = null;
   let submissionSnapshot = null;
   let submitted = false;
@@ -34,6 +36,7 @@
   let restMode = false;
   let selectedAccidental = "";
   let selectedForPitchMove = false;
+  let addChordToneArmed = false;
   let selectedPlaybackMode = null;
   let activePlaybackScore = null;
   let activePlaybackMode = null;
@@ -50,6 +53,9 @@
   const scoreElement = document.querySelector("#score");
   const modelScoreElement = document.querySelector("#model-score");
   const editorPanel = document.querySelector("#editor-panel");
+  const structuredPanel = document.querySelector("#structured-response-panel");
+  const structuredControls = document.querySelector("#structured-controls");
+  const structuredBuilder = document.querySelector("#structured-builder");
   const editorStatus = document.querySelector("#editor-status");
   const playbackCursor = document.querySelector("#playback-cursor");
   const playbackStatus = document.querySelector("#playback-status");
@@ -124,10 +130,25 @@
     );
   }
 
+  function isNotationInteraction(question = currentQuestion) {
+    return question?.interaction?.type === "notation-completion";
+  }
+
+  function isStructuredInteraction(question = currentQuestion) {
+    return Boolean(
+      question?.interaction &&
+      structuredModel.TYPES.includes(question.interaction.type)
+    );
+  }
+
   function currentStudentScore() {
-    return currentQuestion.interaction
-      ? answerModel.composeScore(currentQuestion, studentAnswer)
-      : currentQuestion.score;
+    if (isNotationInteraction()) {
+      return answerModel.composeScore(currentQuestion, studentAnswer);
+    }
+    if (isStructuredInteraction()) {
+      return structuredModel.scoreWithResponses(currentQuestion, structuredAnswer);
+    }
+    return currentQuestion.score;
   }
 
   function stopPlayback() {
@@ -166,6 +187,7 @@
     }
     renderedWidth = result.width;
     markSelectedNote();
+    updateEditableHighlights();
   }
 
   function resetQuestionState(question) {
@@ -174,9 +196,10 @@
     lastQuestionId = question.id;
     submitted = false;
     submissionSnapshot = null;
-    studentAnswer = answerModel.create(question);
+    studentAnswer = isNotationInteraction(question) ? answerModel.create(question) : null;
+    structuredAnswer = isStructuredInteraction(question) ? structuredModel.create(question) : null;
     answerHistory = studentAnswer ? new answerModel.History(studentAnswer) : null;
-    selectedVoice = question.interaction
+    selectedVoice = isNotationInteraction(question)
       ? question.interaction.editableRegions[0].voices[0]
       : null;
     selectedDuration = "q";
@@ -184,7 +207,8 @@
     restMode = false;
     selectedAccidental = "";
     selectedForPitchMove = false;
-    selectedPlaybackMode = question.interaction ? "student" : null;
+    addChordToneArmed = false;
+    selectedPlaybackMode = isNotationInteraction(question) ? "student" : null;
     activePlaybackScore = null;
     activePlaybackMode = null;
     renderedWidth = 0;
@@ -223,6 +247,7 @@
     revealButton.disabled = false;
     revealButton.innerHTML = '<span aria-hidden="true">◉</span> Submit &amp; reveal';
     buildEditor(question);
+    buildStructuredResponse(question);
     buildStartBars(question);
     renderScores(true);
     updatePlaybackPermissions();
@@ -282,8 +307,321 @@
     document.querySelector("#judgement-note").textContent = note;
   }
 
+  function commitStructured(next, message, options = {}) {
+    structuredAnswer = next;
+    document.querySelector("#structured-status").textContent = message || "Response updated.";
+    buildStructuredResponse(currentQuestion);
+    if (options.renderScore !== false) {
+      renderedWidth = 0;
+      renderScores(true);
+    }
+  }
+
+  function optionMarkup(options, selected, placeholder = "Choose…") {
+    return [
+      `<option value="">${escapeText(placeholder)}</option>`,
+      ...options.map((option) =>
+        `<option value="${escapeText(option)}"${option === selected ? " selected" : ""}>${escapeText(option)}</option>`
+      ),
+    ].join("");
+  }
+
+  function keyValue(label) {
+    const match = /^(.*) (major|minor)$/.exec(String(label || ""));
+    return match ? { root: match[1], mode: match[2] } : null;
+  }
+
+  function romanInversionChoices(extent) {
+    return extent === "seventh" ? ["root", "b", "c", "d"] : ["root", "b", "c"];
+  }
+
+  function romanBuilderRow(index, value = {}, optional = false) {
+    const key = value.key ? structuredModel.formatKey(value.key) : "";
+    const quality = value.quality || "major";
+    const extent = quality === "half-diminished"
+      ? "seventh"
+      : value.extent === "seventh" ? "seventh" : "triad";
+    const extentChoices = quality === "half-diminished" ? ["seventh"] : ["triad", "seventh"];
+    const inversionChoices = romanInversionChoices(extent);
+    const inversion = inversionChoices.includes(value.inversion) ? value.inversion : "root";
+    return `
+      <div class="builder-row" data-analysis-index="${index}">
+        <label>${optional ? "Pivot / second key" : "Key label"}
+          <select data-part="key">${optionMarkup(currentQuestion.interaction.keyChoices, key, optional ? "No second analysis" : "No key prefix")}</select>
+        </label>
+        <label>Accidental
+          <select data-part="accidental">${optionMarkup(["♯", "♭"], value.accidental === "#" ? "♯" : value.accidental === "b" ? "♭" : "", "None")}</select>
+        </label>
+        <label>Degree
+          <select data-part="degree">${optionMarkup(["I", "II", "III", "IV", "V", "VI", "VII"], value.degree || (optional ? "" : "I"), optional ? "No second analysis" : "Degree")}</select>
+        </label>
+        <label>Quality / case
+          <select data-part="quality">${optionMarkup(["major", "minor", "diminished", "half-diminished", "augmented"], quality, "Quality")}</select>
+        </label>
+        <label>Chord
+          <select data-part="extent"${quality === "half-diminished" ? " disabled" : ""}>${optionMarkup(extentChoices, extent, "Chord size")}</select>
+        </label>
+        <label>Inversion
+          <select data-part="inversion">${optionMarkup(inversionChoices, inversion, "Inversion")}</select>
+        </label>
+        <label>Secondary to
+          <select data-part="secondaryOf">${optionMarkup(["I", "II", "III", "IV", "V", "VI", "VII"], value.secondaryOf || "", "None")}</select>
+        </label>
+        <label>Suspension
+          <select data-part="suspension">${optionMarkup(["♯3", "sus⁴", "sus⁴–♯3", "sus⁴–V♯3", "4–3"], value.suspension || "", "None")}</select>
+        </label>
+      </div>`;
+  }
+
+  function buildRomanControls(interaction) {
+    const slots = interaction.slots;
+    structuredControls.innerHTML = `
+      <div class="structured-slot-grid">
+        ${slots.map((slot) => {
+          const value = structuredAnswer.slots[slot.id];
+          const label = structuredModel.formatValue(value, interaction.type);
+          return `<button type="button" class="structured-slot${slot.id === structuredAnswer.activeSlotId ? " is-active" : ""}" data-slot-id="${slot.id}">
+            <small>${escapeText(slot.label)}</small><strong>${escapeText(label || "Enter analysis")}</strong>
+          </button>`;
+        }).join("")}
+      </div>`;
+    structuredControls.querySelectorAll("[data-slot-id]").forEach((button) => {
+      button.addEventListener("click", () => {
+        structuredAnswer = structuredModel.setActiveSlot(structuredAnswer, button.dataset.slotId);
+        buildStructuredResponse(currentQuestion);
+      });
+    });
+    const slot = slots.find((candidate) => candidate.id === structuredAnswer.activeSlotId) || slots[0];
+    if (!slot) {
+      structuredBuilder.hidden = true;
+      return;
+    }
+    const current = structuredAnswer.slots[slot.id] || {};
+    const analyses = current.analyses || [];
+    structuredBuilder.hidden = false;
+    structuredBuilder.innerHTML = `
+      <p class="builder-preview">${escapeText(structuredModel.formatValue(current, interaction.type) || "Build a Roman-numeral answer")}</p>
+      ${romanBuilderRow(0, analyses[0] || {})}
+      ${slot.allowDualAnalysis ? `<details${analyses[1] ? " open" : ""}>
+        <summary>Add a second / pivot analysis</summary>
+        ${romanBuilderRow(1, analyses[1] || {}, true)}
+      </details>` : ""}
+      <div class="builder-actions">
+        <button type="button" class="button button-primary" data-save-roman>Place analysis</button>
+        <button type="button" class="button button-ghost" data-clear-slot>Clear</button>
+      </div>`;
+    structuredBuilder.querySelectorAll("[data-analysis-index]").forEach((row) => {
+      const qualitySelect = row.querySelector('[data-part="quality"]');
+      const extentSelect = row.querySelector('[data-part="extent"]');
+      const syncInversions = () => {
+        const inversionSelect = row.querySelector('[data-part="inversion"]');
+        const choices = romanInversionChoices(extentSelect.value);
+        const selected = choices.includes(inversionSelect.value) ? inversionSelect.value : "root";
+        inversionSelect.innerHTML = optionMarkup(choices, selected, "Inversion");
+      };
+      const syncQualityAndExtent = () => {
+        const halfDiminished = qualitySelect.value === "half-diminished";
+        const priorExtent = extentSelect.value;
+        const choices = halfDiminished ? ["seventh"] : ["triad", "seventh"];
+        const selected = halfDiminished
+          ? "seventh"
+          : choices.includes(priorExtent) ? priorExtent : "triad";
+        extentSelect.innerHTML = optionMarkup(choices, selected, "Chord size");
+        extentSelect.disabled = halfDiminished;
+        syncInversions();
+      };
+      extentSelect.addEventListener("change", syncInversions);
+      qualitySelect.addEventListener("change", syncQualityAndExtent);
+      syncQualityAndExtent();
+    });
+    structuredBuilder.querySelector("[data-save-roman]").addEventListener("click", () => {
+      const analysesValue = [...structuredBuilder.querySelectorAll("[data-analysis-index]")]
+        .map((row) => {
+          const read = (part) => row.querySelector(`[data-part="${part}"]`).value;
+          const degree = read("degree");
+          if (!degree) return null;
+          const accidentalValue = read("accidental");
+          return {
+            key: keyValue(read("key")),
+            accidental: accidentalValue === "♯" ? "#" : accidentalValue === "♭" ? "b" : "",
+            degree,
+            quality: read("quality"),
+            extent: read("extent"),
+            inversion: read("inversion"),
+            secondaryOf: read("secondaryOf"),
+            suspension: read("suspension"),
+          };
+        })
+        .filter(Boolean);
+      commitStructured(
+        structuredModel.setSlot(structuredAnswer, slot.id, { analyses: analysesValue }),
+        `Analysis placed at ${slot.label}.`
+      );
+    });
+    structuredBuilder.querySelector("[data-clear-slot]").addEventListener("click", () =>
+      commitStructured(structuredModel.setSlot(structuredAnswer, slot.id, null), "Analysis cleared.")
+    );
+  }
+
+  function buildJazzControls(interaction) {
+    const usedTokenIds = new Set(
+      Object.values(structuredAnswer.slots).map((value) => value?.tokenId).filter(Boolean)
+    );
+    structuredControls.innerHTML = `
+      <div class="structured-slot-grid">
+        ${interaction.slots.map((slot) => {
+          const value = structuredAnswer.slots[slot.id];
+          const label = structuredModel.formatValue(value, interaction.type);
+          return `<div class="structured-slot${slot.id === structuredAnswer.activeSlotId ? " is-active" : ""}" data-slot-id="${slot.id}" tabindex="0" role="button" draggable="${Boolean(value?.tokenId)}">
+            <small>${escapeText(slot.label)}</small><strong>${escapeText(label || "Place chord")}</strong>
+            ${value ? '<div class="slot-actions"><button type="button" data-return-slot>Return to bank</button></div>' : ""}
+          </div>`;
+        }).join("")}
+      </div>
+      <div class="chord-bank" aria-label="Shuffled chord bank">
+        ${structuredAnswer.bank.map((token) => `<button type="button" class="chord-token" draggable="true" data-token-id="${token.id}"${usedTokenIds.has(token.id) ? " disabled" : ""}>${escapeText(token.label)}</button>`).join("")}
+      </div>
+      <div class="builder-actions"><button type="button" class="button button-ghost" data-reset-structured>Reset placements</button></div>`;
+    structuredBuilder.hidden = false;
+    structuredBuilder.innerHTML = `
+      <details>
+        <summary>Advanced chord builder</summary>
+        <div class="builder-row">
+          <label>Root<select data-chord-root>${optionMarkup(["C", "C♯", "D♭", "D", "D♯", "E♭", "E", "E♯", "F", "F♯", "G♭", "G", "G♯", "A♭", "A", "A♯", "B♭", "B"], "", "Root")}</select></label>
+          <label>Quality<select data-chord-quality>${optionMarkup(["", "m", "dim", "aug", "sus4"], "", "Major")}</select></label>
+          <label>Addition<select data-chord-addition>${optionMarkup(["6", "7", "maj7", "9", "m7(♭5)", "add9", "7sus4"], "", "None")}</select></label>
+          <label>Slash bass<select data-chord-bass>${optionMarkup(["C", "C♯", "D♭", "D", "D♯", "E♭", "E", "E♯", "F", "F♯", "G♭", "G", "G♯", "A♭", "A", "B♭", "B"], "", "None")}</select></label>
+          <button type="button" class="button button-primary" data-place-built>Place chord</button>
+        </div>
+      </details>`;
+    const activate = (slotId) => {
+      structuredAnswer = structuredModel.setActiveSlot(structuredAnswer, slotId);
+      buildStructuredResponse(currentQuestion);
+    };
+    structuredControls.querySelectorAll("[data-slot-id]").forEach((element) => {
+      element.addEventListener("click", (event) => {
+        if (event.target.closest("[data-return-slot]")) {
+          commitStructured(structuredModel.returnToken(structuredAnswer, element.dataset.slotId), "Chord returned to the bank.");
+        } else {
+          activate(element.dataset.slotId);
+        }
+      });
+      element.addEventListener("dragover", (event) => event.preventDefault());
+      element.addEventListener("drop", (event) => {
+        event.preventDefault();
+        const tokenId = event.dataTransfer.getData("text/cadence-chord");
+        if (tokenId) commitStructured(
+          structuredModel.placeToken(structuredAnswer, element.dataset.slotId, tokenId),
+          "Chord placed."
+        );
+      });
+      element.addEventListener("dragstart", (event) => {
+        const tokenId = structuredAnswer.slots[element.dataset.slotId]?.tokenId;
+        if (tokenId) event.dataTransfer.setData("text/cadence-chord", tokenId);
+      });
+    });
+    structuredControls.querySelectorAll("[data-token-id]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const slotId = structuredAnswer.activeSlotId || interaction.slots.find(
+          (slot) => !structuredAnswer.slots[slot.id]
+        )?.id;
+        if (!slotId) return;
+        commitStructured(
+          structuredModel.placeToken(structuredAnswer, slotId, button.dataset.tokenId),
+          "Chord placed."
+        );
+      });
+      button.addEventListener("dragstart", (event) =>
+        event.dataTransfer.setData("text/cadence-chord", button.dataset.tokenId)
+      );
+    });
+    structuredControls.querySelector("[data-reset-structured]").addEventListener("click", () =>
+      commitStructured(structuredModel.reset(structuredAnswer), "Placements reset.")
+    );
+    structuredBuilder.querySelector("[data-place-built]").addEventListener("click", () => {
+      const root = structuredBuilder.querySelector("[data-chord-root]").value;
+      if (!root || !structuredAnswer.activeSlotId) return;
+      const quality = structuredBuilder.querySelector("[data-chord-quality]").value;
+      const addition = structuredBuilder.querySelector("[data-chord-addition]").value;
+      const bass = structuredBuilder.querySelector("[data-chord-bass]").value;
+      const label = `${root}${quality}${addition}${bass ? `/${bass}` : ""}`;
+      commitStructured(
+        structuredModel.setSlot(structuredAnswer, structuredAnswer.activeSlotId, { label, source: "builder" }),
+        "Built chord placed."
+      );
+    });
+  }
+
+  function buildFieldControls(interaction) {
+    const choicesFor = (field) => {
+      if (field.kind === "key") return interaction.keyChoices;
+      if (field.kind === "relationship") return interaction.relationshipChoices;
+      return field.choices || interaction.classificationChoices || interaction.choices || [];
+    };
+    structuredControls.innerHTML = `
+      <div class="structured-field-grid">
+        ${(interaction.fields || []).map((field) => {
+          const selected = structuredModel.formatValue(structuredAnswer.fields[field.id], interaction.type);
+          return `<div class="structured-field"><label for="field-${field.id}">${escapeText(field.label)}</label>
+            <select id="field-${field.id}" data-field-id="${field.id}">${optionMarkup(choicesFor(field), selected)}</select></div>`;
+        }).join("")}
+      </div>
+      ${interaction.evidencePrompt ? `<label class="evidence-wrap">${escapeText(interaction.evidencePrompt)}<textarea class="evidence-field" data-evidence>${escapeText(structuredAnswer.evidence)}</textarea></label>` : ""}`;
+    structuredBuilder.hidden = true;
+    structuredControls.querySelectorAll("[data-field-id]").forEach((select) => {
+      select.addEventListener("change", () => commitStructured(
+        structuredModel.setField(structuredAnswer, select.dataset.fieldId, select.value ? { label: select.value } : null),
+        "Response updated.",
+        { renderScore: false }
+      ));
+    });
+    structuredControls.querySelector("[data-evidence]")?.addEventListener("change", (event) =>
+      commitStructured(structuredModel.setEvidence(structuredAnswer, event.target.value), "Evidence saved.", { renderScore: false })
+    );
+  }
+
+  function buildStructuredResponse(question) {
+    const active = isStructuredInteraction(question);
+    structuredPanel.hidden = !active;
+    if (!active) {
+      structuredControls.replaceChildren();
+      structuredBuilder.replaceChildren();
+      return;
+    }
+    structuredPanel.querySelectorAll("button, select, textarea").forEach((control) => {
+      control.disabled = submitted;
+    });
+    if (question.interaction.type === "roman-analysis") {
+      buildRomanControls(question.interaction);
+    } else if (question.interaction.type === "jazz-chord-placement") {
+      buildJazzControls(question.interaction);
+      if (question.interaction.fields?.length) {
+        const supplementary = document.createElement("div");
+        supplementary.className = "structured-field-grid";
+        supplementary.innerHTML = question.interaction.fields.map((field) => {
+          const selected = structuredModel.formatValue(structuredAnswer.fields[field.id], question.interaction.type);
+          const choices = field.choices || question.interaction.classificationChoices || [];
+          return `<div class="structured-field"><label for="field-${field.id}">${escapeText(field.label)}</label><select id="field-${field.id}" data-field-id="${field.id}">${optionMarkup(choices, selected)}</select></div>`;
+        }).join("");
+        structuredControls.appendChild(supplementary);
+        supplementary.querySelectorAll("[data-field-id]").forEach((select) =>
+          select.addEventListener("change", () => commitStructured(
+            structuredModel.setField(structuredAnswer, select.dataset.fieldId, select.value ? { label: select.value } : null),
+            "Classification updated.",
+            { renderScore: false }
+          ))
+        );
+      }
+    } else {
+      buildFieldControls(question.interaction);
+    }
+    structuredPanel.querySelectorAll("button, select, textarea").forEach((control) => {
+      control.disabled = submitted || control.disabled;
+    });
+  }
+
   function buildEditor(question) {
-    const interactive = Boolean(question.interaction);
+    const interactive = isNotationInteraction(question);
     editorPanel.hidden = !interactive;
     editorStatus.textContent = "";
     if (!interactive) return;
@@ -312,7 +650,7 @@
   }
 
   function updateEditorControls() {
-    if (!currentQuestion?.interaction) return;
+    if (!isNotationInteraction()) return;
     document.querySelectorAll("#editor-panel button, #editor-panel input").forEach((control) => {
       control.disabled = submitted;
     });
@@ -339,10 +677,36 @@
     restButton.setAttribute("aria-pressed", String(restMode));
     document.querySelector("#undo-edit").disabled = submitted || !answerHistory?.past.length;
     document.querySelector("#redo-edit").disabled = submitted || !answerHistory?.future.length;
+    const chordButton = document.querySelector("#add-to-chord");
+    chordButton.classList.toggle("is-active", addChordToneArmed);
+    chordButton.setAttribute("aria-pressed", String(addChordToneArmed));
     const cursor = studentAnswer?.cursors[selectedVoice];
     document.querySelector("#editor-position").textContent = cursor
       ? `${voiceLabels[selectedVoice]} • bar ${cursor.measure}, beat ${formatBeat(cursor.beat)}`
       : "Select a voice and tap the stave.";
+    const selected = studentAnswer?.selectedId
+      ? answerModel.locate(studentAnswer, studentAnswer.selectedId)
+      : null;
+    const tonePanel = document.querySelector("#selected-chord-tones");
+    const tones = selected?.event?.pitches || [];
+    tonePanel.hidden = tones.length < 2;
+    tonePanel.innerHTML = tones.length >= 2
+      ? `<strong>Chord tones:</strong>${tones.map((pitch) => `<button type="button" class="tone-chip" data-remove-pitch="${escapeText(pitch)}" aria-label="Remove ${escapeText(pitch)} from chord">${escapeText(pitch)} ×</button>`).join("")}`
+      : "";
+    tonePanel.querySelectorAll("[data-remove-pitch]").forEach((button) => {
+      button.disabled = submitted;
+      button.addEventListener("click", () => {
+        try {
+          commitAnswer(
+            answerModel.removePitchFromSelected(studentAnswer, currentQuestion, button.dataset.removePitch),
+            `${button.dataset.removePitch} removed from the chord.`
+          );
+        } catch (error) {
+          handleAnswerError(error);
+        }
+      });
+    });
+    updateEditableHighlights();
   }
 
   function formatBeat(value) {
@@ -396,6 +760,19 @@
 
   function handleScorePointer(event) {
     if (!currentQuestion?.interaction || submitted) return;
+    if (isStructuredInteraction()) {
+      const answerBox = event.target.closest?.(".analysis-box-group.analysis-box-editable");
+      if (answerBox?.dataset.answerSlotId) {
+        structuredAnswer = structuredModel.setActiveSlot(
+          structuredAnswer,
+          answerBox.dataset.answerSlotId
+        );
+        buildStructuredResponse(currentQuestion);
+        structuredPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      return;
+    }
+    if (!isNotationInteraction()) return;
     const studentNode = event.target.closest?.(".student-note");
     if (studentNode?.dataset.editorNoteId) {
       studentAnswer = answerModel.select(studentAnswer, studentNode.dataset.editorNoteId);
@@ -439,7 +816,7 @@
     const spacing = hit.staff === "treble" ? hit.measure.topSpacing : hit.measure.bottomSpacing;
     const topY = hit.staff === "treble" ? hit.measure.topY : hit.measure.bottomY;
     const stepsFromTopLine = Math.round((point.y - topY) / (spacing / 2));
-    const selectedLocation = selectedForPitchMove
+    const selectedLocation = selectedForPitchMove && !addChordToneArmed
       ? answerModel.locate(studentAnswer, studentAnswer.selectedId)
       : null;
     const spellingMeasure = selectedLocation?.measure || hit.measure.measure;
@@ -464,7 +841,7 @@
       }),
     });
     try {
-      const addToChord = document.querySelector("#add-to-chord").checked;
+      const addToChord = addChordToneArmed;
       if (selectedForPitchMove && !restMode && !addToChord) {
         selectedForPitchMove = false;
         commitAnswer(
@@ -488,6 +865,7 @@
         addToChord,
       });
       selectedForPitchMove = false;
+      addChordToneArmed = false;
       commitAnswer(
         next,
         `${restMode ? "Rest" : pitch} entered at bar ${hit.measure.measure}, beat ${formatBeat(tappedBeat)}.`
@@ -506,6 +884,19 @@
         "is-selected",
         note.dataset.editorNoteId === studentAnswer?.selectedId
       );
+    });
+  }
+
+  function updateEditableHighlights() {
+    const currentStaff = ["soprano", "alto", "treble"].includes(selectedVoice)
+      ? "treble"
+      : "bass";
+    scoreElement.querySelectorAll(".editor-hit-target").forEach((target) => {
+      const measure = Number(target.dataset.measure);
+      const active = isNotationInteraction() && !submitted &&
+        target.dataset.staff === currentStaff &&
+        answerModel.isEditable(currentQuestion, measure, selectedVoice);
+      target.classList.toggle("is-current-editable", active);
     });
   }
 
@@ -528,9 +919,9 @@
 
   function playbackPermissions() {
     return {
-      student: Boolean(currentQuestion?.interaction),
+      student: isNotationInteraction(),
       question: submitted,
-      context: Boolean(submitted && currentQuestion?.interaction),
+      context: Boolean(submitted && isNotationInteraction()),
       model: submitted,
     };
   }
@@ -561,9 +952,9 @@
     document.querySelector("#playback-lock-message").textContent = submitted
       ? "Question, context and model playback are unlocked."
       : "Available after you submit your answer.";
-    if (!currentQuestion?.interaction && !submitted) {
+    if (!isNotationInteraction() && !submitted) {
       playbackStatus.textContent = "Printed-score playback is locked until submission.";
-    } else if (currentQuestion?.interaction && !answerHasNotes() && !submitted) {
+    } else if (isNotationInteraction() && !answerHasNotes() && !submitted) {
       playbackStatus.textContent = "Enter a note to enable Hear my work.";
     }
   }
@@ -576,7 +967,10 @@
   }
 
   function playbackScore(mode) {
-    return answerModel.scoreForPlayback(currentQuestion, submissionSnapshot || studentAnswer, mode);
+    if (isNotationInteraction()) {
+      return answerModel.scoreForPlayback(currentQuestion, submissionSnapshot || studentAnswer, mode);
+    }
+    return copy(currentQuestion.score);
   }
 
   function startPlayback(fromSelectedBar = false) {
@@ -635,11 +1029,15 @@
     );
     if (!confirmed) return false;
     stopPlayback();
-    submissionSnapshot = studentAnswer ? copy(studentAnswer) : null;
+    submissionSnapshot = copy(studentAnswer || structuredAnswer);
     if (studentAnswer) {
       studentAnswer = answerModel.setSubmitted(studentAnswer);
       submissionSnapshot = copy(studentAnswer);
       answerHistory.present = copy(studentAnswer);
+    }
+    if (structuredAnswer) {
+      structuredAnswer = structuredModel.setSubmitted(structuredAnswer);
+      submissionSnapshot = copy(structuredAnswer);
     }
     submitted = true;
     document.querySelector("#answer-heading").textContent = currentQuestion.answerHeading;
@@ -648,13 +1046,15 @@
       .join("");
     buildCriteria(currentQuestion, difficultySelect.value);
     answerPanel.hidden = false;
+    buildStudentComparison();
     document.querySelector("#model-score-wrap").hidden = false;
     revealButton.disabled = true;
     revealButton.innerHTML = '<span aria-hidden="true">✓</span> Answer submitted';
     renderedWidth = 0;
     renderScores(true);
     updateEditorControls();
-    selectedPlaybackMode = currentQuestion.interaction && answerHasNotes()
+    buildStructuredResponse(currentQuestion);
+    selectedPlaybackMode = isNotationInteraction() && answerHasNotes()
       ? "context"
       : "question";
     updatePlaybackPermissions();
@@ -662,6 +1062,29 @@
       answerPanel.scrollIntoView({ behavior: "smooth", block: "start" });
     }
     return true;
+  }
+
+  function buildStudentComparison() {
+    const panel = document.querySelector("#student-comparison");
+    if (!isStructuredInteraction() || !submissionSnapshot) {
+      panel.hidden = true;
+      panel.replaceChildren();
+      return;
+    }
+    const comparison = structuredModel.comparison(currentQuestion, submissionSnapshot);
+    const items = [...comparison.slots, ...comparison.fields];
+    panel.hidden = false;
+    panel.innerHTML = `
+      <h4>Your response beside the model</h4>
+      <p>These labels only compare your structured entry with the authored accepted answer; they are not automated NCEA grading.</p>
+      <div class="comparison-grid">
+        ${items.map((item) => `<div class="comparison-item" data-status="${item.status}">
+          <small>${escapeText(item.label)} · ${item.status === "matches" ? "matches model" : item.status === "different" ? "different from model" : "unanswered"}</small>
+          <strong>${escapeText(item.response || "—")}</strong>
+          <span>Model: ${escapeText(item.model || "—")}</span>
+        </div>`).join("")}
+      </div>
+      ${comparison.evidence ? `<div class="comparison-item"><small>Your written evidence</small><strong>${escapeText(comparison.evidence)}</strong></div>` : ""}`;
   }
 
   function showQuestionById(questionId) {
@@ -679,6 +1102,12 @@
   revealButton.addEventListener("click", () => submitAndReveal());
   document.querySelector("#print-question").addEventListener("click", () => window.print());
   scoreElement.addEventListener("pointerdown", handleScorePointer);
+  scoreElement.addEventListener("keydown", (event) => {
+    if (!["Enter", " "].includes(event.key)) return;
+    if (!event.target.closest?.(".analysis-box-group.analysis-box-editable")) return;
+    event.preventDefault();
+    handleScorePointer(event);
+  });
 
   document.querySelectorAll("#duration-controls [data-duration]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -702,6 +1131,13 @@
     if (studentAnswer?.selectedId) {
       editSelected({ rest: restMode }, restMode ? "Converted to a rest." : "Converted to a note.");
     }
+    updateEditorControls();
+  });
+  document.querySelector("#add-to-chord").addEventListener("click", () => {
+    addChordToneArmed = !addChordToneArmed;
+    setEditorStatus(addChordToneArmed
+      ? "Add chord tone is armed for the next stave tap. An empty onset will receive a normal note."
+      : "Add chord tone cancelled.");
     updateEditorControls();
   });
   document.querySelectorAll(".accidental-tool").forEach((button) => {
@@ -754,7 +1190,7 @@
     updatePlaybackPermissions();
   });
   document.addEventListener("keydown", (event) => {
-    if (!currentQuestion?.interaction || submitted || !(event.metaKey || event.ctrlKey)) return;
+    if (!isNotationInteraction() || submitted || !(event.metaKey || event.ctrlKey)) return;
     if (event.key.toLowerCase() !== "z") return;
     event.preventDefault();
     selectedForPitchMove = false;
@@ -810,7 +1246,8 @@
     submit: submitAndReveal,
     stopPlayback,
     getCurrentQuestion: () => currentQuestion,
-    getStudentAnswer: () => copy(studentAnswer),
+    getStudentAnswer: () => copy(studentAnswer || structuredAnswer),
+    getStructuredAnswer: () => copy(structuredAnswer),
     getSubmissionSnapshot: () => copy(submissionSnapshot),
     getPlaybackPermissions: () => copy(playbackPermissions()),
     isSubmitted: () => submitted,

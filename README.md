@@ -35,6 +35,7 @@ There is no procedural music generator. All pitches, rhythms, measures, harmonic
 - `score-renderer.js` adapts the data into responsive VexFlow systems without question-specific drawing code.
 - `question-validator.js` checks structural, music-theory and independent source-fidelity invariants when the static app loads.
 - `student-answer.js` owns immutable learner-answer operations and composes those answers into the shared score format.
+- `structured-answer.js` owns immutable Roman, key/modulation, jazz-placement and feature-classification responses, deterministic chord banks and authored-answer comparison.
 - `playback-engine.js` turns visible score data into a Web Audio timeline without using chord labels as a hidden note source.
 - `vendor/vexflow-bravura-4.2.5.js` is the pinned VexFlow 4.2.5 browser build. Its MIT licence is in `vendor/VEXFLOW-LICENSE.txt`.
 
@@ -63,13 +64,15 @@ Rhythmic notation and harmonic analysis are intentionally separate:
       romanNumeral: "I",
       chordSymbol: "C",
       analysisBox: true,
+      answerRole: "editable",
+      answerSlotId: "analysis-example-h1",
       modelLabel: "C: I"
     }
   ]
 }
 ```
 
-`measure` and `beat` carry the musical location; `event` is a zero-based anchor within that measure. A melody can therefore contain many note events while creating only one analysis box for the active harmony. Answer boxes are drawn inside the score SVG and the renderer calculates top and bottom decoration space per system from the actual overlays, including modulation brackets and pitch-specific note markers.
+`measure` and `beat` carry the musical location; `event` is a zero-based anchor within that measure. `answerRole` is always explicit: `supplied` displays an authored question label, `editable` maps one-to-one to a semantic response slot, and `none` creates no box. Layout or proportional anchors never imply a box by themselves. A melody can therefore contain many note events while creating only one authored analysis position. Answer boxes are drawn inside the score SVG and the renderer calculates top and bottom decoration space per system from the actual overlays, including modulation brackets and pitch-specific note markers.
 
 ### Pitch-specific note annotations
 
@@ -130,7 +133,9 @@ Piano completion events use the corresponding `qTreble` and `qBass` fields to ke
 
 Every question keeps its authoring metadata separate from its learner presentation. `internalTitle`, the complete score, model labels and answer prose remain available for validation and post-submit comparison; `studentTitle`, `studentContext`, `score.studentCaption` and the visible task text are the only presentation fields used before submission. Each entry also declares `hiddenConceptTerms`, and validation checks all 32 questions for accidental concept or answer disclosure. The app does not prebuild hidden answer prose, rubric rows, model SVG content or model playback timelines in the rendered DOM.
 
-The four SATB and four piano completion questions declare explicit `interaction.editableRegions`. Supplied notation is locked, while learner events live in a separate answer state with their own pitches, rests, durations, dots and ties. The editor supports semibreves through semiquavers, accidentals, add-to-chord entry, delete, undo and redo. Clicking a stave position derives a spelled pitch from the current clef, key signature and prior accidentals; it never mutates the question or model score. The renderer accepts independent piano staff voices as well as independent SATB voices, so learner rhythm does not have to be forced onto a shared event grid.
+All 32 questions now declare one of five answer contracts: `roman-analysis`, `key-modulation`, `jazz-chord-placement`, `feature-analysis` or `notation-completion`. Roman answers use structured key, degree, quality, seventh and NZQA inversion fields; second analyses appear only on slots explicitly authored for a pivot, and inversion choices are constrained to the selected chord size. Half-diminished quality is always normalised to a seventh chord in both UI and stored state, while diminished triads remain valid. Modulation answers use X/Y/Z key and tonic-relationship selectors with optional evidence. Jazz tasks use a deterministically shuffled, multiplicity-preserving chord bank plus a structured advanced builder. Feature tasks use plausible choices authored per field rather than a global option pool; *My Funny Valentine* stores its two harmonic techniques separately and compares them as an unordered pair. Every response remains separate from the model score, is snapshotted on submission and is compared only with the accepted answers stored on that exact response item. The comparison language is deliberately limited to “matches model”, “different from model” and “unanswered”; it is not automated NCEA grading.
+
+The four SATB and four piano completion questions declare explicit `interaction.editableRegions`. Supplied notation is locked, while learner events live in a separate answer state with their own pitches, rests, durations, dots and ties. The compact editor uses local SVG notation icons, highlights editable bars for the selected staff, and supports direct semibreve-through-semiquaver entry, accidentals, one-shot add-chord-tone entry, individual chord-tone removal, delete, undo and redo. An add-chord-tone tap at an empty onset falls back to ordinary note insertion. Clicking a stave position derives a spelled pitch from the current clef, key signature and prior accidentals; it never mutates the question or model score. The renderer accepts independent piano staff voices as well as independent SATB voices, so learner rhythm does not have to be forced onto a shared event grid.
 
 Before submission, playback is limited to notes the learner has entered. Submission snapshots and locks the answer, then unlocks the supplied question, learner answer in context and model answer. The Web Audio transport supports 40–160 BPM, pause/resume, stop, start-of-score or selected-bar playback and a measure-aware cursor. Rests advance time, dotted values retain their length, ties merge sustained notes, and simultaneous pitches sound as chords. Resetting, changing question, resizing the notation or submitting stops active playback.
 
@@ -141,6 +146,7 @@ The validator checks that:
 - question IDs and score signatures are distinct;
 - every production score has explicit measures whose durations fill the stated metre;
 - every harmonic event resolves to its authored measure and beat; a supplied label inside a blank completion region receives a non-notated proportional anchor rather than an invented pitch or duration;
+- every harmonic event declares `supplied`, `editable` or `none`, every editable event maps to exactly one response slot, completion tasks contain no editable analysis boxes, and layout anchors cannot create extra boxes;
 - each declared chord symbol is supported by chord-bearing pitches that are present in the displayed notation and by the displayed slash bass, rejecting undeclared added tones; conventional omissions such as a fifth must be explicitly declared on that harmonic event;
 - Roman-numeral roots agree with their declared local keys for the supported diatonic cases;
 - declared non-harmonic notes are outside the active chord and, when a single melodic path is identified, their approach, departure, chord-tone endpoints, direction and metrical accent support the authored passing, auxiliary/neighbour, suspension, appoggiatura or accented-passing classification;
@@ -158,6 +164,6 @@ The Achievement/Merit/Excellence checklists follow the recurring progression in 
 
 ## Browser QA
 
-Serve the repository root over HTTP, then open `tests/renderer-smoke.html`. The renderer smoke page validates the full bank and renders every question and model score at 1000, 780 and 390 pixels. Open `tests/interaction-smoke.html` for the 32-question spoiler audit plus immutable editor, overfill/underfill, lock, tie, chord-entry, timeline and playback-permission regressions. `tests/visual-gallery.html?category=analysis&width=780` provides a category-by-category review; `tests/visual-gallery.html?source=nzqa-reference&width=1000` shows all eight reference questions together. Width accepts any value from 340 to 1040 pixels, and the gallery surfaces all manual-review warnings.
+Serve the repository root over HTTP, then open `tests/renderer-smoke.html`. The renderer smoke page validates the full bank and renders every question and model score at 1000, 780 and 390 pixels, including exact semantic box-count checks. Open `tests/interaction-smoke.html` for the 32-question spoiler audit plus immutable notation and structured-answer state, pivot-only dual Roman controls, chord-size inversion and half-diminished-seventh constraints, per-field feature choices, order-insensitive Valentine techniques, deterministic jazz-bank multiplicity, submission comparison, chord-tone, timeline and playback-permission regressions. `tests/visual-gallery.html?category=analysis&width=780` provides a category-by-category review; `tests/visual-gallery.html?source=nzqa-reference&width=1000` shows all eight reference questions together. Width accepts any value from 340 to 1040 pixels, and the gallery surfaces all manual-review warnings.
 
 Cadence Lab is not an official NZQA resource.

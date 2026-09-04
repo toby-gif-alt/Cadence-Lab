@@ -10,7 +10,7 @@
     />
     <title>Cadence Lab | AS 91421 Practice</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=2026-09-interaction-3" />
+    <link rel="stylesheet" href="./styles.css?v=2026-09-structured-1" />
   </head>
   <body>
     <header class="topbar">
@@ -95,6 +95,19 @@
             <div id="playback-cursor" class="playback-cursor" hidden aria-hidden="true"></div>
           </div>
 
+          <section class="structured-response-panel" id="structured-response-panel" hidden aria-labelledby="structured-response-heading">
+            <div class="tool-panel-heading">
+              <div>
+                <p class="eyebrow">Answer entry</p>
+                <h3 id="structured-response-heading">Build your response</h3>
+              </div>
+              <p class="paper-option">Prefer paper? You can still submit and self-check.</p>
+            </div>
+            <div id="structured-builder" class="structured-builder" hidden></div>
+            <div id="structured-controls"></div>
+            <p id="structured-status" class="editor-status" role="status" aria-live="polite"></p>
+          </section>
+
           <section class="editor-panel" id="editor-panel" hidden aria-labelledby="editor-heading">
             <div class="tool-panel-heading">
               <div>
@@ -111,13 +124,13 @@
 
             <div class="editor-toolbar" aria-label="Notation tools">
               <div class="tool-cluster" id="duration-controls" role="group" aria-label="Note duration">
-                <button type="button" class="notation-tool" data-duration="w" aria-label="Semibreve" title="Semibreve">𝅝</button>
-                <button type="button" class="notation-tool" data-duration="h" aria-label="Minim" title="Minim">𝅗𝅥</button>
-                <button type="button" class="notation-tool is-active" data-duration="q" aria-label="Crotchet" title="Crotchet">♩</button>
-                <button type="button" class="notation-tool" data-duration="8" aria-label="Quaver" title="Quaver">♪</button>
-                <button type="button" class="notation-tool" data-duration="16" aria-label="Semiquaver" title="Semiquaver">𝅘𝅥𝅯</button>
-                <button type="button" class="notation-tool" id="dot-toggle" aria-pressed="false" aria-label="Dotted duration" title="Toggle dot">•</button>
-                <button type="button" class="notation-tool" id="rest-toggle" aria-pressed="false" aria-label="Rest" title="Toggle rest">𝄽</button>
+                <button type="button" class="notation-tool" data-duration="w" aria-label="Semibreve" title="Semibreve"><svg viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="16" rx="7" ry="4.4" fill="none" stroke="currentColor" stroke-width="2.2" transform="rotate(-12 14 16)"/></svg></button>
+                <button type="button" class="notation-tool" data-duration="h" aria-label="Minim" title="Minim"><svg viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="11" cy="20" rx="5.3" ry="3.5" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(-12 11 20)"/><path d="M16 20V4" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+                <button type="button" class="notation-tool is-active" data-duration="q" aria-label="Crotchet" title="Crotchet"><svg viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="11" cy="20" rx="5.4" ry="3.6" fill="currentColor" transform="rotate(-12 11 20)"/><path d="M16 20V4" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+                <button type="button" class="notation-tool" data-duration="8" aria-label="Quaver" title="Quaver"><svg viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="10" cy="20" rx="5" ry="3.5" fill="currentColor" transform="rotate(-12 10 20)"/><path d="M15 20V4c5 2 7 5 7 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+                <button type="button" class="notation-tool" data-duration="16" aria-label="Semiquaver" title="Semiquaver"><svg viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="9" cy="21" rx="5" ry="3.4" fill="currentColor" transform="rotate(-12 9 21)"/><path d="M14 21V3c5 2 7 5 7 8M14 8c5 2 7 5 7 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+                <button type="button" class="notation-tool" id="dot-toggle" aria-pressed="false" aria-label="Dotted duration" title="Toggle dot"><svg viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="10" cy="17" rx="5" ry="3.4" fill="currentColor" transform="rotate(-12 10 17)"/><circle cx="21" cy="17" r="2" fill="currentColor"/></svg></button>
+                <button type="button" class="notation-tool" id="rest-toggle" aria-pressed="false" aria-label="Rest" title="Toggle rest"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M9 6h11l-6 7 5 3-7 8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
               </div>
               <div class="tool-cluster" role="group" aria-label="Accidental">
                 <button type="button" class="notation-tool accidental-tool is-active" data-accidental="" aria-label="Use key signature" title="Use key signature">Key</button>
@@ -126,23 +139,21 @@
                 <button type="button" class="notation-tool accidental-tool" data-accidental="n" aria-label="Natural" title="Natural">♮</button>
               </div>
               <div class="tool-cluster">
-                <button type="button" class="notation-tool" id="tie-note" aria-label="Add or remove tie" title="Add or remove tie">⌒ Tie</button>
-                <button type="button" class="notation-tool" id="delete-note" aria-label="Delete selected note" title="Delete selected note">⌫ Delete</button>
-                <button type="button" class="notation-tool" id="undo-edit" aria-label="Undo" title="Undo">↶ Undo</button>
-                <button type="button" class="notation-tool" id="redo-edit" aria-label="Redo" title="Redo">↷ Redo</button>
+                <button type="button" class="notation-tool tool-with-label" id="tie-note" aria-label="Add or remove tie" title="Add or remove tie"><svg viewBox="0 0 28 18" aria-hidden="true"><path d="M3 14C8 3 20 3 25 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Tie</span></button>
+                <button type="button" class="notation-tool tool-with-label" id="delete-note" aria-label="Delete selected note" title="Delete selected note"><svg viewBox="0 0 28 24" aria-hidden="true"><path d="M7 7h15M11 7V4h7v3M10 10l1 10h8l1-10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Delete</span></button>
+                <button type="button" class="notation-tool tool-with-label" id="undo-edit" aria-label="Undo" title="Undo"><svg viewBox="0 0 28 24" aria-hidden="true"><path d="M10 7H4l4-4M5 7c13-2 18 4 17 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Undo</span></button>
+                <button type="button" class="notation-tool tool-with-label" id="redo-edit" aria-label="Redo" title="Redo"><svg viewBox="0 0 28 24" aria-hidden="true"><path d="M18 7h6l-4-4M23 7C10 5 5 11 6 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Redo</span></button>
               </div>
             </div>
 
             <div class="editor-options">
-              <label class="touch-option">
-                <input type="checkbox" id="add-to-chord" />
-                <span>Add to chord</span>
-              </label>
+              <button type="button" class="notation-action" id="add-to-chord" aria-pressed="false">Add chord tone</button>
               <label class="touch-option">
                 <input type="checkbox" id="audition-entry" checked />
                 <span>Audition notes while entering</span>
               </label>
             </div>
+            <div id="selected-chord-tones" class="selected-chord-tones" hidden></div>
             <p class="editor-help">Tap the appropriate stave to enter the selected duration. Supplied notes are locked. Select one of your notes to edit it.</p>
             <p class="editor-status" id="editor-status" role="status" aria-live="polite"></p>
           </section>
@@ -185,6 +196,7 @@
                 <h3 id="answer-heading"></h3>
               </div>
             </div>
+            <div id="student-comparison" class="student-comparison" hidden></div>
             <div id="model-score-wrap" class="model-score-wrap" hidden>
               <div id="model-score" role="img"></div>
             </div>
@@ -220,11 +232,12 @@
     </main>
 
     <script src="./vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="./question-bank.js?v=2026-09-interaction-3"></script>
-    <script src="./score-renderer.js?v=2026-09-interaction-3"></script>
-    <script src="./question-validator.js?v=2026-09-interaction-3"></script>
+    <script src="./question-bank.js?v=2026-09-structured-1"></script>
+    <script src="./score-renderer.js?v=2026-09-structured-1"></script>
+    <script src="./question-validator.js?v=2026-09-structured-1"></script>
     <script src="./student-answer.js?v=2026-09-interaction-5"></script>
+    <script src="./structured-answer.js?v=2026-09-structured-1"></script>
     <script src="./playback-engine.js?v=2026-09-interaction-5"></script>
-    <script src="./app.js?v=2026-09-interaction-4"></script>
+    <script src="./app.js?v=2026-09-structured-1"></script>
   </body>
 </html>
