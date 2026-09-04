@@ -2017,7 +2017,6 @@
 
     const references = new Map();
     const anchors = new Map();
-    const allVoiceBundles = [];
     let absoluteMeasureIndex = 0;
 
     systems.forEach((system, systemIndex) => {
@@ -2184,15 +2183,33 @@
           stave: topStave,
         });
 
+        bundles.forEach((bundle) => {
+          if (normalizedScore.mode !== "explicit") {
+            bundle.beams = [];
+            return;
+          }
+          const beamOptions = {
+            beam_rests: false,
+            beam_middle_only: true,
+            maintain_stem_directions: layout === "satb",
+          };
+          if (VF.Beam.getDefaultBeamGroups) {
+            beamOptions.groups = VF.Beam.getDefaultBeamGroups(
+              bundle.timeSignature.text
+            );
+          }
+          bundle.beams = VF.Beam.generateBeams(
+            bundle.tickables,
+            beamOptions
+          );
+        });
+
         topBundles.forEach((bundle) => bundle.voice.draw(context, topStave));
         bottomBundles.forEach((bundle) =>
           bundle.voice.draw(context, bottomStave)
         );
-        bundles.forEach((bundle) => {
-          bundle.systemIndex = systemIndex;
-          bundle.measureIndex = measure.index;
-          allVoiceBundles.push(bundle);
-        });
+        bundles.flatMap((bundle) => bundle.beams)
+          .forEach((beam) => beam.setContext(context).draw());
 
         measure.events.forEach((event, eventIndexInMeasure) => {
           const eventReferences = references.get(event._index);
@@ -2230,22 +2247,6 @@
       );
     });
 
-    if (normalizedScore.mode === "explicit") {
-      allVoiceBundles.forEach((bundle) => {
-        const beamOptions = {
-          beam_rests: false,
-          beam_middle_only: true,
-          maintain_stem_directions: layout === "satb",
-        };
-        if (VF.Beam.getDefaultBeamGroups) {
-          beamOptions.groups = VF.Beam.getDefaultBeamGroups(
-            bundle.timeSignature.text
-          );
-        }
-        VF.Beam.generateBeams(bundle.tickables, beamOptions)
-          .forEach((beam) => beam.setContext(context).draw());
-      });
-    }
     drawTies(
       VF,
       context,

@@ -16,6 +16,8 @@
     <div class="fixture" id="decorations"></div>
     <div class="fixture" id="satb-question"></div>
     <div class="fixture" id="satb-model"></div>
+    <div class="fixture" id="beam-regression-question"></div>
+    <div class="fixture" id="beam-regression-model"></div>
     <div id="all-questions" aria-hidden="true"></div>
     <pre id="results"></pre>
 
@@ -39,7 +41,7 @@
     </script>
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
     <script src="../question-bank.js?v=2026-09-engraving-4"></script>
-    <script src="../score-renderer.js?v=2026-09-engraving-4"></script>
+    <script src="../score-renderer.js?v=2026-09-beam-fix-1"></script>
     <script src="../question-validator.js?v=2026-09-engraving-4"></script>
     <script>
       const renderer = window.CadenceScoreRenderer;
@@ -139,6 +141,35 @@
         ],
         harmonicEvents: [],
       };
+      const beamRegressionScore = {
+        key: "C major",
+        keySignature: "C",
+        timeSignature: "4/4",
+        layout: "treble",
+        measures: [
+          { events: [
+            { treble: ["C5"], duration: "8" },
+            { treble: ["D5"], duration: "8" },
+            { treble: ["E5"], duration: "q" },
+            { treble: ["F5"], duration: "8" },
+            { treble: [], trebleRest: true, duration: "8" },
+            { treble: ["G5"], duration: "q" },
+          ] },
+          { timeSignature: "2/2", events: [
+            { treble: ["A4"], duration: "8" },
+            { treble: ["B4"], duration: "8" },
+            { treble: ["C5"], duration: "8" },
+            { treble: ["D5"], duration: "8" },
+            { treble: ["E5"], duration: "h" },
+          ] },
+          { timeSignature: "4/4", endBarline: "final", events: [
+            { treble: ["F5"], duration: "qd" },
+            { treble: [], trebleRest: true, duration: "8" },
+            { treble: ["G5"], duration: "h" },
+          ] },
+        ],
+        harmonicEvents: [],
+      };
 
       renderer.render(document.querySelector("#explicit-rhythm"), rhythmScore);
       renderer.render(document.querySelector("#decorations"), decorationScore, {
@@ -148,6 +179,16 @@
       renderer.render(document.querySelector("#satb-model"), satbScore, {
         showAnswer: true,
       });
+      renderer.render(
+        document.querySelector("#beam-regression-question"),
+        beamRegressionScore,
+        { showAnswer: false }
+      );
+      renderer.render(
+        document.querySelector("#beam-regression-model"),
+        beamRegressionScore,
+        { showAnswer: true }
+      );
       const densityDesktop = document.createElement("div");
       const densityMobile = document.createElement("div");
       document.querySelector("#all-questions").append(
@@ -398,10 +439,45 @@
         });
       }
 
+      function directFlagPathCount(note) {
+        return [...note.children].filter((child) => child.matches("path")).length;
+      }
+
+      function beamFixtureState(target) {
+        const notes = [...target.querySelectorAll(".vf-stavenote")];
+        const beamedQuaverIndexes = [0, 1, 6, 7, 8, 9];
+        const longerValueIndexes = [2, 5, 10, 11, 13];
+        const restIndexes = [4, 12];
+        return {
+          noteCount: notes.length,
+          beamCount: target.querySelectorAll(".vf-beam").length,
+          beamedFlagPaths: beamedQuaverIndexes.map((index) =>
+            directFlagPathCount(notes[index])
+          ),
+          isolatedQuaverFlagPaths: directFlagPathCount(notes[3]),
+          longerValuesRemainStemmedAndUnflagged: longerValueIndexes.every(
+            (index) =>
+              notes[index]?.querySelector(".vf-stem") &&
+              directFlagPathCount(notes[index]) === 0
+          ),
+          restsRemainUnstemmed: restIndexes.every(
+            (index) =>
+              notes[index]?.querySelector(".vf-notehead") &&
+              !notes[index]?.querySelector(".vf-stem")
+          ),
+          restEventCount: target.dataset.restEventCount,
+          dottedEventCount: target.dataset.dottedEventCount,
+        };
+      }
+
       const rhythmTarget = document.querySelector("#explicit-rhythm");
       const decorationTarget = document.querySelector("#decorations");
       const satbQuestion = document.querySelector("#satb-question");
       const satbModel = document.querySelector("#satb-model");
+      const beamQuestion = document.querySelector("#beam-regression-question");
+      const beamModel = document.querySelector("#beam-regression-model");
+      const beamQuestionState = beamFixtureState(beamQuestion);
+      const beamModelState = beamFixtureState(beamModel);
       const valentine = questions.find(
         (question) => question.id === "nzqa-2021-valentine-techniques"
       );
@@ -563,6 +639,22 @@
         restsRecorded: rhythmTarget.dataset.restEventCount === "1",
         explicitTieRendered:
           rhythmTarget.querySelectorAll(".vf-stavetie").length > 0,
+        beamRegressionHasTwoAndFourQuaverGroups:
+          beamQuestionState.noteCount === 14 &&
+          beamQuestionState.beamCount === 2,
+        beamedQuaversDoNotRetainIndividualFlags:
+          beamQuestionState.beamedFlagPaths.every((count) => count === 0),
+        isolatedQuaverRetainsItsFlag:
+          beamQuestionState.isolatedQuaverFlagPaths > 0,
+        crotchetsAndMinimsRemainUnaffected:
+          beamQuestionState.longerValuesRemainStemmedAndUnflagged,
+        beamRegressionRestsRemainCorrect:
+          beamQuestionState.restsRemainUnstemmed &&
+          beamQuestionState.restEventCount === "2",
+        beamRegressionDottedDurationRemainsCorrect:
+          beamQuestionState.dottedEventCount === "1",
+        questionAndModelBeamRenderingMatch:
+          JSON.stringify(beamQuestionState) === JSON.stringify(beamModelState),
         harmonicEventsSeparateFromNotes:
           valentine.score.harmonicEvents.length < valentineEvents.length,
         analysisBoxesDrawnAtHarmonicEvents:
