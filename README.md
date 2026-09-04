@@ -67,7 +67,25 @@ Rhythmic notation and harmonic analysis are intentionally separate:
 }
 ```
 
-`measure` and `beat` carry the musical location; `event` is a zero-based anchor within that measure. A melody can therefore contain many note events while creating only one analysis box for the active harmony. Answer boxes are drawn inside the score SVG and the renderer calculates top and bottom decoration space from the actual overlays, including modulation brackets.
+`measure` and `beat` carry the musical location; `event` is a zero-based anchor within that measure. A melody can therefore contain many note events while creating only one analysis box for the active harmony. Answer boxes are drawn inside the score SVG and the renderer calculates top and bottom decoration space per system from the actual overlays, including modulation brackets and pitch-specific note markers.
+
+### Pitch-specific note annotations
+
+Questions that refer to a marked note use semantic annotation data rather than prose alone:
+
+```js
+noteAnnotations: [
+  {
+    measure: 1,
+    beat: 2,
+    staff: "treble",
+    pitch: "A4",
+    label: "X"
+  }
+]
+```
+
+The renderer resolves the locator to the exact displayed notehead and draws a small examination-style label with a leader. An annotation fails validation if its event, staff, exact pitch or optional named SATB voice cannot be resolved. Markers, section brackets and chord-analysis boxes use separate vertical lanes and remain within the responsive SVG.
 
 ### SATB and completion data
 
@@ -98,6 +116,12 @@ Reference chorales can instead give every part its own rhythmic stream:
 
 The renderer constructs four independent VexFlow voices—soprano and alto on the treble stave, tenor and bass on the bass stave—so each part can retain its own durations, rests and ties. Optional `questionVoices` uses the same stream format for completion prompts. The shared-event form remains available for original practice where all four parts genuinely share a rhythmic grid.
 
+Optional `voiceLabels: { treble: ["S", "A"], bass: ["T", "B"] }` adds compact examination-style part labels at each system. Soprano/alto and tenor/bass are joined as separate contrapuntal pairs for local notehead, accidental and rest collision handling, while a shared formatter preserves vertical rhythmic alignment between the staves. Beams are generated independently for each voice using the active metre's default beat groups.
+
+### Density-aware engraving
+
+Explicit measures are assigned a deterministic preferred width from their rhythmic onsets, shortest value, independent-voice activity, accidentals, rests, dots, ties, close-position seconds/unisons, analysis boxes and note annotations. Measures are packed only while their preferred widths fit the system; remaining width is distributed proportionally. VexFlow's own minimum formatting width is also recorded during formatting for QA. Dense chorale bars therefore receive more horizontal space than sparse bars, and narrow screens reflow to additional systems instead of compressing every bar equally. SATB inter-staff distance also increases modestly for dense or collision-prone systems.
+
 Piano completion events use the corresponding `qTreble` and `qBass` fields to keep the melody or supplied accompaniment visible while hiding notes the learner must write.
 
 ## Validation scope
@@ -109,7 +133,7 @@ The validator checks that:
 - every harmonic event resolves to an authored note-event anchor;
 - each declared chord symbol is supported by chord-bearing pitches that are present in the displayed notation and by the displayed slash bass, rejecting undeclared added tones; conventional omissions such as a fifth must be explicitly declared on that harmonic event;
 - Roman-numeral roots agree with their declared local keys for the supported diatonic cases;
-- declared non-harmonic notes are outside the active chord;
+- declared non-harmonic notes are outside the active chord and, when a single melodic path is identified, their approach, departure, chord-tone endpoints, direction and metrical accent support the authored passing, auxiliary/neighbour, suspension, appoggiatura or accented-passing classification;
 - all SATB events contain four named voices in non-crossing order;
 - reference metadata, year distribution, category counts and the zero-legacy target are preserved;
 - the final tonic-sixth voicing in the C turnaround remains C–E–G–A.
@@ -118,12 +142,12 @@ Chord validation verifies support for the intended symbol. It does not claim to 
 
 Source fidelity is a separate validation layer. Every `nzqa-reference` carries a `sourceSpec` derived from its assessment schedule: exact chord-symbol or Roman-numeral sequences, analysis and answer-position counts, key centres, supplied labels, X/Y/Z sections where relevant, and structural requirements such as independent SATB streams. The report exposes `musicTheoryErrors` and `sourceFidelityErrors` separately. This prevents an incorrectly transcribed label and an equally incorrect set of pitches from validating each other. The 2024 *Love is Commercial* specification, for example, requires the published E♯dim7 label and exact E♯–G♯–B–D spelling.
 
-The validator also produces non-failing `reviewWarnings` for original analysis or jazz items that collapse into equal-duration simultaneous block chords with no independent rhythmic or melodic surface. The visual gallery displays those warnings prominently for manual review; the current bank has none.
+The validator does not invent melodic certainty from ambiguous chord stacks or unidentified SATB parts. When an authored non-harmonic-note label lacks enough voice context, it emits a non-failing `nonharmonic-context-manual-review` warning. It also produces review warnings for original analysis or jazz items that collapse into equal-duration simultaneous block chords with no independent rhythmic or melodic surface. The visual gallery displays all such warnings prominently.
 
 The Achievement/Merit/Excellence checklists follow the recurring progression in the published schedules: isolated correct evidence; secure consecutive/contextual work; then extended analysis or convincing stylistic realisation. They are not percentage cut-offs and are not official marking judgements.
 
 ## Browser QA
 
-Serve the repository root over HTTP, then open `tests/renderer-smoke.html`. The smoke page validates the full bank and renders every question and model score at desktop and mobile widths. `tests/visual-gallery.html?category=analysis&width=780` provides a category-by-category visual review and surfaces any texture warnings; the category can be `analysis`, `modulation`, `satb`, `piano`, `jazz` or `features`, and the width can be `780` or `390`.
+Serve the repository root over HTTP, then open `tests/renderer-smoke.html`. The smoke page validates the full bank and renders every question and model score at 1000, 780 and 390 pixels. `tests/visual-gallery.html?category=analysis&width=780` provides a category-by-category review; `tests/visual-gallery.html?source=nzqa-reference&width=1000` shows all eight reference questions together. Width accepts any value from 340 to 1040 pixels, and the gallery surfaces all manual-review warnings.
 
 Cadence Lab is not an official NZQA resource.

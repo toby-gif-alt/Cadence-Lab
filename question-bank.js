@@ -180,6 +180,7 @@ const questionBank = [
       keySignature: "A",
       timeSignature: "3/4",
       layout: "satb",
+      voiceLabels: { treble: ["S", "A"], bass: ["T", "B"] },
       labelPosition: "bottom",
       caption: "NZQA reference • 2021 Q1(a), Extract One • bars 1–8 transcription",
       measures: [
@@ -303,6 +304,7 @@ const questionBank = [
       key: "C major → A minor",
       keySignature: "C",
       layout: "satb",
+      voiceLabels: { treble: ["S", "A"], bass: ["T", "B"] },
       labelPosition: "bottom",
       caption: "NZQA reference • 2022 Q1(a), Extract One • bars 0–5 transcription",
       measures: [
@@ -543,6 +545,7 @@ const questionBank = [
       key: "C major → E minor",
       keySignature: "C",
       layout: "satb",
+      voiceLabels: { treble: ["S", "A"], bass: ["T", "B"] },
       labelPosition: "bottom",
       caption: "NZQA reference • 2024 Q1(a), Extract One • bars 1–4 transcription",
       measures: [
@@ -722,6 +725,7 @@ const questionBank = [
       key: "G minor with E♭, C minor and F regions",
       keySignature: "Gm",
       layout: "satb",
+      voiceLabels: { treble: ["S", "A"], bass: ["T", "B"] },
       labelPosition: "bottom",
       caption: "NZQA reference • 2023 Q1(b), Extract Two • bars 4–10 transcription",
       brackets: [
@@ -976,6 +980,7 @@ const questionBank = [
       keySignature: "C",
       sourceKeyCentres: ["F major", "C major"],
       layout: "satb",
+      voiceLabels: { treble: ["S", "A"], bass: ["T", "B"] },
       completion: true,
       labelPosition: "bottom",
       caption: "NZQA reference • 2024 Q1(c), Extract Three • bars 17–19 transcription",
@@ -1395,7 +1400,15 @@ const questionBank = [
       analysisPositions: 11,
       suppliedLabels: ["Cm", "Fm"],
       keyCentres: ["C minor"],
-      sections: ["Y", "X", "Y", "X", "Y", "Z"],
+      noteAnnotationLabels: ["Y", "X", "Y", "X", "Y", "Z"],
+      noteAnnotations: [
+        { measure: 1, beat: 3, staff: "treble", pitch: "D5", label: "Y" },
+        { measure: 2, beat: 2.5, staff: "treble", pitch: "F5", label: "X" },
+        { measure: 3, beat: 3, staff: "treble", pitch: "D5", label: "Y" },
+        { measure: 4, beat: 2.5, staff: "treble", pitch: "F5", label: "X" },
+        { measure: 5, beat: 3, staff: "treble", pitch: "G4", label: "Y" },
+        { measure: 6, beat: 3, staff: "treble", pitch: "G4", label: "Z" },
+      ],
       measureCount: 9,
     },
     score: measuredScore({
@@ -1405,13 +1418,13 @@ const questionBank = [
       layout: "piano",
       labelPosition: "top",
       caption: "NZQA reference • 2021 Q3(a), Extract Six • bars 21–29 transcription",
-      brackets: [
-        { start: 1, end: 1, label: "Y" },
-        { start: 4, end: 4, label: "X" },
-        { start: 7, end: 7, label: "Y" },
-        { start: 10, end: 10, label: "X" },
-        { start: 13, end: 13, label: "Y" },
-        { start: 16, end: 16, label: "Z" },
+      noteAnnotations: [
+        { measure: 1, beat: 3, staff: "treble", pitch: "D5", label: "Y" },
+        { measure: 2, beat: 2.5, staff: "treble", pitch: "F5", label: "X" },
+        { measure: 3, beat: 3, staff: "treble", pitch: "D5", label: "Y" },
+        { measure: 4, beat: 2.5, staff: "treble", pitch: "F5", label: "X" },
+        { measure: 5, beat: 3, staff: "treble", pitch: "G4", label: "Y" },
+        { measure: 6, beat: 3, staff: "treble", pitch: "G4", label: "Z" },
       ],
       measures: [
         { events: [
@@ -2049,22 +2062,25 @@ const questionBank = [
       caption: "Original practice • active-chord note classification",
       measures: [
         { endBarline: "final", events: [
-          { treble: ["B3", "D4", "F#4", "G4"], bass: ["G2"], duration: "q" },
-          { treble: ["B3", "D4", "F#4", "G4", "A4"], bass: ["G2"], duration: "q" },
-          { treble: ["B3", "D4", "F#4", "G4"], bass: ["G2"], duration: "q" },
-          { treble: ["B3", "D4", "F#4", "G4"], bass: ["G2"], duration: "q" },
+          { treble: ["G4"], bass: ["G2", "B2", "D3", "F#3"], duration: "q" },
+          { treble: ["A4"], bass: ["G2", "B2", "D3", "F#3"], duration: "q" },
+          { treble: ["B4"], bass: ["G2", "B2", "D3", "F#3"], duration: "q" },
+          { treble: ["B4"], bass: ["G2", "B2", "D3", "F#3"], duration: "q" },
         ] },
       ],
       harmonicEvents: [
         { measure: 1, beat: 1, event: 0, analysisBox: false, chordSymbol: "Gmaj7" },
       ],
       nonHarmonicNotes: [
-        { measure: 1, event: 1, pitch: "A4", chordSymbol: "Gmaj7", type: "passing note" },
+        { measure: 1, event: 1, staff: "treble", pitch: "A4", chordSymbol: "Gmaj7", type: "passing note" },
+      ],
+      noteAnnotations: [
+        { measure: 1, beat: 2, staff: "treble", pitch: "A4", label: "X" },
       ],
     }),
     answerHeading: "Active-chord classification",
     answer: [
-      "F♯ is the major seventh of Gmaj7, so it belongs to the active chord and is not a non-harmonic note. A lies outside G–B–D–F♯ and passes by step between chord tones, so A is the non-harmonic passing note.",
+      "F♯ is the major seventh of Gmaj7 and therefore a chord tone. A is outside Gmaj7 and passes by step from G to B, so it is a passing note.",
     ],
   }),
   createQuestion({

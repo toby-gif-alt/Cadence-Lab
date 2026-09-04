@@ -38,9 +38,9 @@
       });
     </script>
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../question-bank.js?v=2026-09-source-fidelity-4"></script>
-    <script src="../score-renderer.js?v=2026-09-source-fidelity-4"></script>
-    <script src="../question-validator.js?v=2026-09-source-fidelity-4"></script>
+    <script src="../question-bank.js?v=2026-09-engraving-4"></script>
+    <script src="../score-renderer.js?v=2026-09-engraving-4"></script>
+    <script src="../question-validator.js?v=2026-09-engraving-4"></script>
     <script>
       const renderer = window.CadenceScoreRenderer;
       const questions = window.CadenceData.questions;
@@ -118,6 +118,27 @@
         ] }],
         harmonicEvents: [],
       };
+      const densityScore = {
+        key: "C major",
+        keySignature: "C",
+        timeSignature: "4/4",
+        layout: "satb",
+        measures: [
+          { voices: {
+            soprano: [{ pitch: "G4", duration: "w" }],
+            alto: [{ pitch: "E4", duration: "w" }],
+            tenor: [{ pitch: "C4", duration: "w" }],
+            bass: [{ pitch: "C3", duration: "w" }],
+          } },
+          { voices: {
+            soprano: ["G4", "A4", "B4", "C5", "B4", "A4", "G4", "F4"].map((pitch) => ({ pitch, duration: "8" })),
+            alto: ["E4", "F4", "G4", "A4", "G4", "F4", "E4", "D4"].map((pitch) => ({ pitch, duration: "8" })),
+            tenor: ["C4", "D4", "E4", "F4", "E4", "D4", "C4", "B3"].map((pitch) => ({ pitch, duration: "8" })),
+            bass: ["C3", "B2", "A2", "G2", "A2", "B2", "C3", "G2"].map((pitch) => ({ pitch, duration: "8" })),
+          }, endBarline: "final" },
+        ],
+        harmonicEvents: [],
+      };
 
       renderer.render(document.querySelector("#explicit-rhythm"), rhythmScore);
       renderer.render(document.querySelector("#decorations"), decorationScore, {
@@ -127,6 +148,14 @@
       renderer.render(document.querySelector("#satb-model"), satbScore, {
         showAnswer: true,
       });
+      const densityDesktop = document.createElement("div");
+      const densityMobile = document.createElement("div");
+      document.querySelector("#all-questions").append(
+        densityDesktop,
+        densityMobile
+      );
+      renderer.render(densityDesktop, densityScore, { width: 780 });
+      renderer.render(densityMobile, densityScore, { width: 390 });
 
       let incompatibleSatbRejected = false;
       try {
@@ -154,6 +183,28 @@
         correctedC6,
         "C6"
       );
+      const nonHarmonicFeature = questions.find(
+        (question) => question.id === "feature-nonharmonic"
+      );
+      const featureAnnotationTargets = [1000, 780, 390].map((width) => {
+        const target = document.createElement("div");
+        document.querySelector("#all-questions").append(target);
+        renderer.render(target, nonHarmonicFeature.score, { width });
+        return target;
+      });
+      const neighbourMislabeledAsPassing = structuredClone(questions);
+      const corruptedPassingFeature = neighbourMislabeledAsPassing.find(
+        (question) => question.id === "feature-nonharmonic"
+      );
+      corruptedPassingFeature.score.measures[0].events[2].treble = ["G4"];
+      const neighbourPassingReport =
+        window.CadenceQuestionValidator.validate(neighbourMislabeledAsPassing);
+      const missingAnnotationPitch = structuredClone(questions);
+      missingAnnotationPitch.find(
+        (question) => question.id === "feature-nonharmonic"
+      ).score.noteAnnotations[0].pitch = "C5";
+      const missingAnnotationPitchReport =
+        window.CadenceQuestionValidator.validate(missingAnnotationPitch);
       const expectedCommercialSequence = [
         "C♯m(add9)", "Dmaj7", "Bm9", "G♯dim/B", "C♯7sus4", "C♯7",
         "F♯m", "E♯dim7", "F♯m/E", "D♯m7(♭5)", "Dmaj7",
@@ -238,10 +289,14 @@
         );
 
       const categoryRenderErrors = [];
+      const layoutCheckErrors = [];
       const renderedCategories = new Set();
+      const referenceSystemCounts = {};
+      const referenceQuestionRenders = {};
+      const referenceSatbAlignmentDeltas = [];
       questions.forEach((question) => {
         [false, true].forEach((showAnswer) => {
-          [780, 390].forEach((width) => {
+          [1000, 780, 390].forEach((width) => {
             const target = document.createElement("div");
             document.querySelector("#all-questions").append(target);
             const layout = question.score.layout ||
@@ -257,6 +312,30 @@
                 width,
               });
               renderedCategories.add(question.category);
+              if (independentBachIds.includes(question.id)) {
+                referenceSatbAlignmentDeltas.push(
+                  Number(target.dataset.maximumSatbAlignmentDelta)
+                );
+              }
+              if (question.sourceType === "nzqa-reference" && !showAnswer) {
+                referenceSystemCounts[question.id] ||= {};
+                referenceSystemCounts[question.id][width] = Number(
+                  target.dataset.systemCount
+                );
+                referenceQuestionRenders[question.id] ||= {};
+                referenceQuestionRenders[question.id][width] = target;
+              }
+              const svg = target.querySelector("svg");
+              const viewWidth = Number(svg?.getAttribute("viewBox")?.split(/\s+/)[2]);
+              const bounds = svg?.getBBox();
+              if (
+                !svg || !bounds || bounds.x < -1 ||
+                bounds.x + bounds.width > viewWidth + 1
+              ) {
+                layoutCheckErrors.push(
+                  `${question.id} (${showAnswer ? "model" : "question"}, ${width}px): horizontal SVG overflow`
+                );
+              }
             } catch (error) {
               categoryRenderErrors.push(
                 `${question.id} (${showAnswer ? "model" : "question"}, ${width}px): ${error.message}`
@@ -266,19 +345,56 @@
         });
       });
 
-      function boxesInsideViewBox(target) {
+      function elementsInsideViewBox(target, selector) {
         const svg = target.querySelector("svg");
         if (!svg) return false;
         const [, , width, height] = svg
           .getAttribute("viewBox")
           .split(/\s+/)
           .map(Number);
-        return [...svg.querySelectorAll(".analysis-box")].every((box) => {
-          const x = Number(box.getAttribute("x"));
-          const y = Number(box.getAttribute("y"));
-          const boxWidth = Number(box.getAttribute("width"));
-          const boxHeight = Number(box.getAttribute("height"));
-          return x >= 0 && y >= 0 && x + boxWidth <= width && y + boxHeight <= height;
+        const elements = [...svg.querySelectorAll(selector)];
+        return elements.every((element) => {
+          const bounds = element.getBBox();
+          return bounds.x >= -0.5 && bounds.y >= -0.5 &&
+            bounds.x + bounds.width <= width + 0.5 &&
+            bounds.y + bounds.height <= height + 0.5;
+        });
+      }
+
+      function boxesInsideViewBox(target) {
+        return elementsInsideViewBox(target, ".analysis-box");
+      }
+
+      function rectanglesOverlap(first, second, padding = 0) {
+        return !(
+          first.x + first.width + padding <= second.x ||
+          second.x + second.width + padding <= first.x ||
+          first.y + first.height + padding <= second.y ||
+          second.y + second.height + padding <= first.y
+        );
+      }
+
+      function annotationLabelsAvoidNotation(target) {
+        const svg = target.querySelector("svg");
+        if (!svg) return false;
+        const labels = [...svg.querySelectorAll(".note-annotation-label")];
+        const obstacles = [...svg.querySelectorAll(
+          ".vf-stem, .vf-beam, .vf-accidental"
+        )];
+        return labels.length > 0 && obstacles.length > 0 && labels.every(
+          (label) => obstacles.every(
+            (obstacle) => !rectanglesOverlap(label.getBBox(), obstacle.getBBox(), 1)
+          )
+        );
+      }
+
+      function bracketsClearStaffs(target) {
+        const topStaffYs = JSON.parse(target.dataset.systemTopStaffYs || "[]");
+        const brackets = [...target.querySelectorAll(".analysis-bracket")];
+        return brackets.every((bracket) => {
+          const systemIndex = Number(bracket.dataset.systemIndex);
+          const bounds = bracket.getBBox();
+          return bounds.y + bounds.height < topStaffYs[systemIndex] - 2;
         });
       }
 
@@ -302,6 +418,18 @@
           ).length,
         ])
       );
+      const densityPreferredWidths = JSON.parse(
+        densityDesktop.dataset.measurePreferredWidths
+      );
+      const densityRenderedWidths = JSON.parse(
+        densityDesktop.dataset.measureWidths
+      );
+      const referenceQuestionTargets = [...document.querySelectorAll(
+        "#all-questions .notation-score"
+      )].filter((target) =>
+        target.closest("#all-questions") &&
+        target.dataset.scoreMode === "question"
+      );
       const assertions = {
         versionPinned: renderer.version === "4.2.5",
         bankValidatorPasses: validatorReport.valid,
@@ -318,9 +446,52 @@
         unevenReferenceYearsAllowed:
           referenceCounts[2024] === 3 && referenceCounts[2022] === 1,
         originalAnalysisAndJazzTextureReviewPasses:
-          validatorReport.reviewWarnings.length === 0,
+          validatorReport.reviewWarnings.every(
+            (warning) => warning.code !== "worksheet-like-texture"
+          ),
+        insufficientNonHarmonicContextsFlaggedForManualReview:
+          validatorReport.reviewWarnings.some(
+            (warning) => warning.code === "nonharmonic-context-manual-review"
+          ),
+        correctedGABPassesPassingValidation:
+          validatorReport.musicTheoryErrors.every(
+            (error) => !error.includes("feature-nonharmonic")
+          ),
+        GAGCannotValidateAsPassing:
+          neighbourPassingReport.musicTheoryErrors.some(
+            (error) =>
+              error.includes("feature-nonharmonic") &&
+              error.includes("G4–A4–G4") &&
+              error.includes("does not support passing note")
+          ),
+        missingAnnotationPitchRejected:
+          missingAnnotationPitchReport.musicTheoryErrors.some(
+            (error) =>
+              error.includes("feature-nonharmonic") &&
+              error.includes("cannot find C5")
+          ),
+        semanticNoteAnnotationsResolveAtAllWidths:
+          featureAnnotationTargets.every(
+            (target) =>
+              target.dataset.noteAnnotationCount === "1" &&
+              target.dataset.resolvedNoteAnnotationCount === "1" &&
+              target.querySelector(".note-annotation")?.dataset.pitch === "A4" &&
+              target.querySelector(".note-annotation-label")?.textContent === "X"
+          ),
+        noteAnnotationsStayInsideSvg:
+          featureAnnotationTargets.every((target) =>
+            elementsInsideViewBox(target, ".note-annotation")
+          ),
+        noteAnnotationLabelsAvoidStemsBeamsAndAccidentals:
+          featureAnnotationTargets.every(annotationLabelsAvoidNotation),
         sourceFidelityValidatorPasses:
           validatorReport.sourceFidelityErrors.length === 0,
+        valentineUsesPitchSpecificAnnotations:
+          valentine.score.noteAnnotations?.length === 6 &&
+          !valentine.score.brackets?.length &&
+          valentine.score.noteAnnotations.every(
+            (annotation) => annotation.pitch && annotation.staff === "treble"
+          ),
         commercialSequenceMatchesPublishedSchedule:
           JSON.stringify(commercialSequence) ===
           JSON.stringify(expectedCommercialSequence),
@@ -399,8 +570,48 @@
           decorationTarget.dataset.analysisBoxCount === "3",
         boxesRemainInsideSvg: boxesInsideViewBox(decorationTarget),
         bracketsAndTopBoxesCoexist:
-          decorationTarget.querySelectorAll(".score-decorations path").length > 0 &&
-          boxesInsideViewBox(decorationTarget),
+          decorationTarget.querySelectorAll(".analysis-bracket").length > 0 &&
+          boxesInsideViewBox(decorationTarget) &&
+          elementsInsideViewBox(
+            decorationTarget,
+            ".analysis-bracket, .analysis-bracket-label"
+          ) &&
+          bracketsClearStaffs(decorationTarget),
+        denseMeasuresReceiveMoreWidth:
+          densityPreferredWidths[1] > densityPreferredWidths[0] * 1.5 &&
+          densityRenderedWidths[1] > densityRenderedWidths[0] * 1.35,
+        systemsReflowAtMobileWidth:
+          Number(densityMobile.dataset.systemCount) >
+            Number(densityDesktop.dataset.systemCount) &&
+          Object.values(referenceSystemCounts).every(
+            (counts) => counts[390] >= counts[780] && counts[780] >= counts[1000]
+          ),
+        rhythmicPositionsKeepMinimumClearance:
+          Number(densityDesktop.dataset.minimumRhythmicGap) >= 12 &&
+          Number(densityMobile.dataset.minimumRhythmicGap) >= 12,
+        satbVoicesShareRhythmicTickPositions:
+          Number(densityDesktop.dataset.maximumSatbAlignmentDelta) <= 0.5 &&
+          Number(densityMobile.dataset.maximumSatbAlignmentDelta) <= 0.5 &&
+          referenceSatbAlignmentDeltas.every((delta) => delta <= 0.5),
+        referenceDecorationsStayInsideSvg:
+          Object.values(referenceQuestionRenders).every((renders) =>
+            Object.values(renders).every(
+              (target) =>
+                elementsInsideViewBox(
+                  target,
+                  ".analysis-box, .analysis-bracket, .analysis-bracket-label, .note-annotation"
+                ) && bracketsClearStaffs(target)
+            )
+          ),
+        nzqaChoralesShowConfiguredVoiceLabels:
+          independentBachIds.every((id) =>
+            Object.values(referenceQuestionRenders[id]).every(
+              (target) =>
+                target.querySelectorAll(".satb-voice-label").length ===
+                  Number(target.dataset.systemCount) * 4
+            )
+          ),
+        noSystemLevelHorizontalOverflow: layoutCheckErrors.length === 0,
         namedSatbUsesAllFourVoices:
           satbModel.querySelectorAll(".vf-stavenote").length === 8,
         incompatibleSatbRejected,
@@ -413,7 +624,7 @@
           ["E4", "G4", "A4"].every((pitch) =>
             correctedC6.treble.includes(pitch)
           ) && correctedC6.bass.includes("C3"),
-        allQuestionsRenderAtDesktopAndMobile:
+        allQuestionsRenderAtRequestedWidths:
           categoryRenderErrors.length === 0 &&
           ["analysis", "modulation", "satb", "piano", "jazz", "features"].every(
             (category) => renderedCategories.has(category)
@@ -422,7 +633,7 @@
       const passed = Object.values(assertions).every(Boolean);
       document.body.dataset.status = passed ? "pass" : "fail";
       document.querySelector("#results").textContent = JSON.stringify(
-        { passed, assertions, categoryRenderErrors, validatorReport },
+        { passed, assertions, categoryRenderErrors, layoutCheckErrors, validatorReport },
         null,
         2
       );

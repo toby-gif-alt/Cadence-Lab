@@ -187,18 +187,224 @@
     });
   }
 
-  function validateNonHarmonicNotes(question, errors) {
-    (question.score.nonHarmonicNotes || []).forEach((note) => {
-      const parsedChord = renderer.parseChordSymbol(note.chordSymbol);
-      const chordPitchClasses = new Set(
-        parsedChord.intervals.map(
-          (interval) => (parsedChord.rootPitchClass + interval) % 12
-        )
+  function chordPitchClasses(symbol) {
+    const parsedChord = renderer.parseChordSymbol(symbol);
+    return new Set(
+      parsedChord.intervals.map(
+        (interval) => (parsedChord.rootPitchClass + interval) % 12
+      )
+    );
+  }
+
+  function isStep(first, second) {
+    const distance = Math.abs(pitchNumber(second) - pitchNumber(first));
+    return distance === 1 || distance === 2;
+  }
+
+  function melodicContext(question, normalized, note) {
+    const measure = normalized.measures[note.measure - 1];
+    const targetEvent = measure?.events[note.event];
+    if (!measure || !targetEvent) {
+      return { manual: "the referenced event does not exist" };
+    }
+    if (measure.voiceStreams) {
+      if (!note.voice || !SATB_NAMES.includes(note.voice)) {
+        return {
+          manual:
+            "independent SATB data needs an explicit voice before melodic classification can be checked",
+        };
+      }
+      const stream = measure.voiceStreams[note.voice];
+      const index = stream.findIndex(
+        (event) =>
+          event._anchorIndex === targetEvent._index &&
+          event.pitch === note.pitch
       );
+      if (index < 0) {
+        return { manual: `${note.pitch} is not an onset in ${note.voice}` };
+      }
+      const previous = stream[index - 1];
+      const current = stream[index];
+      const next = stream[index + 1];
+      if (
+        !previous?.pitch || previous.rest ||
+        !current?.pitch || current.rest ||
+        !next?.pitch || next.rest
+      ) {
+        return { manual: "the voice lacks pitched notes on both sides" };
+      }
+      return {
+        previousPitch: previous.pitch,
+        currentPitch: current.pitch,
+        nextPitch: next.pitch,
+        beat: current._beat,
+        timeSignature: measure.effectiveTimeSignature,
+      };
+    }
+
+    if (!note.staff || !["treble", "bass"].includes(note.staff)) {
+      return {
+        manual:
+          "the score does not identify which staff carries the melodic line",
+      };
+    }
+    const events = measure.events;
+    const previous = events[note.event - 1];
+    const next = events[note.event + 1];
+    const previousPitches = previous?.[note.staff] || [];
+    const currentPitches = targetEvent[note.staff] || [];
+    const nextPitches = next?.[note.staff] || [];
+    if (
+      previousPitches.length !== 1 ||
+      currentPitches.length !== 1 ||
+      nextPitches.length !== 1
+    ) {
+      return {
+        manual:
+          "adjacent events do not define one unambiguous melodic pitch on the selected staff",
+      };
+    }
+    if (currentPitches[0] !== note.pitch) {
+      return { manual: `${note.pitch} is not the selected melodic pitch` };
+    }
+    return {
+      previousPitch: previousPitches[0],
+      currentPitch: currentPitches[0],
+      nextPitch: nextPitches[0],
+      beat: targetEvent._beat,
+      timeSignature: measure.effectiveTimeSignature,
+    };
+  }
+
+  function isMetricAccent(beat, timeSignature) {
+    if (!timeSignature || !Number.isFinite(beat)) return null;
+    const roundedBeat = Math.round(beat);
+    if (Math.abs(beat - roundedBeat) > 0.001) return false;
+    if (timeSignature.numerator >= 6 && timeSignature.numerator % 3 === 0) {
+      return [1, 4, 7, 10].includes(roundedBeat);
+    }
+    if (timeSignature.numerator === 4) return [1, 3].includes(roundedBeat);
+    return roundedBeat === 1;
+  }
+
+  function validateNonHarmonicContext(note, context) {
+    const type = String(note.type || "").toLowerCase();
+    const chordTones = chordPitchClasses(note.chordSymbol);
+    const previousChordTone = chordTones.has(
+      renderer.pitchClass(renderer.parsePitch(context.previousPitch))
+    );
+    const nextChordTone = chordTones.has(
+      renderer.pitchClass(renderer.parsePitch(context.nextPitch))
+    );
+    const approachIsStep = isStep(context.previousPitch, context.currentPitch);
+    const departureIsStep = isStep(context.currentPitch, context.nextPitch);
+    const approach = pitchNumber(context.currentPitch) -
+      pitchNumber(context.previousPitch);
+    const departure = pitchNumber(context.nextPitch) -
+      pitchNumber(context.currentPitch);
+    const sameDirection = Math.sign(approach) === Math.sign(departure);
+    const returnsToSamePitch =
+      pitchNumber(context.previousPitch) === pitchNumber(context.nextPitch);
+
+    if (type.includes("accented passing")) {
+      const metricAccent = isMetricAccent(context.beat, context.timeSignature);
+      if (metricAccent == null) {
+        return { manual: "explicit metrical placement is unavailable" };
+      }
+      return {
+        valid:
+          approachIsStep && departureIsStep && previousChordTone &&
+          nextChordTone && !returnsToSamePitch && sameDirection && metricAccent,
+        expectation:
+          "an accented passing note approached and left by step in one direction between different chord tones on an accented beat",
+      };
+    }
+    if (type.includes("passing")) {
+      return {
+        valid:
+          approachIsStep && departureIsStep && previousChordTone &&
+          nextChordTone && !returnsToSamePitch && sameDirection,
+        expectation:
+          "a passing note approached and left by step in one direction between different chord tones",
+      };
+    }
+    if (type.includes("auxiliary") || type.includes("neighbour") ||
+        type.includes("neighbor")) {
+      return {
+        valid:
+          approachIsStep && departureIsStep && previousChordTone &&
+          nextChordTone && returnsToSamePitch,
+        expectation:
+          "an auxiliary or neighbour note that leaves a chord tone by step and returns to the same chord tone",
+      };
+    }
+    if (type.includes("appoggiatura")) {
+      return {
+        valid:
+          Math.abs(approach) > 2 && departureIsStep && nextChordTone,
+        expectation:
+          "an appoggiatura approached by leap and resolved by step to a chord tone",
+      };
+    }
+    if (type.includes("suspension")) {
+      if (!note.preparedChordSymbol) {
+        return {
+          manual:
+            "suspension validation needs preparedChordSymbol for the preceding harmony",
+        };
+      }
+      const preparedTones = chordPitchClasses(note.preparedChordSymbol);
+      const preparedAsChordTone = preparedTones.has(
+        renderer.pitchClass(renderer.parsePitch(context.currentPitch))
+      );
+      return {
+        valid:
+          preparedAsChordTone &&
+          pitchNumber(context.previousPitch) === pitchNumber(context.currentPitch) &&
+          departureIsStep && nextChordTone && departure < 0,
+        expectation:
+          "a prepared chord tone held or repeated into a new harmony and resolved down by step",
+      };
+    }
+    return { manual: `unsupported non-harmonic-note type ${note.type}` };
+  }
+
+  function validateNonHarmonicNotes(
+    question,
+    normalized,
+    errors,
+    reviewWarnings
+  ) {
+    (question.score.nonHarmonicNotes || []).forEach((note) => {
+      const activeChordPitchClasses = chordPitchClasses(note.chordSymbol);
       const notePitchClass = renderer.pitchClass(renderer.parsePitch(note.pitch));
-      if (chordPitchClasses.has(notePitchClass)) {
+      if (activeChordPitchClasses.has(notePitchClass)) {
         errors.push(
           `${question.id}: ${note.pitch} is labelled ${note.type} but belongs to ${note.chordSymbol}`
+        );
+        return;
+      }
+      const context = melodicContext(question, normalized, note);
+      if (context.manual) {
+        reviewWarnings.push({
+          questionId: question.id,
+          category: question.category,
+          code: "nonharmonic-context-manual-review",
+          message: `Manual review: ${note.pitch} labelled ${note.type} — ${context.manual}.`,
+        });
+        return;
+      }
+      const classification = validateNonHarmonicContext(note, context);
+      if (classification.manual) {
+        reviewWarnings.push({
+          questionId: question.id,
+          category: question.category,
+          code: "nonharmonic-context-manual-review",
+          message: `Manual review: ${note.pitch} labelled ${note.type} — ${classification.manual}.`,
+        });
+      } else if (!classification.valid) {
+        errors.push(
+          `${question.id}: ${context.previousPitch}–${context.currentPitch}–${context.nextPitch} does not support ${note.type}; expected ${classification.expectation}`
         );
       }
     });
@@ -332,6 +538,22 @@
     compareList(
       "sections",
       (question.score.brackets || []).map((section) => section.label)
+    );
+    compareList(
+      "noteAnnotationLabels",
+      (question.score.noteAnnotations || []).map(
+        (annotation) => annotation.label
+      )
+    );
+    compareList(
+      "noteAnnotations",
+      (question.score.noteAnnotations || []).map((annotation) => ({
+        measure: annotation.measure,
+        beat: annotation.beat,
+        staff: annotation.staff,
+        pitch: annotation.pitch,
+        label: annotation.label,
+      }))
     );
     compareList(
       "sectionRanges",
@@ -580,13 +802,14 @@
       try {
         normalized = renderer.normalizeMeasures(question.score);
         harmonicEvents = renderer.normalizeHarmonicEvents(question.score, normalized);
+        renderer.normalizeNoteAnnotations(question.score, normalized);
       } catch (error) {
         errors.push(`${question.id}: ${error.message}`);
         return;
       }
       validateChordEvents(question, normalized, harmonicEvents, errors);
       validateRomanRoots(question, harmonicEvents, errors);
-      validateNonHarmonicNotes(question, errors);
+      validateNonHarmonicNotes(question, normalized, errors, reviewWarnings);
       validateSatb(question, normalized, errors);
       validateSourceFidelity(
         question,
