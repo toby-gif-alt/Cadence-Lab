@@ -11,6 +11,13 @@
     jazz: 6,
     features: 6,
   };
+  const EDITOR_VOICES = new Set([
+    "soprano",
+    "alto",
+    "tenor",
+    "bass",
+    "treble",
+  ]);
 
   function pitchNumber(value) {
     const parsed = renderer.parsePitch(value);
@@ -22,6 +29,76 @@
       return `${question.source.year} ${question.source.question} ${question.source.part}`;
     }
     return question.source?.title || question.id;
+  }
+
+  function validateStudentPresentation(question, errors) {
+    ["internalTitle", "studentTitle", "studentContext"].forEach((field) => {
+      if (!question[field] || typeof question[field] !== "string") {
+        errors.push(`${question.id}: missing ${field}`);
+      }
+    });
+    if (!question.score.studentCaption) {
+      errors.push(`${question.id}: missing score.studentCaption`);
+    }
+    if (!Array.isArray(question.hiddenConceptTerms)) {
+      errors.push(`${question.id}: hiddenConceptTerms must be an array`);
+      return;
+    }
+    const studentFacingText = [
+      question.studentTitle,
+      question.studentContext,
+      question.score.studentCaption,
+      ...Object.values(question.tasks || {}).flat(),
+    ].join(" ").toLocaleLowerCase("en-NZ");
+    question.hiddenConceptTerms.forEach((term) => {
+      if (!term || typeof term !== "string") {
+        errors.push(`${question.id}: hiddenConceptTerms contains an invalid value`);
+      } else if (studentFacingText.includes(term.toLocaleLowerCase("en-NZ"))) {
+        errors.push(
+          `${question.id}: student-facing presentation exposes hidden concept term “${term}”`
+        );
+      }
+    });
+  }
+
+  function validateInteraction(question, errors) {
+    const interaction = question.interaction;
+    if (question.score.completion && !interaction) {
+      errors.push(`${question.id}: completion score lacks interaction metadata`);
+      return;
+    }
+    if (!interaction) return;
+    if (interaction.type !== "notation-completion") {
+      errors.push(`${question.id}: unsupported interaction type ${interaction.type}`);
+    }
+    if (!["satb", "piano"].includes(question.category)) {
+      errors.push(`${question.id}: notation completion is only valid for SATB or piano`);
+    }
+    if (!Array.isArray(interaction.editableRegions) || !interaction.editableRegions.length) {
+      errors.push(`${question.id}: interaction lacks editableRegions`);
+      return;
+    }
+    const allowedVoices = question.category === "satb"
+      ? new Set(SATB_NAMES)
+      : new Set(["treble", "bass"]);
+    interaction.editableRegions.forEach((region, regionIndex) => {
+      if (!Array.isArray(region.measures) || !region.measures.length) {
+        errors.push(`${question.id}: editable region ${regionIndex + 1} lacks measures`);
+      }
+      if (!Array.isArray(region.voices) || !region.voices.length) {
+        errors.push(`${question.id}: editable region ${regionIndex + 1} lacks voices`);
+      }
+      (region.measures || []).forEach((measure) => {
+        if (!Number.isInteger(measure) || measure < 1 || measure > question.score.measures.length) {
+          errors.push(`${question.id}: editable region refers to invalid measure ${measure}`);
+        }
+      });
+      (region.voices || []).forEach((voice) => {
+        if (!EDITOR_VOICES.has(voice) || !allowedVoices.has(voice)) {
+          errors.push(`${question.id}: editable region uses invalid voice ${voice}`);
+        }
+      });
+    });
   }
 
   function validateMeasureDurations(question, errors) {
@@ -757,6 +834,7 @@
   function validate(questions, options = {}) {
     const errors = [];
     const sourceFidelityErrors = [];
+    const spoilerAuditErrors = [];
     const reviewWarnings = [];
     const ids = new Set();
     const signatures = new Map();
@@ -787,6 +865,8 @@
           }
         );
       }
+      validateStudentPresentation(question, spoilerAuditErrors);
+      validateInteraction(question, errors);
       if (!Array.isArray(question.score.measures) || !question.score.measures.length) {
         errors.push(`${question.id}: legacy or empty score data`);
         return;
@@ -868,12 +948,13 @@
       errors.push("jazz-c-turnaround: final voicing must support C6 (C–E–G–A)");
     }
 
-    const allErrors = [...errors, ...sourceFidelityErrors];
+    const allErrors = [...errors, ...sourceFidelityErrors, ...spoilerAuditErrors];
     const report = {
       valid: allErrors.length === 0,
       errors: allErrors,
       musicTheoryErrors: errors,
       sourceFidelityErrors,
+      spoilerAuditErrors,
       total: questions.length,
       categoryCounts,
       referenceCount: references.length,

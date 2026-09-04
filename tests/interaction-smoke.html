@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en-NZ">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cadence Lab interaction smoke test</title>
+    <style>
+      body { margin: 20px; font-family: system-ui, sans-serif; }
+      #render-fixture { position: absolute; left: -10000px; width: 780px; }
+      #app-frame { position: absolute; left: -10000px; width: 1100px; height: 900px; }
+      #results { white-space: pre-wrap; }
+    </style>
+  </head>
+  <body data-status="running">
+    <h1>Cadence Lab interaction smoke test</h1>
+    <div id="render-fixture" aria-hidden="true"></div>
+    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c"></iframe>
+    <pre id="results">Running…</pre>
+
+    <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
+    <script src="../question-bank.js?v=2026-09-interaction-3"></script>
+    <script src="../score-renderer.js?v=2026-09-interaction-3"></script>
+    <script src="../question-validator.js?v=2026-09-interaction-3"></script>
+    <script src="../student-answer.js?v=2026-09-interaction-3"></script>
+    <script src="../playback-engine.js?v=2026-09-interaction-3"></script>
+    <script>
+      const results = document.querySelector("#results");
+      const assertions = {};
+      const details = {};
+
+      function assert(name, condition, detail = null) {
+        assertions[name] = Boolean(condition);
+        if (!condition && detail != null) details[name] = detail;
+      }
+
+      function expectedError(callback, code, message) {
+        try {
+          callback();
+          return false;
+        } catch (error) {
+          return error.code === code && (!message || error.message === message);
+        }
+      }
+
+      function finish(error = null) {
+        if (error) details.runtimeError = error.stack || String(error);
+        const passed = !error && Object.values(assertions).every(Boolean);
+        document.body.dataset.status = passed ? "pass" : "fail";
+        results.textContent = JSON.stringify({ passed, assertions, details }, null, 2);
+      }
+
+      window.addEventListener("error", (event) => finish(event.error || event.message));
+      window.addEventListener("unhandledrejection", (event) => finish(event.reason));
+
+      document.querySelector("#app-frame").addEventListener("load", () => {
+        try {
+          const questions = window.CadenceData.questions;
+          const answer = window.CadenceStudentAnswer;
+          const playback = window.CadencePlayback;
+          const renderer = window.CadenceScoreRenderer;
+          const report = window.CadenceQuestionValidator.report;
+
+          assert("all32QuestionsHaveSpoilerAuditMetadata",
+            questions.length === 32 && questions.every((question) =>
+              question.internalTitle && question.studentTitle &&
+              question.studentContext && question.score.studentCaption &&
+              Array.isArray(question.hiddenConceptTerms)
+            )
+          );
+          assert("validatorAcceptsStudentPresentation",
+            report.valid && report.spoilerAuditErrors.length === 0,
+            report.spoilerAuditErrors
+          );
+          assert("exactlyEightCompletionQuestionsAreInteractive",
+            questions.filter((question) => question.interaction).length === 8 &&
+            questions.filter((question) => question.score.completion)
+              .every((question) => question.interaction?.type === "notation-completion")
+          );
+
+          const satbQuestion = questions.find((question) => question.id === "satb-f-c");
+          const satbSourceBefore = JSON.stringify(satbQuestion);
+          let satbState = answer.create(satbQuestion);
+          satbState = answer.insert(satbState, satbQuestion, {
+            voice: "alto", measure: 1, pitches: ["C4"], duration: "w",
+          });
+          satbState = answer.insert(satbState, satbQuestion, {
+            voice: "alto", measure: 2, pitches: ["C4"], duration: "q",
+          });
+          const secondId = satbState.selectedId;
+          const firstId = satbState.measures[0].voices.alto[0].id;
+          satbState = answer.select(satbState, firstId);
+          satbState = answer.toggleTie(satbState, satbQuestion);
+          assert("tieCanCrossABarline",
+            satbState.measures[0].voices.alto[0].tieToNext === true
+          );
+          satbState = answer.select(satbState, secondId);
+          satbState = answer.applyAccidental(satbState, satbQuestion, "#");
+          assert("accidentalEditingPreservesSpelling",
+            satbState.measures[1].voices.alto[0].pitches[0] === "C#4"
+          );
+
+          let overfillState = answer.create(satbQuestion);
+          overfillState = answer.insert(overfillState, satbQuestion, {
+            voice: "alto", measure: 1, pitches: ["A3"], duration: "h",
+          });
+          overfillState = answer.insert(overfillState, satbQuestion, {
+            voice: "alto", measure: 1, pitches: ["B3"], duration: "q",
+          });
+          assert("underfilledMeasuresAreAllowed",
+            answer.usedBeats(overfillState.measures[0].voices.alto) === 3
+          );
+          assert("measureOverfillHasExactRemainingBeatFeedback",
+            expectedError(
+              () => answer.insert(overfillState, satbQuestion, {
+                voice: "alto", measure: 1, pitches: ["C4"], duration: "h",
+              }),
+              "measure-overfill",
+              "That note exceeds the remaining 1 beat in this bar."
+            )
+          );
+          assert("suppliedVoicesAndBarsAreLocked",
+            expectedError(
+              () => answer.insert(overfillState, satbQuestion, {
+                voice: "soprano", measure: 1, pitches: ["F5"], duration: "q",
+              }),
+              "locked-region"
+            )
+          );
+
+          let toolState = answer.create(satbQuestion);
+          toolState = answer.insert(toolState, satbQuestion, {
+            voice: "tenor", measure: 1, pitches: [], duration: "8", rest: true,
+          });
+          toolState = answer.insert(toolState, satbQuestion, {
+            voice: "tenor", measure: 1, pitches: ["F3"], duration: "8d",
+          });
+          assert("restsAndDottedDurationsAreSemanticEvents",
+            toolState.measures[0].voices.tenor[0].rest === true &&
+            toolState.measures[0].voices.tenor[1].duration === "8d" &&
+            answer.durationBeats("8d") === 0.75
+          );
+          assert("editorSupportsTheCompleteRequiredDurationPalette",
+            [["w", 4], ["h", 2], ["q", 1], ["8", 0.5], ["16", 0.25]]
+              .every(([duration, beats]) => answer.durationBeats(duration) === beats)
+          );
+          assert("keySignaturesAndMeasureAccidentalsPreserveSpelling",
+            answer.spellPitchAtStaffPosition({
+              staff: "treble", stepsFromTopLine: 0, keySignature: "G",
+            }) === "F#5" &&
+            answer.spellPitchAtStaffPosition({
+              staff: "treble", stepsFromTopLine: 0, keySignature: "G",
+              priorEvents: [{ pitches: ["Fn5"] }],
+            }) === "Fn5"
+          );
+          const history = new answer.History(answer.create(satbQuestion));
+          history.commit(toolState);
+          const undone = history.undo();
+          const redone = history.redo();
+          assert("undoAndRedoRoundTripSemanticState",
+            !undone.measures[0].voices.tenor &&
+            redone.measures[0].voices.tenor.length === 2
+          );
+          const deleted = answer.deleteSelected(toolState, satbQuestion);
+          assert("deleteRemovesOnlyTheSelectedStudentEvent",
+            deleted.measures[0].voices.tenor.length === 1
+          );
+
+          const pianoQuestion = questions.find((question) => question.id === "piano-d-f");
+          let pianoState = answer.create(pianoQuestion);
+          pianoState = answer.insert(pianoState, pianoQuestion, {
+            voice: "bass", measure: 2, pitches: ["D3"], duration: "q",
+          });
+          const cursorAfterOnset = JSON.stringify(pianoState.cursors.bass);
+          pianoState = answer.insert(pianoState, pianoQuestion, {
+            voice: "bass", measure: 2, pitches: ["A3"], duration: "q", addToChord: true,
+          });
+          assert("addToChordBuildsASingleRhythmicOnset",
+            pianoState.measures[1].voices.bass.length === 1 &&
+            pianoState.measures[1].voices.bass[0].pitches.length === 2 &&
+            JSON.stringify(pianoState.cursors.bass) === cursorAfterOnset
+          );
+          assert("questionAndModelDataRemainImmutable",
+            JSON.stringify(satbQuestion) === satbSourceBefore
+          );
+          const submittedState = answer.setSubmitted(pianoState);
+          assert("submittedAnswersAreLocked",
+            submittedState.submitted && expectedError(
+              () => answer.insert(submittedState, pianoQuestion, {
+                voice: "bass", pitches: ["F3"], duration: "q",
+              }),
+              "answer-locked"
+            )
+          );
+
+          const composedSatb = answer.composeScore(satbQuestion, satbState);
+          const satbFixture = document.createElement("div");
+          document.querySelector("#render-fixture").append(satbFixture);
+          renderer.render(satbFixture, composedSatb, { width: 780 });
+          assert("studentAndLockedNotesShareTheNormalRenderer",
+            satbFixture.querySelectorAll(".student-note").length >= 2 &&
+            satbFixture.querySelectorAll(".locked-note").length > 0 &&
+            satbFixture.querySelectorAll(".editor-hit-target").length === 6
+          );
+          assert("satbVoiceStemDirectionsRemainIndependent",
+            ["soprano", "alto", "tenor", "bass"].every((voice) =>
+              composedSatb.measures.every((measure) => Array.isArray(measure.voices[voice]))
+            ) && Number(satbFixture.dataset.maximumSatbAlignmentDelta) <= 0.5
+          );
+
+          const timelineScore = {
+            timeSignature: "4/4",
+            measures: [
+              { staffVoices: {
+                treble: [{ role: "melody", events: [
+                  { pitches: ["C4", "E4"], duration: "q", tieToNext: true },
+                  { pitches: ["C4", "E4"], duration: "q" },
+                  { pitches: ["G4"], duration: "qd" },
+                  { pitches: ["A4"], duration: "8" },
+                ] }],
+                bass: [{ role: "bass", events: [
+                  { rest: true, duration: "q" },
+                  { pitches: ["C3"], duration: "h" },
+                  { rest: true, duration: "q" },
+                ] }],
+              } },
+              { staffVoices: {
+                treble: [{ role: "melody", events: [
+                  { pitches: ["B4"], duration: "w" },
+                ] }],
+                bass: [{ role: "bass", events: [
+                  { pitches: ["C3"], duration: "w" },
+                ] }],
+              } },
+            ],
+          };
+          const timeline60 = playback.buildTimeline(timelineScore, 60);
+          const timeline120 = playback.buildTimeline(timelineScore, 120);
+          const tiedC = timeline60.notes.find((note) => note.pitch === "C4");
+          assert("timelineSupportsChordsRestsDotsAndTies",
+            timeline60.notes.filter((note) => note.startBeat === 0).length === 2 &&
+            tiedC.durationBeats === 2 &&
+            !timeline60.notes.some((note) => note.staff === "bass" && note.startBeat === 0) &&
+            timeline60.notes.some((note) => note.pitch === "G4" && note.durationBeats === 1.5)
+          );
+          assert("tempoScalesTimelineWithoutChangingNotes",
+            timeline60.durationSeconds === timeline120.durationSeconds * 2 &&
+            timeline60.notes.length === timeline120.notes.length
+          );
+          assert("timelineKeepsVoicesSynchronizedByMeasure",
+            timeline60.measureStarts.join(",") === "0,4" &&
+            timeline60.notes.some((note) => note.pitch === "B4" && note.startBeat === 4) &&
+            timeline60.notes.some((note) => note.pitch === "C3" && note.startBeat === 4)
+          );
+
+          const studentOnly = playback.buildTimeline(
+            answer.scoreForPlayback(pianoQuestion, pianoState, "student"), 88
+          );
+          const sourceOnly = playback.buildTimeline(
+            answer.scoreForPlayback(pianoQuestion, pianoState, "question"), 88
+          );
+          const inContext = playback.buildTimeline(
+            answer.scoreForPlayback(pianoQuestion, pianoState, "context"), 88
+          );
+          assert("studentPlaybackContainsOnlyAuthoredNotes",
+            studentOnly.notes.length === 2 &&
+            studentOnly.notes.every((note) => ["D3", "A3"].includes(note.pitch))
+          );
+          assert("contextPlaybackCombinesSourceAndStudent",
+            sourceOnly.notes.length > 0 &&
+            inContext.notes.length === sourceOnly.notes.length + studentOnly.notes.length
+          );
+
+          const frame = document.querySelector("#app-frame");
+          const appWindow = frame.contentWindow;
+          const appDocument = frame.contentDocument;
+          const preRevealLeaks = [];
+          questions.forEach((question) => {
+            appWindow.CadenceLab.showQuestion(question.id);
+            const visibleText = appDocument.body.innerText.toLocaleLowerCase("en-NZ");
+            const renderedDomText = appDocument.body.textContent.toLocaleLowerCase("en-NZ");
+            const exposedAttributes = [...appDocument.querySelectorAll("*")]
+              .flatMap((element) => [...element.attributes]
+                .filter((attribute) =>
+                  attribute.name === "aria-label" ||
+                  attribute.name === "title" ||
+                  attribute.name.startsWith("data-")
+                )
+                .map((attribute) => attribute.value)
+              )
+              .filter(Boolean)
+              .join(" ")
+              .toLocaleLowerCase("en-NZ");
+            question.hiddenConceptTerms.forEach((term) => {
+              const normalized = term.toLocaleLowerCase("en-NZ");
+              if (
+                visibleText.includes(normalized) ||
+                renderedDomText.includes(normalized) ||
+                exposedAttributes.includes(normalized)
+              ) {
+                preRevealLeaks.push(`${question.id}: ${term}`);
+              }
+            });
+            if (
+              appDocument.querySelector("#answer-heading").textContent ||
+              appDocument.querySelector("#answer-copy").children.length ||
+              appDocument.querySelector("#criteria-grid").children.length ||
+              appDocument.querySelector("#model-score").children.length ||
+              appDocument.querySelector("#model-score").hasAttribute("aria-label")
+            ) {
+              preRevealLeaks.push(`${question.id}: prebuilt answer DOM`);
+            }
+            const permissions = appWindow.CadenceLab.getPlaybackPermissions();
+            if (permissions.question || permissions.context || permissions.model) {
+              preRevealLeaks.push(`${question.id}: locked playback exposed`);
+            }
+            if (permissions.student !== Boolean(question.interaction)) {
+              preRevealLeaks.push(`${question.id}: Hear my work availability is incorrect`);
+            }
+          });
+          assert("all32QuestionsAreSpoilerSafeBeforeReveal",
+            preRevealLeaks.length === 0,
+            preRevealLeaks
+          );
+
+          const revealedConcepts = [
+            ["feature-pedal", "tonic pedal"],
+            ["feature-diminished", "diminished seventh"],
+            ["feature-chromatic-bass", "chromatic bass"],
+            ["feature-harmonic-rhythm", "harmonic-rhythm"],
+            ["feature-nonharmonic", "passing note"],
+          ];
+          const missingPostRevealConcepts = [];
+          revealedConcepts.forEach(([questionId, term]) => {
+            appWindow.CadenceLab.showQuestion(questionId);
+            appWindow.CadenceLab.submit({ skipConfirmation: true, noScroll: true });
+            if (!appDocument.body.innerText.toLocaleLowerCase("en-NZ").includes(term)) {
+              missingPostRevealConcepts.push(`${questionId}: ${term}`);
+            }
+          });
+          assert("auditedConceptLanguageAppearsAfterSubmission",
+            missingPostRevealConcepts.length === 0,
+            missingPostRevealConcepts
+          );
+
+          appWindow.CadenceLab.showQuestion("feature-diminished");
+          const beforeRevealText = appDocument.body.innerText.toLocaleLowerCase("en-NZ");
+          const submitted = appWindow.CadenceLab.submit({
+            skipConfirmation: true,
+            noScroll: true,
+          });
+          const afterRevealText = appDocument.body.innerText.toLocaleLowerCase("en-NZ");
+          const afterPermissions = appWindow.CadenceLab.getPlaybackPermissions();
+          assert("answerLanguageAppearsOnlyAfterSubmission",
+            submitted && !beforeRevealText.includes("diminished seventh") &&
+            afterRevealText.includes("diminished seventh")
+          );
+          assert("submissionBuildsModelDOMAndUnlocksComparisonPlayback",
+            appDocument.querySelector("#answer-copy").children.length > 0 &&
+            appDocument.querySelector("#model-score").children.length > 0 &&
+            afterPermissions.question && afterPermissions.model && !afterPermissions.context
+          );
+
+          appWindow.CadenceLab.showQuestion("satb-f-c");
+          const studentModeButton = appDocument.querySelector('[data-playback-mode="student"]');
+          const questionModeButton = appDocument.querySelector('[data-playback-mode="question"]');
+          assert("hearMyWorkIsAvailableButSilentTransportWaitsForAnEntry",
+            !studentModeButton.disabled && questionModeButton.disabled &&
+            appDocument.querySelector("#play-start").disabled
+          );
+          appWindow.CadenceLab.submit({ skipConfirmation: true, noScroll: true });
+          const interactivePostPermissions = appWindow.CadenceLab.getPlaybackPermissions();
+          assert("interactiveSubmissionUnlocksAllComparisonModes",
+            ["student", "question", "context", "model"]
+              .every((mode) => interactivePostPermissions[mode]) &&
+            [...appDocument.querySelectorAll("[data-playback-mode]")]
+              .every((button) => !button.disabled)
+          );
+
+          finish();
+        } catch (error) {
+          finish(error);
+        }
+      }, { once: true });
+    </script>
+  </body>
+</html>

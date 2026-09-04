@@ -13,6 +13,7 @@
   const MARGIN_X = 42;
   const VOICE_LABEL_MARGIN_X = 58;
   const SATB_VOICE_NAMES = ["soprano", "alto", "tenor", "bass"];
+  const STAFF_NAMES = ["treble", "bass"];
 
   const durationAliases = {
     "1": "w",
@@ -224,6 +225,101 @@
     );
   }
 
+  function normalizeIndependentStaffVoices(source, measureIndex, timeSignature) {
+    if (source == null) return null;
+    if (typeof source !== "object" || Array.isArray(source)) {
+      throw new Error(
+        `Measure ${measureIndex + 1} staffVoices must be an object.`
+      );
+    }
+    const unknownStaves = Object.keys(source).filter(
+      (staff) => !STAFF_NAMES.includes(staff)
+    );
+    if (unknownStaves.length) {
+      throw new Error(
+        `Measure ${measureIndex + 1} has unknown staffVoices field(s): ${unknownStaves.join(", ")}.`
+      );
+    }
+
+    return Object.fromEntries(
+      STAFF_NAMES.map((staff) => {
+        const voices = source[staff] || [];
+        if (!Array.isArray(voices)) {
+          throw new Error(
+            `Measure ${measureIndex + 1} staffVoices.${staff} must be an array.`
+          );
+        }
+        const normalizedVoices = voices.map((voice, voiceIndex) => {
+          if (!voice || typeof voice !== "object" || Array.isArray(voice)) {
+            throw new Error(
+              `Measure ${measureIndex + 1} staffVoices.${staff}[${voiceIndex}] is invalid.`
+            );
+          }
+          if (!Array.isArray(voice.events)) {
+            throw new Error(
+              `Measure ${measureIndex + 1} staffVoices.${staff}[${voiceIndex}] lacks events.`
+            );
+          }
+          let beat = 1;
+          const role = voice.role || `${staff}-${voiceIndex + 1}`;
+          const events = voice.events.map((value, eventIndex) => {
+            const event = typeof value === "string" ? { pitches: [value] } : value;
+            if (!event || typeof event !== "object" || Array.isArray(event)) {
+              throw new Error(
+                `Measure ${measureIndex + 1} ${role} event ${eventIndex + 1} is invalid.`
+              );
+            }
+            const pitches = event.pitches ??
+              (event.pitch == null ? [] : [event.pitch]);
+            if (!Array.isArray(pitches)) {
+              throw new Error(
+                `Measure ${measureIndex + 1} ${role} event ${eventIndex + 1} pitches must be an array.`
+              );
+            }
+            pitches.forEach(parsePitch);
+            const duration = normalizeDuration(event.duration);
+            const durationBeats = durationInBeats(
+              duration,
+              timeSignature.denominator
+            );
+            const result = {
+              ...event,
+              pitches,
+              duration,
+              rest: Boolean(event.rest),
+              _staff: staff,
+              _role: role,
+              _voiceIndex: voiceIndex,
+              _eventIndex: eventIndex,
+              _measureIndex: measureIndex,
+              _beat: beat,
+              _durationBeats: durationBeats,
+            };
+            beat += durationBeats;
+            return result;
+          });
+          return {
+            ...voice,
+            role,
+            events,
+          };
+        });
+        return [staff, normalizedVoices];
+      })
+    );
+  }
+
+  function soundingPitchesAt(voices, beat) {
+    return voices.flatMap((voice) => {
+      const event = voice.events.find(
+        (candidate) =>
+          candidate._beat <= beat + 0.001 &&
+          candidate._beat + candidate._durationBeats > beat + 0.001
+      );
+      return event && !event.rest ? event.pitches : [];
+    });
+  }
+
   function soundingPitchAt(stream, beat) {
     const event = stream.find(
       (candidate) =>
@@ -259,6 +355,11 @@
           measureIndex,
           currentTimeSignature,
           "questionVoices"
+        );
+        const staffVoiceStreams = normalizeIndependentStaffVoices(
+          measure.staffVoices,
+          measureIndex,
+          currentTimeSignature
         );
         let events;
         if (voiceStreams) {
@@ -301,6 +402,33 @@
               });
             });
           });
+        } else if (staffVoiceStreams) {
+          const onsetBeats = [
+            ...new Set(
+              STAFF_NAMES.flatMap((staff) =>
+                staffVoiceStreams[staff].flatMap((voice) =>
+                  voice.events.map((event) => event._beat)
+                )
+              )
+            ),
+          ].sort((a, b) => a - b);
+          events = onsetBeats.map((beat) => ({
+            _index: globalIndex++,
+            _beat: beat,
+            _independentStaves: true,
+            treble: soundingPitchesAt(staffVoiceStreams.treble, beat),
+            bass: soundingPitchesAt(staffVoiceStreams.bass, beat),
+          }));
+          const anchorByBeat = new Map(
+            events.map((event) => [event._beat, event._index])
+          );
+          STAFF_NAMES.forEach((staff) => {
+            staffVoiceStreams[staff].forEach((voice) => {
+              voice.events.forEach((event) => {
+                event._anchorIndex = anchorByBeat.get(event._beat) ?? null;
+              });
+            });
+          });
         } else {
           let eventBeat = 1;
           events = sourceEvents.map((event) => {
@@ -323,6 +451,7 @@
           events,
           voiceStreams,
           questionVoiceStreams,
+          staffVoiceStreams,
           expectedBeats: measure.expectedBeats || null,
           keySignature: measure.keySignature || null,
           effectiveKeySignature: currentKeySignature,
@@ -363,14 +492,22 @@
     if (!Number.isFinite(targetBeat) || targetBeat < 1) {
       throw new Error(`Invalid harmonic-event beat: ${beat}`);
     }
-    if (measure.voiceStreams) {
+    if (measure.voiceStreams || measure.staffVoiceStreams) {
       const event = measure.events.find(
         (candidate) => Math.abs(candidate._beat - targetBeat) < 0.001
       );
       if (event) return event._index;
-      throw new Error(
-        `No SATB voice event begins at beat ${beat} in measure ${measure.index + 1}.`
-      );
+      // A supplied harmonic span can begin while every editable voice is still
+      // blank (or while a sustained note continues). Give the label its own
+      // proportional anchor without inventing a notated pitch or duration.
+      const virtualAnchor = {
+        _index: -1 - measure.index * 10000 - Math.round(targetBeat * 1000),
+        _beat: targetBeat,
+        _virtualAnchor: true,
+      };
+      measure.events.push(virtualAnchor);
+      measure.events.sort((first, second) => first._beat - second._beat);
+      return virtualAnchor._index;
     }
     let currentBeat = 1;
     for (const event of measure.events) {
@@ -873,6 +1010,23 @@
           }
         });
       });
+
+    normalizedScore.measures
+      .filter((measure) => measure.staffVoiceStreams)
+      .forEach((measure) => {
+        if (layout === "satb") {
+          throw new Error(
+            `Independent staff voices are not valid for SATB layout in measure ${measure.index + 1}.`
+          );
+        }
+        STAFF_NAMES.forEach((staff) => {
+          if (!measure.staffVoiceStreams[staff].length) {
+            throw new Error(
+              `Measure ${measure.index + 1} staffVoices.${staff} must contain at least one voice.`
+            );
+          }
+        });
+      });
   }
 
   function validateHarmonicEvents(normalizedScore, harmonicEvents) {
@@ -949,7 +1103,11 @@
   ) {
     const notationEvents = measure.voiceStreams
       ? SATB_VOICE_NAMES.flatMap((voiceName) => measure.voiceStreams[voiceName])
-      : measure.events;
+      : measure.staffVoiceStreams
+        ? STAFF_NAMES.flatMap((staff) =>
+            measure.staffVoiceStreams[staff].flatMap((voice) => voice.events)
+          )
+        : measure.events;
     const durations = notationEvents.map((event) =>
       durationInBeats(
         event.duration || DEFAULT_EXPLICIT_DURATION,
@@ -961,7 +1119,7 @@
     const accidentalCount = notationEvents.reduce((count, event) => {
       const pitches = event.pitch
         ? [event.pitch]
-        : [...(event.treble || []), ...(event.bass || [])];
+        : event.pitches || [...(event.treble || []), ...(event.bass || [])];
       return count + pitches.filter(
         (pitch) => Boolean(parsePitch(pitch).accidental)
       ).length;
@@ -1009,6 +1167,13 @@
           closePitchCollisionCount(lower);
         simultaneousActivity += upper.length + lower.length;
       });
+    } else if (measure.staffVoiceStreams) {
+      measure.events.forEach((event) => {
+        closeCollisions += closePitchCollisionCount(event.treble || []) +
+          closePitchCollisionCount(event.bass || []);
+        simultaneousActivity += (event.treble || []).length +
+          (event.bass || []).length;
+      });
     } else {
       measure.events.forEach((event) => {
         closeCollisions += closePitchCollisionCount(event.treble || []) +
@@ -1023,7 +1188,7 @@
       MEASURE_MIN_WIDTH +
         Math.max(0, onsetCount - 1) * 24 +
         subdivisionPressure * 14 +
-        (measure.voiceStreams ? 24 : 0) +
+        (measure.voiceStreams || measure.staffVoiceStreams ? 24 : 0) +
         Math.max(0, notationEvents.length - onsetCount) * 2.5 +
         simultaneousActivity * (layout === "satb" ? 1.5 : 0.7) +
         accidentalCount * 7 +
@@ -1179,6 +1344,44 @@
     eventReferences[staff].push({ note, role, pitches });
   }
 
+  function markEditorNote(note, event, staff, role) {
+    if (!event || note.getCategory?.() === "GhostNote") return;
+    const noteId = event.editorNoteId;
+    note._cadenceEditorMetadata = {
+      locked: Boolean(event.locked),
+      noteId: noteId || null,
+      staff,
+      role: role || staff,
+    };
+  }
+
+  function applyEditorNoteMetadata(note) {
+    const metadata = note?._cadenceEditorMetadata;
+    const element = note?.getSVGElement?.();
+    if (!metadata || !element) return;
+    if (metadata.locked) element.classList.add("locked-note");
+    if (metadata.noteId) {
+      element.classList.add("student-note");
+      element.dataset.editorNoteId = metadata.noteId;
+      element.dataset.editorStaff = metadata.staff;
+      element.dataset.editorVoice = metadata.role;
+    }
+    if (!metadata.locked && !metadata.noteId) return;
+    const bounds = element.getBBox?.();
+    if (!bounds) return;
+    const hitTarget = createSvgElement("rect", {
+      x: bounds.x - 7,
+      y: bounds.y - 7,
+      width: Math.max(18, bounds.width + 14),
+      height: Math.max(28, bounds.height + 14),
+      fill: "transparent",
+      class: "editor-note-hit-target",
+      "pointer-events": "all",
+      "aria-hidden": "true",
+    });
+    element.insertBefore(hitTarget, element.firstChild);
+  }
+
   function buildStaffVoices(
     VF,
     events,
@@ -1197,6 +1400,77 @@
     };
 
     if (layout !== "satb") {
+      if (measure.staffVoiceStreams) {
+        return measure.staffVoiceStreams[staff].map((stream, streamIndex) => {
+          const fallbackDirection = staff === "treble" ? VF.Stem.UP : VF.Stem.DOWN;
+          const stemDirection = stream.stemDirection === "down"
+            ? VF.Stem.DOWN
+            : stream.stemDirection === "up"
+              ? VF.Stem.UP
+              : fallbackDirection;
+          const tickables = stream.events.map((event) => {
+            const note = makeStaveNote(
+              VF,
+              event.rest ? [] : event.pitches,
+              staff,
+              event.duration,
+              stemDirection,
+              event.rest,
+              staff === "bass" ? "d/3" : "b/4"
+            );
+            note.setStave(stave);
+            markEditorNote(note, event, staff, stream.role);
+            if (Number.isInteger(event._anchorIndex)) {
+              addReference(
+                VF,
+                referenceMap,
+                event._anchorIndex,
+                staff,
+                note,
+                stream.role,
+                event.pitches
+              );
+            }
+            return note;
+          });
+          if (!tickables.length) {
+            const expectedBeats = measure.expectedBeats || timeSignature.numerator;
+            const ghostDuration = ["w", "hd", "h", "qd", "q", "8d", "8", "16"]
+              .find(
+                (duration) =>
+                  Math.abs(
+                    durationInBeats(duration, timeSignature.denominator) -
+                      expectedBeats
+                  ) < 0.001
+              );
+            if (!ghostDuration) {
+              throw new Error(
+                `Measure ${measure.index + 1} cannot represent ${expectedBeats} empty beats.`
+              );
+            }
+            const ghost = makeStaveNote(
+              VF,
+              [],
+              staff,
+              ghostDuration,
+              stemDirection,
+              false
+            );
+            ghost.setStave(stave);
+            tickables.push(ghost);
+          }
+          const voice = new VF.Voice(voiceConfig)
+            .setStrict(false)
+            .addTickables(tickables);
+          return {
+            voice,
+            tickables,
+            role: stream.role || `${staff}-${streamIndex + 1}`,
+            independent: true,
+            timeSignature,
+          };
+        });
+      }
       const tickables = events.map((event) => {
         const pitches = visiblePitches(event, staff, showAnswer);
         const note = makeStaveNote(
@@ -1208,6 +1482,7 @@
           eventIsRest(event, staff)
         );
         note.setStave(stave);
+        markEditorNote(note, event, staff, "chord");
         addReference(
           VF,
           referenceMap,
@@ -1258,6 +1533,7 @@
             }[role.name]
           );
           note.setStave(stave);
+          markEditorNote(note, event, staff, role.name);
           if (Number.isInteger(event._anchorIndex)) {
             addReference(
               VF,
@@ -1331,6 +1607,7 @@
           ).includes(role.name)
         );
         note.setStave(stave);
+        markEditorNote(note, event, staff, role.name);
         addReference(
           VF,
           referenceMap,
@@ -1659,6 +1936,48 @@
     });
   }
 
+  function independentStaffTies(normalizedScore) {
+    return STAFF_NAMES.flatMap((staff) => {
+      const byRole = new Map();
+      normalizedScore.measures.forEach((measure) => {
+        (measure.staffVoiceStreams?.[staff] || []).forEach((voice) => {
+          if (!byRole.has(voice.role)) {
+            byRole.set(voice.role, {
+              events: [],
+              direction: voice.stemDirection === "down" ? "below" : "above",
+            });
+          }
+          byRole.get(voice.role).events.push(...voice.events);
+        });
+      });
+      return [...byRole.entries()].flatMap(([role, details]) =>
+        details.events.flatMap((event, index) => {
+          if (!event.tieToNext) return [];
+          const next = details.events[index + 1];
+          if (!next || !Number.isInteger(event._anchorIndex) ||
+              !Number.isInteger(next._anchorIndex)) {
+            throw new Error(`${role} tie has no following anchored note.`);
+          }
+          const tiedPitches = event.pitches.filter((pitch) =>
+            next.pitches.includes(pitch)
+          );
+          if (!tiedPitches.length) {
+            throw new Error(`${role} tie has no matching following pitch.`);
+          }
+          return tiedPitches.map((pitch) => ({
+            from: event._anchorIndex,
+            to: next._anchorIndex,
+            staff,
+            voice: role,
+            firstPitch: pitch,
+            lastPitch: pitch,
+            direction: details.direction,
+          }));
+        })
+      );
+    });
+  }
+
   function drawTies(VF, context, ties, referenceMap, anchors) {
     (ties || []).forEach((tie) => {
       const fromIndex = tie.from ?? tie.start;
@@ -1916,7 +2235,9 @@
     const harmonicEvents = normalizeHarmonicEvents(score, normalizedScore);
     const brackets = normalizeBrackets(score, normalizedScore);
     const noteAnnotations = normalizeNoteAnnotations(score, normalizedScore);
-    validateHarmonicEvents(normalizedScore, harmonicEvents);
+    if (!score.skipChordValidation) {
+      validateHarmonicEvents(normalizedScore, harmonicEvents);
+    }
     const systemBuild = buildSystems(
       normalizedScore,
       score,
@@ -1932,7 +2253,11 @@
         ? SATB_VOICE_NAMES.flatMap(
             (voiceName) => measure.voiceStreams[voiceName]
           )
-        : measure.events
+        : measure.staffVoiceStreams
+          ? STAFF_NAMES.flatMap((staff) =>
+              measure.staffVoiceStreams[staff].flatMap((voice) => voice.events)
+            )
+          : measure.events
     );
 
     const analysisPosition = (event) =>
@@ -1981,6 +2306,9 @@
     target.dataset.independentVoiceMeasureCount = String(
       normalizedScore.measures.filter((measure) => measure.voiceStreams).length
     );
+    target.dataset.independentStaffMeasureCount = String(
+      normalizedScore.measures.filter((measure) => measure.staffVoiceStreams).length
+    );
     target.dataset.harmonicEventCount = String(harmonicEvents.length);
     target.dataset.analysisBoxCount = String(
       harmonicEvents.filter((event) => event.analysisBox !== false).length
@@ -2003,7 +2331,9 @@
     const caption = document.createElement("div");
     caption.className = "score-caption";
     caption.setAttribute("aria-hidden", "true");
-    caption.textContent = score.caption || `Original practice extract • ${score.key}`;
+    caption.textContent = showAnswer
+      ? score.modelCaption || score.caption || `Model answer • ${score.key}`
+      : score.studentCaption || score.caption || "Question musical extract";
     const canvas = document.createElement("div");
     canvas.className = "notation-canvas";
     canvas.setAttribute("aria-hidden", "true");
@@ -2017,6 +2347,7 @@
 
     const references = new Map();
     const anchors = new Map();
+    const hitMeasures = [];
     let absoluteMeasureIndex = 0;
 
     systems.forEach((system, systemIndex) => {
@@ -2116,6 +2447,23 @@
           bottomStave.setNoteStartX(sharedNoteStartX);
         }
 
+        hitMeasures.push({
+          measure: measure.index + 1,
+          system: systemIndex,
+          x: topStave.getNoteStartX(),
+          endX: topStave.getNoteEndX(),
+          topY: topStave.getYForLine(0),
+          topSpacing: topStave.getYForLine(1) - topStave.getYForLine(0),
+          bottomY: bottomStave?.getYForLine(0) ?? null,
+          bottomSpacing: bottomStave
+            ? bottomStave.getYForLine(1) - bottomStave.getYForLine(0)
+            : null,
+          expectedBeats:
+            measure.expectedBeats || measure.effectiveTimeSignature.numerator,
+          timeSignature: measure.effectiveTimeSignature.text,
+          keySignature: measure.effectiveKeySignature,
+        });
+
         if (!firstTopStave) {
           firstTopStave = topStave;
           firstBottomStave = bottomStave;
@@ -2191,7 +2539,8 @@
           const beamOptions = {
             beam_rests: false,
             beam_middle_only: true,
-            maintain_stem_directions: layout === "satb",
+            maintain_stem_directions:
+              layout === "satb" || Boolean(bundle.independent),
           };
           if (VF.Beam.getDefaultBeamGroups) {
             beamOptions.groups = VF.Beam.getDefaultBeamGroups(
@@ -2208,6 +2557,9 @@
         bottomBundles.forEach((bundle) =>
           bundle.voice.draw(context, bottomStave)
         );
+        bundles.forEach((bundle) =>
+          bundle.tickables.forEach(applyEditorNoteMetadata)
+        );
         bundles.flatMap((bundle) => bundle.beams)
           .forEach((beam) => beam.setContext(context).draw());
 
@@ -2216,7 +2568,7 @@
           let anchorNote =
             eventReferences?.treble?.[0]?.note ||
             eventReferences?.bass?.[0]?.note;
-          if (!anchorNote && measure.voiceStreams) {
+          if (!anchorNote && (measure.voiceStreams || measure.staffVoiceStreams)) {
             const beatSpan =
               measure.expectedBeats || measure.effectiveTimeSignature.numerator;
             const startX = topStave.getNoteStartX();
@@ -2250,7 +2602,11 @@
     drawTies(
       VF,
       context,
-      [...(score.ties || []), ...independentSatbTies(normalizedScore)],
+      [
+        ...(score.ties || []),
+        ...independentSatbTies(normalizedScore),
+        ...independentStaffTies(normalizedScore),
+      ],
       references,
       anchors
     );
@@ -2286,6 +2642,33 @@
       svg.style.maxWidth = "100%";
       canvas.style.width = "100%";
       canvas.style.maxWidth = "100%";
+
+      if (score.editorMode && !showAnswer) {
+        const hitGroup = createSvgElement("g", {
+          class: "editor-hit-areas",
+          "aria-hidden": "true",
+        });
+        hitMeasures.forEach((measure) => {
+          [
+            ["treble", measure.topY],
+            ["bass", measure.bottomY],
+          ].forEach(([staff, y]) => {
+            if (y == null) return;
+            hitGroup.appendChild(createSvgElement("rect", {
+              x: measure.x,
+              y: y - 28,
+              width: Math.max(1, measure.endX - measure.x),
+              height: 96,
+              fill: "transparent",
+              class: "editor-hit-target",
+              "data-measure": measure.measure,
+              "data-staff": staff,
+              "pointer-events": "all",
+            }));
+          });
+        });
+        svg.insertBefore(hitGroup, svg.firstChild);
+      }
 
       const decorationGroup = createSvgElement("g", {
         class: "score-decorations",
@@ -2350,6 +2733,13 @@
         systems.map((system) => system.firstTopStave.getYForLine(0))
       );
     }
+
+    target._cadenceHitMap = {
+      width,
+      height,
+      layout,
+      measures: hitMeasures,
+    };
 
     return {
       width,
