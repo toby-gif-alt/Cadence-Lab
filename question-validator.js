@@ -18,6 +18,13 @@
     "bass",
     "treble",
   ]);
+  const INTERACTION_TYPES = new Set([
+    "roman-analysis",
+    "key-modulation",
+    "jazz-chord-placement",
+    "feature-analysis",
+    "notation-completion",
+  ]);
 
   function pitchNumber(value) {
     const parsed = renderer.parsePitch(value);
@@ -68,8 +75,50 @@
       return;
     }
     if (!interaction) return;
-    if (interaction.type !== "notation-completion") {
+    if (!INTERACTION_TYPES.has(interaction.type)) {
       errors.push(`${question.id}: unsupported interaction type ${interaction.type}`);
+      return;
+    }
+    if (interaction.type !== "notation-completion") {
+      const expectedType = {
+        analysis: "roman-analysis",
+        modulation: "key-modulation",
+        jazz: "jazz-chord-placement",
+        features: "feature-analysis",
+      }[question.category];
+      if (interaction.type !== expectedType) {
+        errors.push(`${question.id}: ${question.category} requires ${expectedType}`);
+      }
+      const slots = interaction.slots || [];
+      const fields = interaction.fields || [];
+      const identifiers = [...slots, ...fields].map((item) => item.id);
+      if (new Set(identifiers).size !== identifiers.length) {
+        errors.push(`${question.id}: interaction answer identifiers must be one-to-one`);
+      }
+      [...slots, ...fields].forEach((item) => {
+        if (!item.id || !item.label || !Array.isArray(item.acceptedAnswers) ||
+            !item.acceptedAnswers.length) {
+          errors.push(`${question.id}: structured response item lacks an id, label or acceptedAnswers`);
+        }
+      });
+      if (interaction.type === "jazz-chord-placement") {
+        const bankLabels = (interaction.bank || []).map((token) => token.label);
+        const requiredLabels = slots.map((slot) => slot.acceptedAnswers[0]?.label);
+        const count = (items, value) => items.filter((item) => item === value).length;
+        [...new Set(requiredLabels)].forEach((label) => {
+          if (count(bankLabels, label) !== count(requiredLabels, label)) {
+            errors.push(`${question.id}: chord bank multiplicity for ${label} does not match editable answers`);
+          }
+        });
+        const accepted = new Set(slots.flatMap((slot) =>
+          slot.acceptedAnswers.map((answer) => answer.label)
+        ));
+        const distractors = bankLabels.filter((label) => !requiredLabels.includes(label));
+        if (!distractors.length || distractors.some((label) => accepted.has(label))) {
+          errors.push(`${question.id}: chord bank needs controlled, non-answer distractors`);
+        }
+      }
+      return;
     }
     if (!["satb", "piano"].includes(question.category)) {
       errors.push(`${question.id}: notation completion is only valid for SATB or piano`);
@@ -99,6 +148,35 @@
         }
       });
     });
+  }
+
+  function validateHarmonicAnswerRoles(question, errors) {
+    const harmonicEvents = question.score.harmonicEvents || [];
+    harmonicEvents.forEach((event, index) => {
+      if (!["supplied", "editable", "none"].includes(event.answerRole)) {
+        errors.push(`${question.id}: harmonic event ${index + 1} lacks an explicit answerRole`);
+      }
+      if (event.answerRole === "supplied" && !event.questionLabel) {
+        errors.push(`${question.id}: supplied harmonic event ${index + 1} lacks a visible label`);
+      }
+      if (event.answerRole === "editable" && !event.answerSlotId) {
+        errors.push(`${question.id}: editable harmonic event ${index + 1} lacks an answerSlotId`);
+      }
+      if (event.answerRole !== "editable" && event.answerSlotId) {
+        errors.push(`${question.id}: non-editable harmonic event ${index + 1} has an answerSlotId`);
+      }
+    });
+    const eventSlotIds = harmonicEvents
+      .filter((event) => event.answerRole === "editable")
+      .map((event) => event.answerSlotId);
+    const interactionSlotIds = ["roman-analysis", "jazz-chord-placement"].includes(
+      question.interaction?.type
+    )
+      ? question.interaction.slots.map((slot) => slot.id)
+      : [];
+    if (JSON.stringify(eventSlotIds) !== JSON.stringify(interactionSlotIds)) {
+      errors.push(`${question.id}: editable harmonic events and response slots are not one-to-one`);
+    }
   }
 
   function validateMeasureDurations(question, errors) {
@@ -680,7 +758,7 @@
     }
     if (Number.isInteger(spec.answerPositions)) {
       const answerPositions = harmonicEvents.filter(
-        (event) => event.analysisBox !== false && !event.questionLabel
+        (event) => event.answerRole === "editable"
       ).length;
       if (answerPositions !== spec.answerPositions) {
         sourceFidelityErrors.push(
@@ -867,6 +945,7 @@
       }
       validateStudentPresentation(question, spoilerAuditErrors);
       validateInteraction(question, errors);
+      validateHarmonicAnswerRoles(question, errors);
       if (!Array.isArray(question.score.measures) || !question.score.measures.length) {
         errors.push(`${question.id}: legacy or empty score data`);
         return;

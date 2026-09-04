@@ -1142,7 +1142,7 @@
       ).length;
     const eventIndices = new Set(measure.events.map((event) => event._index));
     const analysisCount = harmonicEvents.filter(
-      (event) => eventIndices.has(event._index) && event.analysisBox !== false
+      (event) => eventIndices.has(event._index) && harmonicBoxIsVisible(event)
     ).length;
     const annotationCount = noteAnnotations.filter(
       (annotation) => eventIndices.has(annotation._index)
@@ -1663,13 +1663,18 @@
     return element;
   }
 
+  function harmonicBoxIsVisible(event) {
+    return event.analysisBox !== false && event.answerRole !== "none";
+  }
+
   function drawAnalysisBox(
     group,
     anchor,
     label,
     showAnswer,
     position,
-    scoreWidth
+    scoreWidth,
+    harmonicEvent = {}
   ) {
     const boxWidth = Math.min(
       126,
@@ -1685,7 +1690,17 @@
         ? anchor.topStave.getYForLine(0) - 22
         : anchor.bottomStave.getYForLine(4) + 36;
 
-    group.appendChild(
+    const boxGroup = createSvgElement("g", {
+      class: `analysis-box-group analysis-box-${harmonicEvent.answerRole || "legacy"}`,
+      "data-answer-role": harmonicEvent.answerRole || "legacy",
+      "data-answer-slot-id": harmonicEvent.answerSlotId || "",
+      tabindex: harmonicEvent.answerRole === "editable" && !showAnswer ? "0" : "-1",
+      role: harmonicEvent.answerRole === "editable" && !showAnswer ? "button" : "presentation",
+      "aria-label": harmonicEvent.answerRole === "editable" && !showAnswer
+        ? `${label ? `Edit ${label}` : "Enter Roman numeral or chord"} at bar ${harmonicEvent.measure}, beat ${harmonicEvent.beat || 1}`
+        : "",
+    });
+    boxGroup.appendChild(
       createSvgElement("rect", {
         x: x - boxWidth / 2,
         y: y - 18,
@@ -1695,11 +1710,11 @@
         fill: showAnswer ? "#ecfdf5" : "#f8fafc",
         stroke: showAnswer ? "#0f8a6b" : "#8a96a7",
         "stroke-width": 1.2,
-        class: "analysis-box",
+        class: `analysis-box${harmonicEvent.answerRole === "editable" && !showAnswer ? " is-editable" : ""}`,
       })
     );
     if (label) {
-      group.appendChild(
+      boxGroup.appendChild(
         createSvgElement(
           "text",
           {
@@ -1716,6 +1731,8 @@
         )
       );
     }
+    group.appendChild(boxGroup);
+    return boxGroup;
   }
 
   function drawBracket(
@@ -2113,7 +2130,7 @@
         )
       );
       const systemHarmonicEvents = harmonicEvents.filter((event) =>
-        eventIndices.has(event._index) && event.analysisBox !== false
+        eventIndices.has(event._index) && harmonicBoxIsVisible(event)
       );
       const hasTopBoxes = systemHarmonicEvents.some(
         (event) =>
@@ -2311,7 +2328,7 @@
     );
     target.dataset.harmonicEventCount = String(harmonicEvents.length);
     target.dataset.analysisBoxCount = String(
-      harmonicEvents.filter((event) => event.analysisBox !== false).length
+      harmonicEvents.filter(harmonicBoxIsVisible).length
     );
     target.dataset.noteAnnotationCount = String(
       noteAnnotations.filter((annotation) =>
@@ -2684,7 +2701,7 @@
         )
       );
       harmonicEvents.forEach((harmonicEvent) => {
-        if (harmonicEvent.analysisBox === false) return;
+        if (!harmonicBoxIsVisible(harmonicEvent)) return;
         const anchor = anchors.get(harmonicEvent._index);
         if (!anchor) return;
         const label = showAnswer
@@ -2699,7 +2716,8 @@
           label,
           showAnswer,
           analysisPosition(harmonicEvent),
-          width
+          width,
+          harmonicEvent
         );
       });
       let resolvedAnnotationCount = 0;

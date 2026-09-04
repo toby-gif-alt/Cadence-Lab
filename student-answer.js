@@ -125,7 +125,7 @@
   }
 
   function create(question) {
-    if (!question.interaction) return null;
+    if (question.interaction?.type !== "notation-completion") return null;
     const voices = answerVoices(question);
     const cursors = Object.fromEntries(
       voices.map((voice) => {
@@ -321,16 +321,14 @@
         : eventStarts(stream, denominator).find(
             (item) => Math.abs(item.beat - startBeat) < 0.001
           )?.event;
-      if (!target || target.rest) {
-        throw new AnswerError(
-          "no-chord-onset",
-          "Add to chord needs a pitched note at the tapped rhythmic position."
-        );
+      if (target && !target.rest) {
+        const pitches = details.pitches || [];
+        target.pitches = [...new Set([...(target.pitches || []), ...pitches])];
+        next.selectedId = target.id;
+        return withRevision(next);
       }
-      const pitches = details.pitches || [];
-      target.pitches = [...new Set([...(target.pitches || []), ...pitches])];
-      next.selectedId = target.id;
-      return withRevision(next);
+      // A one-shot chord-tone action should never strand the learner. If the
+      // tapped onset is empty, it becomes an ordinary new note/rest onset.
     }
 
     const remaining = Math.max(0, capacity - startBeat + 1);
@@ -443,6 +441,22 @@
     next.cursors[located.voice] = { measure: located.measure, beat: deletedBeat };
     next.selectedId = null;
     return withRevision(next);
+  }
+
+  function removePitchFromSelected(state, question, pitch) {
+    if (!state?.selectedId) {
+      throw new AnswerError("nothing-selected", "Select one of your chords first.");
+    }
+    const located = locate(state, state.selectedId);
+    if (!located || located.event.rest || !located.event.pitches?.includes(pitch)) {
+      throw new AnswerError("missing-pitch", "That chord tone is not selected.");
+    }
+    if (located.event.pitches.length === 1) {
+      return deleteSelected(state, question);
+    }
+    return updateSelected(state, question, {
+      pitches: located.event.pitches.filter((candidate) => candidate !== pitch),
+    });
   }
 
   function toggleTie(state, question) {
@@ -802,7 +816,7 @@
   }
 
   function questionOnlyScore(question) {
-    if (question.interaction) {
+    if (question.interaction?.type === "notation-completion") {
       return composeScore(question, create(question), {
         includeSource: true,
         includeStudent: false,
@@ -904,6 +918,7 @@
     select,
     updateSelected,
     deleteSelected,
+    removePitchFromSelected,
     toggleTie,
     applyAccidental,
     setSubmitted,

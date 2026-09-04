@@ -357,6 +357,225 @@ const completionInteractions = {
   },
 };
 
+const keyChoices = [
+  "C major", "G major", "D major", "A major", "E major", "B major",
+  "F♯ major", "C♯ major", "F major", "B♭ major", "E♭ major", "A♭ major",
+  "D♭ major", "G♭ major", "A minor", "E minor", "B minor", "F♯ minor",
+  "C♯ minor", "G♯ minor", "D minor", "G minor", "C minor", "F minor",
+  "B♭ minor", "E♭ minor",
+];
+
+const modulationResponses = {
+  "modulation-d-g-f": [
+    ["X", "G minor", "subdominant"],
+    ["Y", "F major", "relative major"],
+  ],
+  "nzqa-2023-bach-key-regions": [
+    ["X", "E♭ major", "relative major of the subdominant"],
+    ["Y", "C minor", "subdominant"],
+    ["Z", "F major", "relative major of the dominant"],
+  ],
+  "modulation-c-g-e": [
+    ["X", "G major", "dominant"],
+    ["Y", "E minor", "mediant minor"],
+  ],
+  "modulation-a-fsharp": [
+    ["X", "F♯ minor", "relative minor"],
+  ],
+  "modulation-gminor-eb-f": [
+    ["X", "E♭ major", "relative major"],
+    ["Y", "F major", "relative major of the dominant"],
+  ],
+  "modulation-e-b-csharp": [
+    ["X", "B major", "dominant"],
+    ["Y", "C♯ minor", "relative minor"],
+  ],
+};
+
+const featureResponses = {
+  "nzqa-2023-poulenc-pedal": [
+    ["feature", "Feature", ["tonic pedal"]],
+    ["function", "Function", ["tonal stability with upper-part friction"]],
+  ],
+  "feature-diminished": [
+    ["feature", "Chord X", ["F♯ diminished seventh"]],
+    ["function", "Function", ["vii°7/V", "decorates and strengthens the dominant"]],
+  ],
+  "feature-pedal": [
+    ["feature", "Feature", ["tonic pedal"]],
+    ["function", "Function", ["keeps the tonic present"]],
+  ],
+  "feature-chromatic-bass": [
+    ["feature", "Bass motion", ["descending chromatic bass"]],
+    ["effect", "Effect", ["creates momentum"]],
+  ],
+  "feature-nonharmonic": [
+    ["f-sharp", "F♯", ["chord tone"]],
+    ["a-natural", "A", ["passing note"]],
+  ],
+  "feature-harmonic-rhythm": [
+    ["feature", "Pattern", ["accelerating harmonic rhythm"]],
+    ["effect", "Effect", ["increases urgency"]],
+  ],
+};
+
+const featureChoiceOptions = [
+  "tonic pedal", "dominant pedal", "descending chromatic bass",
+  "accelerating harmonic rhythm", "F♯ diminished seventh", "vii°7/V",
+  "chord tone", "passing note", "auxiliary note", "accented passing note",
+  "appoggiatura", "creates momentum", "increases urgency",
+  "tonal stability with upper-part friction", "decorates and strengthens the dominant",
+  "keeps the tonic present",
+];
+
+const jazzDistractors = {
+  "nzqa-2021-valentine-techniques": ["Cmaj7", "F7", "Gm7"],
+  "nzqa-2024-commercial-chromatic-bass": ["F♯dim7/F", "E♯m7(♭5)", "D7"],
+  "jazz-c-turnaround": ["C7", "Am7", "G7sus4"],
+  "jazz-e-turnaround": ["E7", "C♯m7", "B7sus4"],
+  "jazz-blues-secondary": ["F♯m7", "Cmaj7", "A♭7"],
+  "jazz-sus-line": ["Gm7", "C7", "Amaj7"],
+};
+
+function harmonicAnswerRole(category, event) {
+  if (event.analysisBox === false) return "none";
+  if (["analysis", "jazz"].includes(category)) {
+    return event.questionLabel ? "supplied" : "editable";
+  }
+  if (["satb", "piano"].includes(category)) {
+    return event.questionLabel ? "supplied" : "none";
+  }
+  return "none";
+}
+
+function scoreWithExplicitAnswerRoles(config) {
+  return {
+    ...config.score,
+    harmonicEvents: (config.score.harmonicEvents || []).map((event, index) => {
+      const answerRole = event.answerRole || harmonicAnswerRole(config.category, event);
+      return {
+        ...event,
+        answerRole,
+        answerSlotId: answerRole === "editable"
+          ? `${config.id}-h${index + 1}`
+          : undefined,
+      };
+    }),
+  };
+}
+
+function analysisInteraction(config, score) {
+  return {
+    type: "roman-analysis",
+    allowPaper: true,
+    keyChoices,
+    slots: score.harmonicEvents.flatMap((event, harmonicIndex) =>
+      event.answerRole === "editable"
+        ? [{
+            id: event.answerSlotId,
+            harmonicIndex,
+            label: `Bar ${event.measure}, beat ${event.beat || 1}`,
+            acceptedAnswers: [{ label: event.modelLabel }],
+            allowDualAnalysis: String(event.modelLabel || "").includes(" / "),
+          }]
+        : []
+    ),
+  };
+}
+
+function modulationInteraction(config) {
+  const regions = modulationResponses[config.id] || [];
+  return {
+    type: "key-modulation",
+    allowPaper: true,
+    keyChoices,
+    relationshipChoices: [
+      "tonic", "dominant", "subdominant", "relative major", "relative minor",
+      "mediant minor", "relative major of the dominant",
+      "relative major of the subdominant",
+    ],
+    fields: regions.flatMap(([section, key, relationship]) => [
+      {
+        id: `${section.toLowerCase()}-key`,
+        label: `${section} key`,
+        kind: "key",
+        acceptedAnswers: [{ label: key }],
+      },
+      {
+        id: `${section.toLowerCase()}-relationship`,
+        label: `${section} relationship`,
+        kind: "relationship",
+        acceptedAnswers: [{ label: relationship }],
+      },
+    ]),
+    evidencePrompt: "Optional: identify cadence, leading-note or accidental evidence.",
+  };
+}
+
+function jazzInteraction(config, score) {
+  const slots = score.harmonicEvents.flatMap((event, harmonicIndex) =>
+    event.answerRole === "editable"
+      ? [{
+          id: event.answerSlotId,
+          harmonicIndex,
+          label: `Bar ${event.measure}, beat ${event.beat || 1}`,
+          acceptedAnswers: [{ label: event.modelLabel || event.chordSymbol }],
+        }]
+      : []
+  );
+  const labels = [
+    ...slots.map((slot) => slot.acceptedAnswers[0].label),
+    ...(jazzDistractors[config.id] || []),
+  ];
+  const interaction = {
+    type: "jazz-chord-placement",
+    allowPaper: true,
+    seed: `${config.id}-published-bank-v1`,
+    slots,
+    bank: labels.map((label, index) => ({
+      id: `${config.id}-chord-${index + 1}`,
+      label,
+    })),
+    advancedBuilder: true,
+  };
+  if (config.id === "nzqa-2021-valentine-techniques") {
+    interaction.fields = [
+      { id: "x", label: "X", kind: "classification", acceptedAnswers: [{ label: "auxiliary note" }] },
+      { id: "y", label: "Y", kind: "classification", acceptedAnswers: [{ label: "accented passing note" }] },
+      { id: "z", label: "Z", kind: "classification", acceptedAnswers: [{ label: "appoggiatura" }] },
+      { id: "technique", label: "Harmonic technique", kind: "classification", acceptedAnswers: [{ label: "descending chromatic inner line and tonic pedal" }] },
+    ];
+    interaction.classificationChoices = [
+      "auxiliary note", "accented passing note", "appoggiatura",
+      "passing note", "suspension", "descending chromatic inner line and tonic pedal",
+    ];
+  }
+  return interaction;
+}
+
+function featureInteraction(config) {
+  return {
+    type: "feature-analysis",
+    allowPaper: true,
+    choices: featureChoiceOptions,
+    fields: (featureResponses[config.id] || []).map(([id, label, answers]) => ({
+      id,
+      label,
+      kind: "classification",
+      acceptedAnswers: answers.map((answer) => ({ label: answer })),
+    })),
+    evidencePrompt: "Optional: cite the relevant pitches, bass motion, cadence or rate of change.",
+  };
+}
+
+function universalInteraction(config, score) {
+  if (config.category === "analysis") return analysisInteraction(config, score);
+  if (config.category === "modulation") return modulationInteraction(config);
+  if (config.category === "jazz") return jazzInteraction(config, score);
+  if (config.category === "features") return featureInteraction(config);
+  return null;
+}
+
 function neutralStudentCaption(config) {
   if (config.sourceType === "nzqa-reference") {
     return `NZQA reference • ${config.source.year} ${config.source.question} ${config.source.part} • ${config.source.extract}`;
@@ -370,15 +589,18 @@ function createQuestion(config) {
   if (!presentation) {
     throw new Error(`Missing student presentation audit for ${config.id}.`);
   }
+  const score = scoreWithExplicitAnswerRoles(config);
+  const interaction = config.interaction || completionInteractions[config.id] ||
+    universalInteraction(config, score);
   return {
     ...config,
     internalTitle: config.internalTitle || config.title,
     studentTitle: presentation.title,
     studentContext: presentation.context || config.context,
     hiddenConceptTerms: presentation.hiddenConceptTerms,
-    interaction: config.interaction || completionInteractions[config.id] || null,
+    interaction,
     score: {
-      ...config.score,
+      ...score,
       studentCaption: neutralStudentCaption(config),
       accessibleLabel:
         config.category === "satb"

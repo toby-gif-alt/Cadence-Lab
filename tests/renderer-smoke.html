@@ -331,6 +331,7 @@
 
       const categoryRenderErrors = [];
       const layoutCheckErrors = [];
+      const harmonicContractErrors = [];
       const renderedCategories = new Set();
       const referenceSystemCounts = {};
       const referenceQuestionRenders = {};
@@ -352,6 +353,27 @@
                 showAnswer,
                 width,
               });
+              const expectedBoxes = question.score.harmonicEvents.filter(
+                (event) => ["supplied", "editable"].includes(event.answerRole)
+              ).length;
+              const actualBoxes = target.querySelectorAll(".analysis-box").length;
+              if (actualBoxes !== expectedBoxes) {
+                harmonicContractErrors.push(
+                  `${question.id} (${showAnswer ? "model" : "question"}, ${width}px): expected ${expectedBoxes} semantic boxes, found ${actualBoxes}`
+                );
+              }
+              if (!showAnswer) {
+                const editableGroups = [...target.querySelectorAll(".analysis-box-editable")];
+                const expectedEditable = question.score.harmonicEvents.filter(
+                  (event) => event.answerRole === "editable"
+                );
+                if (
+                  editableGroups.length !== expectedEditable.length ||
+                  editableGroups.some((group) => !group.dataset.answerSlotId)
+                ) {
+                  harmonicContractErrors.push(`${question.id}: editable box mapping is not one-to-one`);
+                }
+              }
               renderedCategories.add(question.category);
               if (independentBachIds.includes(question.id)) {
                 referenceSatbAlignmentDeltas.push(
@@ -657,6 +679,18 @@
           JSON.stringify(beamQuestionState) === JSON.stringify(beamModelState),
         harmonicEventsSeparateFromNotes:
           valentine.score.harmonicEvents.length < valentineEvents.length,
+        explicitAnswerRolesPreventOrphanOrVirtualAnchorBoxes:
+          harmonicContractErrors.length === 0,
+        completionHarmonicBoxesAreAllSuppliedAndNeverEditable:
+          questions.filter((question) => question.interaction.type === "notation-completion")
+            .every((question) =>
+              question.score.harmonicEvents.every((event) => event.answerRole !== "editable")
+            ),
+        modulationAndFeatureScoresHaveNoImplicitAnalysisBoxes:
+          questions.filter((question) => ["modulation", "features"].includes(question.category))
+            .every((question) =>
+              question.score.harmonicEvents.every((event) => event.answerRole === "none")
+            ),
         analysisBoxesDrawnAtHarmonicEvents:
           decorationTarget.querySelectorAll(".analysis-box").length === 3 &&
           decorationTarget.dataset.analysisBoxCount === "3",
@@ -725,7 +759,7 @@
       const passed = Object.values(assertions).every(Boolean);
       document.body.dataset.status = passed ? "pass" : "fail";
       document.querySelector("#results").textContent = JSON.stringify(
-        { passed, assertions, categoryRenderErrors, layoutCheckErrors, validatorReport },
+        { passed, assertions, categoryRenderErrors, layoutCheckErrors, harmonicContractErrors, validatorReport },
         null,
         2
       );

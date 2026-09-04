@@ -17,10 +17,11 @@
     <pre id="results">Running…</pre>
 
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../question-bank.js?v=2026-09-interaction-3"></script>
-    <script src="../score-renderer.js?v=2026-09-interaction-3"></script>
-    <script src="../question-validator.js?v=2026-09-interaction-3"></script>
+    <script src="../question-bank.js?v=2026-09-structured-1"></script>
+    <script src="../score-renderer.js?v=2026-09-structured-1"></script>
+    <script src="../question-validator.js?v=2026-09-structured-1"></script>
     <script src="../student-answer.js?v=2026-09-interaction-5"></script>
+    <script src="../structured-answer.js?v=2026-09-structured-1"></script>
     <script src="../playback-engine.js?v=2026-09-interaction-5"></script>
     <script>
       const results = document.querySelector("#results");
@@ -55,6 +56,7 @@
         try {
           const questions = window.CadenceData.questions;
           const answer = window.CadenceStudentAnswer;
+          const structured = window.CadenceStructuredAnswer;
           const playback = window.CadencePlayback;
           const renderer = window.CadenceScoreRenderer;
           const report = window.CadenceQuestionValidator.report;
@@ -70,10 +72,22 @@
             report.valid && report.spoilerAuditErrors.length === 0,
             report.spoilerAuditErrors
           );
-          assert("exactlyEightCompletionQuestionsAreInteractive",
-            questions.filter((question) => question.interaction).length === 8 &&
+          assert("allQuestionsHaveUniversalAnswerInteraction",
+            questions.filter((question) => question.interaction).length === 32 &&
+            questions.filter((question) => question.interaction?.type === "notation-completion").length === 8 &&
             questions.filter((question) => question.score.completion)
               .every((question) => question.interaction?.type === "notation-completion")
+          );
+          assert("harmonicAnswerRolesAreExplicitAndOneToOne",
+            questions.every((question) =>
+              question.score.harmonicEvents.every((event) =>
+                ["supplied", "editable", "none"].includes(event.answerRole)
+              ) &&
+              question.score.harmonicEvents.filter((event) => event.answerRole === "editable").length ===
+                (["roman-analysis", "jazz-chord-placement"].includes(question.interaction.type)
+                  ? question.interaction.slots.length
+                  : 0)
+            )
           );
 
           const satbQuestion = questions.find((question) => question.id === "satb-f-c");
@@ -264,6 +278,22 @@
           assert("addToChordIsTheOnlySameVoiceOverlapException",
             chordAtBeatThree.measures[0].voices.alto.length === 1 &&
             chordAtBeatThree.measures[0].voices.alto[0].pitches.join(",") === "C4,E4"
+          );
+          const chordToneRemoved = answer.removePitchFromSelected(
+            chordAtBeatThree, satbQuestion, "E4"
+          );
+          assert("individualChordTonesCanBeRemoved",
+            chordToneRemoved.measures[0].voices.alto[0].pitches.join(",") === "C4"
+          );
+          let fallbackChordState = answer.create(satbQuestion);
+          fallbackChordState = answer.insert(fallbackChordState, satbQuestion, {
+            voice: "alto", measure: 1, beat: 3,
+            pitches: ["E4"], duration: "q", addToChord: true,
+          });
+          assert("addChordToneFallsBackToNormalInsertionAtEmptyOnset",
+            fallbackChordState.measures[0].voices.alto.length === 1 &&
+            fallbackChordState.measures[0].voices.alto[0].beat === 3 &&
+            fallbackChordState.measures[0].voices.alto[0].pitches[0] === "E4"
           );
           assert("keySignaturesAndMeasureAccidentalsPreserveSpelling",
             answer.spellPitchAtStaffPosition({
@@ -504,15 +534,127 @@
             inContext.notes.length === sourceOnly.notes.length + studentOnly.notes.length
           );
 
+          const analysisQuestion = questions.find((question) => question.id === "analysis-c-g");
+          let analysisState = structured.create(analysisQuestion);
+          const analysisSlot = analysisQuestion.interaction.slots[0];
+          analysisState = structured.setSlot(analysisState, analysisSlot.id, {
+            analyses: [{
+              key: { root: "C", mode: "major" }, degree: "IV",
+              quality: "major", extent: "triad", inversion: "root",
+            }],
+          });
+          const responseScore = structured.scoreWithResponses(analysisQuestion, analysisState);
+          assert("romanResponsesRemainSeparateAndRenderIntoTheirExactSlot",
+            analysisQuestion.score.harmonicEvents[analysisSlot.harmonicIndex].questionLabel == null &&
+            responseScore.harmonicEvents[analysisSlot.harmonicIndex].questionLabel === "C: IV" &&
+            analysisQuestion.score.harmonicEvents[2].modelLabel === "C: I / G: IV"
+          );
+          const pivotValue = {
+            analyses: [
+              { key: { root: "C", mode: "major" }, degree: "I", quality: "major", extent: "triad", inversion: "root" },
+              { key: { root: "G", mode: "major" }, degree: "IV", quality: "major", extent: "triad", inversion: "root" },
+            ],
+          };
+          assert("romanBuilderSupportsDualPivotAnalysisAndNzqaInversions",
+            structured.formatValue(pivotValue, "roman-analysis") === "C: I / G: IV" &&
+            structured.formatRomanAnalysis({ degree: "V", quality: "major", extent: "seventh", inversion: "d" }) === "V⁷d"
+          );
+
+          const modulationQuestion = questions.find((question) => question.id === "nzqa-2023-bach-key-regions");
+          let modulationState = structured.create(modulationQuestion);
+          modulationState = structured.setField(modulationState, "x-key", { label: "E♭ major" });
+          modulationState = structured.setField(modulationState, "x-relationship", { label: "relative major of the subdominant" });
+          modulationState = structured.setEvidence(modulationState, "B♭7–E♭ cadence");
+          assert("modulationUsesStructuredKeyRelationshipAndEvidenceState",
+            modulationState.fields["x-key"].label === "E♭ major" &&
+            modulationState.fields["x-relationship"].label === "relative major of the subdominant" &&
+            modulationState.evidence === "B♭7–E♭ cadence"
+          );
+
+          const commercial = questions.find((question) => question.id === "nzqa-2024-commercial-chromatic-bass");
+          const commercialStateA = structured.create(commercial);
+          const commercialStateB = structured.create(commercial);
+          const commercialExpected = commercial.interaction.slots.map((slot) => slot.acceptedAnswers[0].label);
+          const commercialBank = commercial.interaction.bank.map((token) => token.label);
+          const multiplicity = (items, value) => items.filter((item) => item === value).length;
+          assert("jazzBankIsDeterministicWithExactAnswerMultiplicityAndDistractors",
+            commercialStateA.bank.map((token) => token.id).join(",") === commercialStateB.bank.map((token) => token.id).join(",") &&
+            [...new Set(commercialExpected)].every((label) => multiplicity(commercialBank, label) === multiplicity(commercialExpected, label)) &&
+            commercialBank.length > commercialExpected.length && commercialBank.includes("F♯dim7/F")
+          );
+          let jazzState = commercialStateA;
+          const firstJazzSlot = commercial.interaction.slots[0].id;
+          const secondJazzSlot = commercial.interaction.slots[1].id;
+          const firstToken = jazzState.bank.find((token) => token.label === commercialExpected[0]);
+          const secondToken = jazzState.bank.find((token) => token.label === commercialExpected[1]);
+          jazzState = structured.placeToken(jazzState, firstJazzSlot, firstToken.id);
+          jazzState = structured.placeToken(jazzState, secondJazzSlot, secondToken.id);
+          jazzState = structured.placeToken(jazzState, secondJazzSlot, firstToken.id);
+          const swapped = jazzState.slots[firstJazzSlot]?.tokenId === secondToken.id &&
+            jazzState.slots[secondJazzSlot]?.tokenId === firstToken.id;
+          jazzState = structured.returnToken(jazzState, secondJazzSlot);
+          assert("jazzPlacementSupportsReplaceSwapReturnAndReset",
+            swapped && jazzState.slots[secondJazzSlot] === null &&
+            Object.values(structured.reset(jazzState).slots).every((value) => value === null)
+          );
+          const acceptedJazzState = structured.setSlot(
+            commercialStateA, firstJazzSlot, { label: commercialExpected[0], source: "builder" }
+          );
+          const acceptedComparison = structured.comparison(commercial, acceptedJazzState);
+          const differentJazzState = structured.setSlot(
+            commercialStateA, firstJazzSlot, { label: "C7", source: "builder" }
+          );
+          const differentComparison = structured.comparison(commercial, differentJazzState);
+          assert("comparisonUsesOnlyAuthoredAcceptedAnswers",
+            acceptedComparison.slots[0].status === "matches" &&
+            differentComparison.slots[0].status === "different" &&
+            acceptedComparison.slots[1].status === "unanswered"
+          );
+          const lockedStructured = structured.setSubmitted(acceptedJazzState);
+          assert("structuredSubmissionSnapshotsAreLocked",
+            lockedStructured.submitted && (() => {
+              try {
+                structured.setSlot(lockedStructured, firstJazzSlot, null);
+                return false;
+              } catch (error) {
+                return error.message.includes("locked after submission");
+              }
+            })()
+          );
+
+          const completionQuestions = questions.filter((question) =>
+            question.interaction.type === "notation-completion"
+          );
+          assert("completionScoresOnlyExposeAuthoredSuppliedHarmonicLabels",
+            completionQuestions.every((question) =>
+              question.score.harmonicEvents.every((event) => event.answerRole !== "editable") &&
+              question.score.harmonicEvents.filter((event) => event.answerRole === "supplied").length ===
+                question.score.harmonicEvents.filter((event) => event.questionLabel).length
+            ) &&
+            questions.find((question) => question.id === "piano-bflat-gminor")
+              .score.harmonicEvents.every((event) => event.answerRole === "supplied")
+          );
+          assert("featureAndModulationLayoutAnchorsDoNotCreateAnswerBoxes",
+            questions.filter((question) => ["features", "modulation"].includes(question.category))
+              .every((question) => question.score.harmonicEvents.every((event) => event.answerRole === "none"))
+          );
+
           const frame = document.querySelector("#app-frame");
           const appWindow = frame.contentWindow;
           const appDocument = frame.contentDocument;
           const preRevealLeaks = [];
           questions.forEach((question) => {
             appWindow.CadenceLab.showQuestion(question.id);
-            const visibleText = appDocument.body.innerText.toLocaleLowerCase("en-NZ");
-            const renderedDomText = appDocument.body.textContent.toLocaleLowerCase("en-NZ");
-            const exposedAttributes = [...appDocument.querySelectorAll("*")]
+            const promptNodes = [
+              appDocument.querySelector("#question-title"),
+              appDocument.querySelector("#question-context"),
+              appDocument.querySelector("#source-attribution"),
+              appDocument.querySelector("#task-list"),
+              appDocument.querySelector("#score"),
+            ].filter(Boolean);
+            const promptText = promptNodes.map((node) => node.innerText || node.textContent)
+              .join(" ").toLocaleLowerCase("en-NZ");
+            const exposedPromptAttributes = promptNodes.flatMap((node) => [node, ...node.querySelectorAll("*")])
               .flatMap((element) => [...element.attributes]
                 .filter((attribute) =>
                   attribute.name === "aria-label" ||
@@ -527,9 +669,8 @@
             question.hiddenConceptTerms.forEach((term) => {
               const normalized = term.toLocaleLowerCase("en-NZ");
               if (
-                visibleText.includes(normalized) ||
-                renderedDomText.includes(normalized) ||
-                exposedAttributes.includes(normalized)
+                promptText.includes(normalized) ||
+                exposedPromptAttributes.includes(normalized)
               ) {
                 preRevealLeaks.push(`${question.id}: ${term}`);
               }
@@ -547,7 +688,7 @@
             if (permissions.question || permissions.context || permissions.model) {
               preRevealLeaks.push(`${question.id}: locked playback exposed`);
             }
-            if (permissions.student !== Boolean(question.interaction)) {
+            if (permissions.student !== (question.interaction.type === "notation-completion")) {
               preRevealLeaks.push(`${question.id}: Hear my work availability is incorrect`);
             }
           });
@@ -556,7 +697,25 @@
             preRevealLeaks
           );
 
+          appWindow.CadenceLab.showQuestion("analysis-c-g");
+          const editableScoreBoxes = [...appDocument.querySelectorAll(".analysis-box-editable")];
+          editableScoreBoxes[1].dispatchEvent(new appWindow.PointerEvent("pointerdown", {
+            bubbles: true,
+          }));
+          assert("clickingBlankScoreBoxOpensItsStructuredBuilder",
+            editableScoreBoxes.length === 4 &&
+            appDocument.querySelector(".structured-slot.is-active small").textContent === "Bar 2, beat 1" &&
+            !appDocument.querySelector("#structured-builder").hidden
+          );
+
           appWindow.CadenceLab.showQuestion("satb-f-c");
+          assert("notationToolbarUsesLocalSvgIconsAndHighlightsSelectedStaff",
+            appDocument.querySelectorAll("#duration-controls button").length === 7 &&
+            [...appDocument.querySelectorAll("#duration-controls button")]
+              .every((button) => button.querySelector("svg")) &&
+            appDocument.querySelectorAll('.editor-hit-target.is-current-editable[data-staff="treble"]').length === 3 &&
+            appDocument.querySelectorAll('.editor-hit-target.is-current-editable[data-staff="bass"]').length === 0
+          );
           const beatThreeTarget = appDocument.querySelector(
             '.editor-hit-target[data-measure="1"][data-staff="treble"]'
           );
@@ -594,7 +753,7 @@
           );
 
           appWindow.CadenceLab.showQuestion("feature-diminished");
-          const beforeRevealText = appDocument.body.innerText.toLocaleLowerCase("en-NZ");
+          const beforeRevealAnswerText = appDocument.querySelector("#answer-copy").textContent.toLocaleLowerCase("en-NZ");
           const submitted = appWindow.CadenceLab.submit({
             skipConfirmation: true,
             noScroll: true,
@@ -602,7 +761,7 @@
           const afterRevealText = appDocument.body.innerText.toLocaleLowerCase("en-NZ");
           const afterPermissions = appWindow.CadenceLab.getPlaybackPermissions();
           assert("answerLanguageAppearsOnlyAfterSubmission",
-            submitted && !beforeRevealText.includes("diminished seventh") &&
+            submitted && !beforeRevealAnswerText.includes("diminished seventh") &&
             afterRevealText.includes("diminished seventh")
           );
           assert("submissionBuildsModelDOMAndUnlocksComparisonPlayback",
