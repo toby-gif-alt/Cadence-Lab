@@ -1,6 +1,6 @@
 # Cadence Lab
 
-Paper-based practice for NCEA Level 3 Music Studies AS 91421.
+Interactive and paper-based practice for NCEA Level 3 Music Studies AS 91421.
 
 ## Put it on GitHub Pages
 
@@ -34,6 +34,8 @@ There is no procedural music generator. All pitches, rhythms, measures, harmonic
 - `question-bank.js` owns assessment content and authored score data.
 - `score-renderer.js` adapts the data into responsive VexFlow systems without question-specific drawing code.
 - `question-validator.js` checks structural, music-theory and independent source-fidelity invariants when the static app loads.
+- `student-answer.js` owns immutable learner-answer operations and composes those answers into the shared score format.
+- `playback-engine.js` turns visible score data into a Web Audio timeline without using chord labels as a hidden note source.
 - `vendor/vexflow-bravura-4.2.5.js` is the pinned VexFlow 4.2.5 browser build. Its MIT licence is in `vendor/VEXFLOW-LICENSE.txt`.
 
 All production questions use `score.measures`. The renderer preserves event durations, dotted values, rests, time-signature and key-signature changes, measure boundaries, ties, automatic beams and optional begin/end barlines. Supported barline values are `none`, `single`, `double`, `end`, `repeat-begin`, `repeat-end` and `repeat-both`.
@@ -124,13 +126,21 @@ Explicit measures are assigned a deterministic preferred width from their rhythm
 
 Piano completion events use the corresponding `qTreble` and `qBass` fields to keep the melody or supplied accompaniment visible while hiding notes the learner must write.
 
+## Spoiler-safe interaction and playback
+
+Every question keeps its authoring metadata separate from its learner presentation. `internalTitle`, the complete score, model labels and answer prose remain available for validation and post-submit comparison; `studentTitle`, `studentContext`, `score.studentCaption` and the visible task text are the only presentation fields used before submission. Each entry also declares `hiddenConceptTerms`, and validation checks all 32 questions for accidental concept or answer disclosure. The app does not prebuild hidden answer prose, rubric rows, model SVG content or model playback timelines in the rendered DOM.
+
+The four SATB and four piano completion questions declare explicit `interaction.editableRegions`. Supplied notation is locked, while learner events live in a separate answer state with their own pitches, rests, durations, dots and ties. The editor supports semibreves through semiquavers, accidentals, add-to-chord entry, delete, undo and redo. Clicking a stave position derives a spelled pitch from the current clef, key signature and prior accidentals; it never mutates the question or model score. The renderer accepts independent piano staff voices as well as independent SATB voices, so learner rhythm does not have to be forced onto a shared event grid.
+
+Before submission, playback is limited to notes the learner has entered. Submission snapshots and locks the answer, then unlocks the supplied question, learner answer in context and model answer. The Web Audio transport supports 40–160 BPM, pause/resume, stop, start-of-score or selected-bar playback and a measure-aware cursor. Rests advance time, dotted values retain their length, ties merge sustained notes, and simultaneous pitches sound as chords. Resetting, changing question, resizing the notation or submitting stops active playback.
+
 ## Validation scope
 
 The validator checks that:
 
 - question IDs and score signatures are distinct;
 - every production score has explicit measures whose durations fill the stated metre;
-- every harmonic event resolves to an authored note-event anchor;
+- every harmonic event resolves to its authored measure and beat; a supplied label inside a blank completion region receives a non-notated proportional anchor rather than an invented pitch or duration;
 - each declared chord symbol is supported by chord-bearing pitches that are present in the displayed notation and by the displayed slash bass, rejecting undeclared added tones; conventional omissions such as a fifth must be explicitly declared on that harmonic event;
 - Roman-numeral roots agree with their declared local keys for the supported diatonic cases;
 - declared non-harmonic notes are outside the active chord and, when a single melodic path is identified, their approach, departure, chord-tone endpoints, direction and metrical accent support the authored passing, auxiliary/neighbour, suspension, appoggiatura or accented-passing classification;
@@ -148,6 +158,6 @@ The Achievement/Merit/Excellence checklists follow the recurring progression in 
 
 ## Browser QA
 
-Serve the repository root over HTTP, then open `tests/renderer-smoke.html`. The smoke page validates the full bank and renders every question and model score at 1000, 780 and 390 pixels. `tests/visual-gallery.html?category=analysis&width=780` provides a category-by-category review; `tests/visual-gallery.html?source=nzqa-reference&width=1000` shows all eight reference questions together. Width accepts any value from 340 to 1040 pixels, and the gallery surfaces all manual-review warnings.
+Serve the repository root over HTTP, then open `tests/renderer-smoke.html`. The renderer smoke page validates the full bank and renders every question and model score at 1000, 780 and 390 pixels. Open `tests/interaction-smoke.html` for the 32-question spoiler audit plus immutable editor, overfill/underfill, lock, tie, chord-entry, timeline and playback-permission regressions. `tests/visual-gallery.html?category=analysis&width=780` provides a category-by-category review; `tests/visual-gallery.html?source=nzqa-reference&width=1000` shows all eight reference questions together. Width accepts any value from 340 to 1040 pixels, and the gallery surfaces all manual-review warnings.
 
 Cadence Lab is not an official NZQA resource.

@@ -10,7 +10,7 @@
     />
     <title>Cadence Lab | AS 91421 Practice</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=2026-09-engraving-4" />
+    <link rel="stylesheet" href="./styles.css?v=2026-09-interaction-3" />
   </head>
   <body>
     <header class="topbar">
@@ -29,7 +29,7 @@
         <div>
           <p class="eyebrow">Practice setup</p>
           <h1>Build a question</h1>
-          <p class="panel-intro">Choose a focus, write your answer on paper, then reveal the model and mark your evidence.</p>
+          <p class="panel-intro">Choose a focus, answer on paper or use the notation editor where available, then submit to compare your work.</p>
         </div>
 
         <label class="field-label" for="category">Question type</label>
@@ -92,7 +92,90 @@
               role="img"
               aria-label="A short original music extract for harmonic analysis or completion."
             ></div>
+            <div id="playback-cursor" class="playback-cursor" hidden aria-hidden="true"></div>
           </div>
+
+          <section class="editor-panel" id="editor-panel" hidden aria-labelledby="editor-heading">
+            <div class="tool-panel-heading">
+              <div>
+                <p class="eyebrow">Notation entry</p>
+                <h3 id="editor-heading">Enter your completion</h3>
+              </div>
+              <p class="editor-position" id="editor-position">Select a voice and tap the stave.</p>
+            </div>
+
+            <div class="editor-group">
+              <span class="field-label">Voice or staff</span>
+              <div class="segmented-control" id="voice-controls" role="group" aria-label="Current voice or staff"></div>
+            </div>
+
+            <div class="editor-toolbar" aria-label="Notation tools">
+              <div class="tool-cluster" id="duration-controls" role="group" aria-label="Note duration">
+                <button type="button" class="notation-tool" data-duration="w" aria-label="Semibreve" title="Semibreve">𝅝</button>
+                <button type="button" class="notation-tool" data-duration="h" aria-label="Minim" title="Minim">𝅗𝅥</button>
+                <button type="button" class="notation-tool is-active" data-duration="q" aria-label="Crotchet" title="Crotchet">♩</button>
+                <button type="button" class="notation-tool" data-duration="8" aria-label="Quaver" title="Quaver">♪</button>
+                <button type="button" class="notation-tool" data-duration="16" aria-label="Semiquaver" title="Semiquaver">𝅘𝅥𝅯</button>
+                <button type="button" class="notation-tool" id="dot-toggle" aria-pressed="false" aria-label="Dotted duration" title="Toggle dot">•</button>
+                <button type="button" class="notation-tool" id="rest-toggle" aria-pressed="false" aria-label="Rest" title="Toggle rest">𝄽</button>
+              </div>
+              <div class="tool-cluster" role="group" aria-label="Accidental">
+                <button type="button" class="notation-tool accidental-tool is-active" data-accidental="" aria-label="Use key signature" title="Use key signature">Key</button>
+                <button type="button" class="notation-tool accidental-tool" data-accidental="#" aria-label="Sharp" title="Sharp">♯</button>
+                <button type="button" class="notation-tool accidental-tool" data-accidental="b" aria-label="Flat" title="Flat">♭</button>
+                <button type="button" class="notation-tool accidental-tool" data-accidental="n" aria-label="Natural" title="Natural">♮</button>
+              </div>
+              <div class="tool-cluster">
+                <button type="button" class="notation-tool" id="tie-note" aria-label="Add or remove tie" title="Add or remove tie">⌒ Tie</button>
+                <button type="button" class="notation-tool" id="delete-note" aria-label="Delete selected note" title="Delete selected note">⌫ Delete</button>
+                <button type="button" class="notation-tool" id="undo-edit" aria-label="Undo" title="Undo">↶ Undo</button>
+                <button type="button" class="notation-tool" id="redo-edit" aria-label="Redo" title="Redo">↷ Redo</button>
+              </div>
+            </div>
+
+            <div class="editor-options">
+              <label class="touch-option">
+                <input type="checkbox" id="add-to-chord" />
+                <span>Add to chord</span>
+              </label>
+              <label class="touch-option">
+                <input type="checkbox" id="audition-entry" checked />
+                <span>Audition notes while entering</span>
+              </label>
+            </div>
+            <p class="editor-help">Tap the appropriate stave to enter the selected duration. Supplied notes are locked. Select one of your notes to edit it.</p>
+            <p class="editor-status" id="editor-status" role="status" aria-live="polite"></p>
+          </section>
+
+          <section class="playback-panel" aria-labelledby="playback-heading">
+            <div class="tool-panel-heading">
+              <div>
+                <p class="eyebrow">Score playback</p>
+                <h3 id="playback-heading">Listen and compare</h3>
+              </div>
+              <p id="playback-lock-message" class="playback-lock-message">Available after you submit your answer.</p>
+            </div>
+            <div class="playback-modes" id="playback-modes" role="group" aria-label="Playback source">
+              <button type="button" data-playback-mode="student">Hear my work</button>
+              <button type="button" data-playback-mode="question" disabled>Question / source</button>
+              <button type="button" data-playback-mode="context" disabled>My answer in context</button>
+              <button type="button" data-playback-mode="model" disabled>Model answer</button>
+            </div>
+            <div class="transport-row">
+              <button type="button" class="button button-transport" id="play-pause" disabled>▶ Play / Pause</button>
+              <button type="button" class="button button-transport" id="stop-playback" disabled>■ Stop</button>
+              <button type="button" class="button button-transport" id="play-start" disabled>Play from start</button>
+              <button type="button" class="button button-transport" id="play-selection" disabled>Play from selected bar</button>
+              <label class="tempo-control" for="tempo">Tempo
+                <input id="tempo" type="number" min="40" max="160" value="88" inputmode="numeric" />
+                <span>BPM</span>
+              </label>
+              <label class="bar-control" for="start-bar">Start bar
+                <select id="start-bar"></select>
+              </label>
+            </div>
+            <p id="playback-status" class="playback-status" role="status" aria-live="polite">Playback stopped.</p>
+          </section>
 
           <section class="answer-panel" id="answer-panel" hidden>
             <div class="answer-banner">
@@ -103,7 +186,7 @@
               </div>
             </div>
             <div id="model-score-wrap" class="model-score-wrap" hidden>
-              <div id="model-score" role="img" aria-label="Model realisation"></div>
+              <div id="model-score" role="img"></div>
             </div>
             <div class="answer-copy" id="answer-copy"></div>
 
@@ -128,7 +211,7 @@
           </button>
           <button class="button button-reveal" id="reveal-answer" type="button">
             <span aria-hidden="true">◉</span>
-            Reveal answer and guide
+            Submit &amp; reveal
           </button>
         </div>
 
@@ -137,9 +220,11 @@
     </main>
 
     <script src="./vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="./question-bank.js?v=2026-09-engraving-4"></script>
-    <script src="./score-renderer.js?v=2026-09-beam-fix-1"></script>
-    <script src="./question-validator.js?v=2026-09-engraving-4"></script>
-    <script src="./app.js?v=2026-09-engraving-4"></script>
+    <script src="./question-bank.js?v=2026-09-interaction-3"></script>
+    <script src="./score-renderer.js?v=2026-09-interaction-3"></script>
+    <script src="./question-validator.js?v=2026-09-interaction-3"></script>
+    <script src="./student-answer.js?v=2026-09-interaction-5"></script>
+    <script src="./playback-engine.js?v=2026-09-interaction-5"></script>
+    <script src="./app.js?v=2026-09-interaction-4"></script>
   </body>
 </html>

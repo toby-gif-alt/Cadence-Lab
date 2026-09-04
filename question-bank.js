@@ -139,10 +139,254 @@ function harmonicBox(measure, beat, event, modelLabel, details = {}) {
   };
 }
 
+const studentPresentationById = {
+  "nzqa-2021-bach-pivots": {
+    title: "Reference: Roman numeral and modulation analysis",
+    context:
+      "The first nine labels are supplied as in the paper. Analyse the ten blank positions in bars 4–8 and show how the shared harmonies connect the stated key areas.",
+    hiddenConceptTerms: ["pivot chord", "pivot chords", "two related-key pivots"],
+  },
+  "nzqa-2022-bach-c-aminor": {
+    title: "Reference: Roman numeral and modulation analysis",
+    context:
+      "Keep the supplied opening and closing labels, analyse the blank positions, mark both cadences, and show how the shared first-inversion harmony connects the stated key areas.",
+    hiddenConceptTerms: ["pivot chord", "pivot chords", "pivot into"],
+  },
+  "analysis-c-g": {
+    title: "Original: Roman numeral and modulation analysis",
+    hiddenConceptTerms: ["pivot chord"],
+  },
+  "analysis-a-c": {
+    title: "Original: Roman numeral and modulation analysis",
+    hiddenConceptTerms: ["pivot chord"],
+  },
+  "analysis-gminor-bflat": {
+    title: "Original: Roman numeral and modulation analysis",
+    hiddenConceptTerms: ["relative-major pivot", "pivot chord"],
+  },
+  "nzqa-2024-bach-analysis": {
+    title: "Reference: Roman numeral and modulation analysis",
+    context:
+      "Analyse the 13 blank positions after the five supplied labels, show how the shared harmony connects the stated key areas, and explain chord X's cadential function.",
+    hiddenConceptTerms: ["pivot chord", "diminished seventh", "pivot and diminished seventh"],
+  },
+  "modulation-d-g-f": {
+    title: "Original: identify two related key regions",
+    context:
+      "Identify the temporary region X and the final region Y. Give cadence evidence and explain each relationship to the opening tonic.",
+    hiddenConceptTerms: ["G minor", "F major"],
+  },
+  "nzqa-2023-bach-key-regions": {
+    title: "Reference: identify and support the key regions",
+    hiddenConceptTerms: [],
+  },
+  "modulation-c-g-e": {
+    title: "Original: identify two temporary key regions",
+    context:
+      "Identify X and Y, give exact cadence evidence, and state each relationship to the opening tonic.",
+    hiddenConceptTerms: ["G major", "E minor"],
+  },
+  "modulation-a-fsharp": {
+    title: "Original: identify the closing key",
+    context:
+      "Identify the final key and explain the harmonic function of the altered note in the approach to the cadence.",
+    hiddenConceptTerms: ["F-sharp minor", "F♯ minor", "raised leading note"],
+  },
+  "modulation-gminor-eb-f": {
+    title: "Original: identify two related key regions",
+    context:
+      "Sections X and Y cadence in two related major keys. Identify them, give evidence and relate each to the opening tonic.",
+    hiddenConceptTerms: ["E-flat major", "E♭ major", "F major", "relative of dominant"],
+  },
+  "modulation-e-b-csharp": {
+    title: "Original: identify two local key centres",
+    context:
+      "Identify X and Y and explain how the altered notes clarify the two local keys.",
+    hiddenConceptTerms: ["B major", "C-sharp minor", "C♯ minor"],
+  },
+  "nzqa-2024-bach-satb": {
+    title: "Reference: complete the four-part texture",
+    hiddenConceptTerms: [],
+  },
+  "satb-f-c": {
+    title: "Original: complete the inner parts",
+    hiddenConceptTerms: [],
+  },
+  "satb-gminor": {
+    title: "Original: complete the inner parts",
+    hiddenConceptTerms: [],
+  },
+  "satb-c-aminor": {
+    title: "Original: complete the inner parts",
+    hiddenConceptTerms: [],
+  },
+  "piano-d-f": {
+    title: "Original: complete the piano accompaniment",
+    context:
+      "Continue the quaver accompaniment beneath the supplied melody. Preserve the opening pattern and make the final cadence clear.",
+    hiddenConceptTerms: ["F major"],
+  },
+  "piano-a-fsharp": {
+    title: "Original: complete the piano texture",
+    context:
+      "Complete the missing bass and inner notes while retaining the crotchet chord pattern. Resolve the altered chord tone convincingly.",
+    hiddenConceptTerms: ["F-sharp minor", "F♯ minor", "E-sharp", "E♯"],
+  },
+  "piano-g-c": {
+    title: "Original: continue the accompaniment",
+    context:
+      "Continue the left-hand pattern after the rest and shape the second phrase toward a clear cadence. Keep the tied melody note visible across the barline.",
+    hiddenConceptTerms: ["C major"],
+  },
+  "piano-bflat-gminor": {
+    title: "Original: complete the piano accompaniment",
+    context:
+      "Complete the chordal accompaniment under the dotted melody. Retain the 3/4 metre and make the final dominant-to-tonic motion clear.",
+    hiddenConceptTerms: ["G minor"],
+  },
+  "nzqa-2021-valentine-techniques": {
+    title: "Reference: chord and harmonic-feature analysis",
+    context:
+      "Complete the chord boxes above bars 21–29, classify the marked X, Y and Z melody notes, and explain the two harmonic techniques operating in bars 21–25.",
+    hiddenConceptTerms: ["tonic pedal", "pedal point", "minor-line harmony"],
+  },
+  "nzqa-2024-commercial-chromatic-bass": {
+    title: "Reference: chord and bass-line analysis",
+    context:
+      "Analyse the eleven boxed positions in bars 19–28, including both sonorities in bar 23, then explain the bass movement and rate of harmonic change in bars 24–28.",
+    hiddenConceptTerms: ["chromatic bass", "one chord per bar"],
+  },
+  "jazz-c-turnaround": {
+    title: "Original: analyse the chord sequence",
+    context:
+      "Write a chord symbol in every box and explain how the altered dominant extends the turnaround. Include the final added sixth.",
+    hiddenConceptTerms: ["secondary dominant", "A7"],
+  },
+  "jazz-e-turnaround": {
+    title: "Original: analyse the chord sequence",
+    context:
+      "Name the chords, including sevenths and the final added sixth. Explain the function of the altered dominant.",
+    hiddenConceptTerms: ["C-sharp 7", "C♯7", "secondary dominant"],
+  },
+  "jazz-blues-secondary": {
+    title: "Original: analyse the chord sequence",
+    context:
+      "Identify the eight chord symbols and explain how the linking chord connects the preceding seventh chord to the tonic over G.",
+    hiddenConceptTerms: ["diminished seventh", "diminished link"],
+  },
+  "jazz-sus-line": {
+    title: "Original: analyse the extended chords",
+    context:
+      "Name the extended chords, distinguish the altered dominant from its internal resolution, and explain the delayed dominant motion.",
+    hiddenConceptTerms: ["suspended dominant", "G7sus4", "suspension"],
+  },
+  "nzqa-2023-poulenc-pedal": {
+    title: "Reference: identify the bass device",
+    hiddenConceptTerms: ["tonic pedal", "pedal point"],
+  },
+  "feature-diminished": {
+    title: "Original: analyse chord X",
+    hiddenConceptTerms: ["diminished seventh", "diminished-seventh"],
+  },
+  "feature-pedal": {
+    title: "Original: identify and explain the bass device",
+    hiddenConceptTerms: ["tonic pedal", "pedal point", "tonic-pedal"],
+  },
+  "feature-chromatic-bass": {
+    title: "Original: analyse the bass movement",
+    hiddenConceptTerms: ["chromatic bass", "descending chromatic bass"],
+  },
+  "feature-nonharmonic": {
+    title: "Original: classify the marked note",
+    hiddenConceptTerms: ["passing note"],
+  },
+  "feature-harmonic-rhythm": {
+    title: "Original: compare the rate of harmonic change",
+    hiddenConceptTerms: ["harmonic rhythm", "harmonic-rhythm acceleration"],
+  },
+};
+
+const completionInteractions = {
+  "nzqa-2024-bach-satb": {
+    type: "notation-completion",
+    editableRegions: [
+      { measures: [2, 3], voices: ["soprano", "alto", "tenor", "bass"] },
+    ],
+  },
+  "satb-f-c": {
+    type: "notation-completion",
+    editableRegions: [
+      { measures: [1, 2, 3], voices: ["alto", "tenor"] },
+    ],
+  },
+  "satb-gminor": {
+    type: "notation-completion",
+    editableRegions: [
+      { measures: [1, 2, 3], voices: ["alto", "tenor"] },
+    ],
+  },
+  "satb-c-aminor": {
+    type: "notation-completion",
+    editableRegions: [
+      { measures: [1, 2, 3], voices: ["alto", "tenor"] },
+    ],
+  },
+  "piano-d-f": {
+    type: "notation-completion",
+    editableRegions: [
+      { measures: [2, 3], voices: ["treble", "bass"] },
+    ],
+  },
+  "piano-a-fsharp": {
+    type: "notation-completion",
+    editableRegions: [
+      { measures: [2, 3], voices: ["treble", "bass"] },
+    ],
+  },
+  "piano-g-c": {
+    type: "notation-completion",
+    editableRegions: [
+      { measures: [2, 3], voices: ["treble", "bass"] },
+    ],
+  },
+  "piano-bflat-gminor": {
+    type: "notation-completion",
+    editableRegions: [
+      { measures: [2, 3], voices: ["treble", "bass"] },
+    ],
+  },
+};
+
+function neutralStudentCaption(config) {
+  if (config.sourceType === "nzqa-reference") {
+    return `NZQA reference • ${config.source.year} ${config.source.question} ${config.source.part} • ${config.source.extract}`;
+  }
+  return `Original Cadence Lab practice • ${categoryNames[config.category]}`;
+}
+
 function createQuestion(config) {
   const rubric = rubricByCategory[config.category];
+  const presentation = studentPresentationById[config.id];
+  if (!presentation) {
+    throw new Error(`Missing student presentation audit for ${config.id}.`);
+  }
   return {
     ...config,
+    internalTitle: config.internalTitle || config.title,
+    studentTitle: presentation.title,
+    studentContext: presentation.context || config.context,
+    hiddenConceptTerms: presentation.hiddenConceptTerms,
+    interaction: config.interaction || completionInteractions[config.id] || null,
+    score: {
+      ...config.score,
+      studentCaption: neutralStudentCaption(config),
+      accessibleLabel:
+        config.category === "satb"
+          ? "Question musical extract: four-part completion or analysis score."
+          : config.category === "piano"
+            ? "Question musical extract: two-stave piano completion score."
+            : "Question musical extract for written harmonic or tonal analysis.",
+    },
     tasks: config.tasks || rubric.tasks,
     criteria: config.criteria || rubric.criteria,
   };
