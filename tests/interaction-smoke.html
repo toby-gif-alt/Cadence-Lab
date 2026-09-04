@@ -592,6 +592,25 @@
           assert("switchingSeventhToTriadSanitisesInversionD",
             constrainedRomanState.slots[ordinaryRomanSlot.id].analyses[0].inversion === "root"
           );
+          constrainedRomanState = structured.setSlot(constrainedRomanState, ordinaryRomanSlot.id, {
+            analyses: [{ degree: "II", quality: "half-diminished", extent: "triad", inversion: "d" }],
+          });
+          assert("halfDiminishedTriadsAreSanitisedToSevenths",
+            constrainedRomanState.slots[ordinaryRomanSlot.id].analyses[0].extent === "seventh" &&
+            constrainedRomanState.slots[ordinaryRomanSlot.id].analyses[0].inversion === "d"
+          );
+          assert("halfDiminishedFormatsWithASeventh",
+            structured.formatRomanAnalysis({
+              degree: "II", quality: "half-diminished", extent: "triad", inversion: "root",
+            }) === "iiø⁷"
+          );
+          constrainedRomanState = structured.setSlot(constrainedRomanState, ordinaryRomanSlot.id, {
+            analyses: [{ degree: "VII", quality: "diminished", extent: "triad", inversion: "root" }],
+          });
+          assert("diminishedTriadsRemainAllowed",
+            constrainedRomanState.slots[ordinaryRomanSlot.id].analyses[0].extent === "triad" &&
+            structured.formatValue(constrainedRomanState.slots[ordinaryRomanSlot.id], "roman-analysis") === "vii°"
+          );
 
           const modulationQuestion = questions.find((question) => question.id === "nzqa-2023-bach-key-regions");
           let modulationState = structured.create(modulationQuestion);
@@ -795,6 +814,21 @@
           assert("romanInversionControlsFollowChordSize",
             seventhIncludesD && romanInversion.value === "root" &&
             ![...romanInversion.options].some((option) => option.value === "d")
+          );
+          const romanQuality = appDocument.querySelector('[data-part="quality"]');
+          romanQuality.value = "half-diminished";
+          romanQuality.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
+          const halfDiminishedForcesSeventh = romanExtent.value === "seventh" &&
+            romanExtent.disabled &&
+            [...romanInversion.options].some((option) => option.value === "d") &&
+            ![...romanExtent.options].some((option) => option.value === "triad");
+          romanQuality.value = "diminished";
+          romanQuality.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
+          assert("halfDiminishedUiForcesSeventhAndRestoresNormalChoices",
+            halfDiminishedForcesSeventh && !romanExtent.disabled &&
+            ["triad", "seventh"].every((value) =>
+              [...romanExtent.options].some((option) => option.value === value)
+            )
           );
           appDocument.querySelectorAll(".structured-slot")[1].click();
           assert("pivotRomanSlotsExposeSecondAnalysisControls",

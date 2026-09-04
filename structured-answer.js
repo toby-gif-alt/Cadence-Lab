@@ -90,7 +90,9 @@
 
   function sanitizeRomanAnalysis(value) {
     const next = copy(value || {});
-    const extent = next.extent === "seventh" ? "seventh" : "triad";
+    const extent = next.quality === "half-diminished"
+      ? "seventh"
+      : next.extent === "seventh" ? "seventh" : "triad";
     const validInversions = extent === "seventh"
       ? ["root", "b", "c", "d"]
       : ["root", "b", "c"];
@@ -195,9 +197,10 @@
 
   function formatRomanAnalysis(value) {
     if (!value) return "";
-    const accidental = value.accidental === "#" ? "♯" : value.accidental === "b" ? "♭" : "";
-    let degree = String(value.degree || "I").toUpperCase();
-    const quality = value.quality || "major";
+    const analysis = sanitizeRomanAnalysis(value);
+    const accidental = analysis.accidental === "#" ? "♯" : analysis.accidental === "b" ? "♭" : "";
+    let degree = String(analysis.degree || "I").toUpperCase();
+    const quality = analysis.quality || "major";
     if (["minor", "diminished", "half-diminished"].includes(quality)) {
       degree = degree.toLowerCase();
     }
@@ -208,15 +211,15 @@
         : quality === "augmented"
           ? "+"
           : "";
-    const inversion = value.inversion && value.inversion !== "root"
-      ? value.inversion
+    const inversion = analysis.inversion && analysis.inversion !== "root"
+      ? analysis.inversion
       : "";
-    const suspension = value.suspension && value.suspension !== "none"
-      ? value.suspension === "♯3" ? "♯3" : ` ${value.suspension}`
+    const suspension = analysis.suspension && analysis.suspension !== "none"
+      ? analysis.suspension === "♯3" ? "♯3" : ` ${analysis.suspension}`
       : "";
-    const secondary = value.secondaryOf ? `/${value.secondaryOf}` : "";
-    const prefix = value.key ? `${compactKey(value.key)}: ` : "";
-    return `${prefix}${accidental}${degree}${qualityMark}${superscriptSeventh(value.extent)}${inversion}${secondary}${suspension}`;
+    const secondary = analysis.secondaryOf ? `/${analysis.secondaryOf}` : "";
+    const prefix = analysis.key ? `${compactKey(analysis.key)}: ` : "";
+    return `${prefix}${accidental}${degree}${qualityMark}${superscriptSeventh(analysis.extent)}${inversion}${secondary}${suspension}`;
   }
 
   function formatValue(value, type) {

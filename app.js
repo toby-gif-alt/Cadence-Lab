@@ -337,7 +337,11 @@
 
   function romanBuilderRow(index, value = {}, optional = false) {
     const key = value.key ? structuredModel.formatKey(value.key) : "";
-    const extent = value.extent === "seventh" ? "seventh" : "triad";
+    const quality = value.quality || "major";
+    const extent = quality === "half-diminished"
+      ? "seventh"
+      : value.extent === "seventh" ? "seventh" : "triad";
+    const extentChoices = quality === "half-diminished" ? ["seventh"] : ["triad", "seventh"];
     const inversionChoices = romanInversionChoices(extent);
     const inversion = inversionChoices.includes(value.inversion) ? value.inversion : "root";
     return `
@@ -352,10 +356,10 @@
           <select data-part="degree">${optionMarkup(["I", "II", "III", "IV", "V", "VI", "VII"], value.degree || (optional ? "" : "I"), optional ? "No second analysis" : "Degree")}</select>
         </label>
         <label>Quality / case
-          <select data-part="quality">${optionMarkup(["major", "minor", "diminished", "half-diminished", "augmented"], value.quality || "major", "Quality")}</select>
+          <select data-part="quality">${optionMarkup(["major", "minor", "diminished", "half-diminished", "augmented"], quality, "Quality")}</select>
         </label>
         <label>Chord
-          <select data-part="extent">${optionMarkup(["triad", "seventh"], extent, "Chord size")}</select>
+          <select data-part="extent"${quality === "half-diminished" ? " disabled" : ""}>${optionMarkup(extentChoices, extent, "Chord size")}</select>
         </label>
         <label>Inversion
           <select data-part="inversion">${optionMarkup(inversionChoices, inversion, "Inversion")}</select>
@@ -406,14 +410,29 @@
         <button type="button" class="button button-primary" data-save-roman>Place analysis</button>
         <button type="button" class="button button-ghost" data-clear-slot>Clear</button>
       </div>`;
-    structuredBuilder.querySelectorAll('[data-part="extent"]').forEach((extentSelect) => {
-      extentSelect.addEventListener("change", () => {
-        const row = extentSelect.closest("[data-analysis-index]");
+    structuredBuilder.querySelectorAll("[data-analysis-index]").forEach((row) => {
+      const qualitySelect = row.querySelector('[data-part="quality"]');
+      const extentSelect = row.querySelector('[data-part="extent"]');
+      const syncInversions = () => {
         const inversionSelect = row.querySelector('[data-part="inversion"]');
         const choices = romanInversionChoices(extentSelect.value);
         const selected = choices.includes(inversionSelect.value) ? inversionSelect.value : "root";
         inversionSelect.innerHTML = optionMarkup(choices, selected, "Inversion");
-      });
+      };
+      const syncQualityAndExtent = () => {
+        const halfDiminished = qualitySelect.value === "half-diminished";
+        const priorExtent = extentSelect.value;
+        const choices = halfDiminished ? ["seventh"] : ["triad", "seventh"];
+        const selected = halfDiminished
+          ? "seventh"
+          : choices.includes(priorExtent) ? priorExtent : "triad";
+        extentSelect.innerHTML = optionMarkup(choices, selected, "Chord size");
+        extentSelect.disabled = halfDiminished;
+        syncInversions();
+      };
+      extentSelect.addEventListener("change", syncInversions);
+      qualitySelect.addEventListener("change", syncQualityAndExtent);
+      syncQualityAndExtent();
     });
     structuredBuilder.querySelector("[data-save-roman]").addEventListener("click", () => {
       const analysesValue = [...structuredBuilder.querySelectorAll("[data-analysis-index]")]
