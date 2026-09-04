@@ -10,16 +10,6 @@
     "8": 0.5,
     "16": 0.25,
   };
-  const DURATION_FOR_BEATS = new Map([
-    [4, "w"],
-    [3, "hd"],
-    [2, "h"],
-    [1.5, "qd"],
-    [1, "q"],
-    [0.75, "8d"],
-    [0.5, "8"],
-    [0.25, "16"],
-  ]);
   const LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
   const KEY_SIGNATURES = {
     C: 0,
@@ -75,7 +65,7 @@
       .replaceAll("♮", "n");
   }
 
-  function durationBeats(duration) {
+  function durationBeats(duration, denominator = 4) {
     const value = String(duration || "q").toLowerCase();
     const base = value.replaceAll("d", "");
     if (!(base in DURATION_BEATS)) {
@@ -87,7 +77,7 @@
       multiplier += addition;
       addition /= 2;
     }
-    return DURATION_BEATS[base] * multiplier;
+    return DURATION_BEATS[base] * multiplier * (denominator / 4);
   }
 
   function timeSignatureAt(question, measureNumber) {
@@ -153,17 +143,96 @@
     return holder.voices[voice] || [];
   }
 
-  function eventStarts(stream) {
-    let beat = 1;
-    return stream.map((event) => {
-      const current = { event, beat };
-      beat += durationBeats(event.duration);
-      return current;
-    });
+  function eventStarts(stream, denominator = 4) {
+    let sequentialBeat = 1;
+    return stream
+      .map((event, index) => {
+        const beat = Number.isFinite(Number(event.beat))
+          ? Number(event.beat)
+          : sequentialBeat;
+        const beats = durationBeats(event.duration, denominator);
+        sequentialBeat = Math.max(sequentialBeat, beat + beats);
+        return { event, beat, beats, index };
+      })
+      .sort((first, second) => first.beat - second.beat || first.index - second.index);
   }
 
-  function usedBeats(stream) {
-    return stream.reduce((sum, event) => sum + durationBeats(event.duration), 0);
+  function usedBeats(stream, denominator = 4) {
+    return eventStarts(stream, denominator).reduce(
+      (furthest, item) => Math.max(furthest, item.beat - 1 + item.beats),
+      0
+    );
+  }
+
+  function durationsForGap(beats, denominator) {
+    const values = ["w", "hd", "h", "qd", "q", "8d", "8", "16"];
+    const result = [];
+    let remaining = beats;
+    while (remaining > 0.001) {
+      const duration = values.find(
+        (candidate) => durationBeats(candidate, denominator) <= remaining + 0.001
+      );
+      if (!duration) {
+        throw new AnswerError(
+          "unsupported-gap",
+          `Cannot represent a ${beatLabel(beats)}-beat gap in this metre.`
+        );
+      }
+      result.push(duration);
+      remaining -= durationBeats(duration, denominator);
+    }
+    return result;
+  }
+
+  function materializeTimedStream(stream, denominator = 4) {
+    let cursor = 1;
+    const result = [];
+    eventStarts(stream, denominator).forEach(({ event, beat, beats }) => {
+      const gap = beat - cursor;
+      if (gap > 0.001) {
+        durationsForGap(gap, denominator).forEach((duration) => {
+          result.push({
+            duration,
+            rest: true,
+            generatedGap: true,
+          });
+        });
+      }
+      result.push({ ...copy(event), beat });
+      cursor = Math.max(cursor, beat + beats);
+    });
+    return result;
+  }
+
+  function durationForExactBeats(beats, denominator) {
+    return ["w", "hd", "h", "qd", "q", "8d", "8", "16"].find(
+      (duration) => Math.abs(durationBeats(duration, denominator) - beats) < 0.001
+    );
+  }
+
+  function rangesOverlap(firstStart, firstDuration, secondStart, secondDuration) {
+    const firstEnd = firstStart + firstDuration;
+    const secondEnd = secondStart + secondDuration;
+    return firstStart < secondEnd - 0.001 && secondStart < firstEnd - 0.001;
+  }
+
+  function snapBeatAtX(details) {
+    const startX = Number(details.startX);
+    const endX = Number(details.endX);
+    const x = Number(details.x);
+    const capacity = Number(details.capacity);
+    const denominator = Number(details.denominator || 4);
+    if (![startX, endX, x, capacity, denominator].every(Number.isFinite) ||
+        endX <= startX || capacity <= 0) {
+      throw new AnswerError("invalid-hit-geometry", "The tapped measure geometry is invalid.");
+    }
+    const eventDuration = durationBeats(details.duration || "q", denominator);
+    const grid = Math.min(denominator / 4, eventDuration);
+    const fraction = Math.max(0, Math.min(1, (x - startX) / (endX - startX)));
+    const rawOffset = fraction * capacity;
+    const snappedOffset = Math.round(rawOffset / grid) * grid;
+    const latestOffset = Math.max(0, capacity - eventDuration);
+    return 1 + Math.min(latestOffset, Math.max(0, snappedOffset));
   }
 
   function beatLabel(value) {
@@ -213,9 +282,14 @@
     }
     const next = copy(state);
     const voice = details.voice;
+    const existingCursor = next.cursors[voice];
     const cursor = details.measure
-      ? { measure: details.measure, beat: details.beat || 1 }
-      : next.cursors[voice];
+      ? {
+          measure: details.measure,
+          beat: details.beat ??
+            (existingCursor?.measure === details.measure ? existingCursor.beat : 1),
+        }
+      : existingCursor;
     if (!cursor || !isEditable(question, cursor.measure, voice)) {
       throw new AnswerError(
         "locked-region",
@@ -224,17 +298,25 @@
     }
     const stream = streamFor(next, cursor.measure, voice, true);
     const duration = String(details.duration || "q");
-    const beats = durationBeats(duration);
+    const denominator = timeSignatureAt(question, cursor.measure).denominator;
+    const beats = durationBeats(duration, denominator);
+    const startBeat = Number(cursor.beat);
+    const capacity = measureCapacity(question, cursor.measure);
 
     if (details.addToChord) {
       const selected = locate(next, next.selectedId);
-      const target = selected?.voice === voice && selected.measure === cursor.measure
+      const selectedAtTap = selected?.voice === voice &&
+        selected.measure === cursor.measure &&
+        Math.abs(Number(selected.event.beat || 1) - startBeat) < 0.001;
+      const target = selectedAtTap
         ? selected.event
-        : stream[stream.length - 1];
+        : eventStarts(stream, denominator).find(
+            (item) => Math.abs(item.beat - startBeat) < 0.001
+          )?.event;
       if (!target || target.rest) {
         throw new AnswerError(
           "no-chord-onset",
-          "Add to chord needs a selected or immediately preceding pitched note."
+          "Add to chord needs a pitched note at the tapped rhythmic position."
         );
       }
       const pitches = details.pitches || [];
@@ -243,8 +325,6 @@
       return withRevision(next);
     }
 
-    const startBeat = usedBeats(stream) + 1;
-    const capacity = measureCapacity(question, cursor.measure);
     const remaining = Math.max(0, capacity - startBeat + 1);
     if (beats > remaining + 0.001) {
       throw new AnswerError(
@@ -252,10 +332,20 @@
         `That note exceeds the remaining ${beatLabel(remaining)} beat${Math.abs(remaining - 1) < 0.001 ? "" : "s"} in this bar.`
       );
     }
+    const overlap = eventStarts(stream, denominator).find((item) =>
+      rangesOverlap(startBeat, beats, item.beat, item.beats)
+    );
+    if (overlap) {
+      throw new AnswerError(
+        "event-overlap",
+        `That ${beatLabel(beats)}-beat value overlaps an existing event at beat ${beatLabel(overlap.beat)}.`
+      );
+    }
     const event = {
       id: `${question.id}-student-${next.nextId++}`,
       pitches: details.rest ? [] : [...new Set(details.pitches || [])],
       duration,
+      beat: startBeat,
       rest: Boolean(details.rest),
       tieToNext: false,
     };
@@ -263,6 +353,9 @@
       throw new AnswerError("missing-pitch", "Choose a stave position for the note.");
     }
     stream.push(event);
+    stream.sort((first, second) =>
+      Number(first.beat || 1) - Number(second.beat || 1)
+    );
     next.selectedId = event.id;
     advanceCursor(next, question, voice, cursor.measure, startBeat + beats);
     return withRevision(next);
@@ -289,15 +382,26 @@
     }
     const event = located.event;
     if (changes.duration) {
-      const replacement = durationBeats(changes.duration);
-      const current = durationBeats(event.duration);
-      const total = usedBeats(located.stream) - current + replacement;
+      const denominator = timeSignatureAt(question, located.measure).denominator;
+      const replacement = durationBeats(changes.duration, denominator);
+      const startBeat = Number(event.beat || 1);
       const capacity = measureCapacity(question, located.measure);
-      if (total > capacity + 0.001) {
-        const remaining = Math.max(0, capacity - (total - replacement));
+      if (startBeat + replacement > capacity + 1 + 0.001) {
+        const remaining = Math.max(0, capacity - startBeat + 1);
         throw new AnswerError(
           "measure-overfill",
           `That note exceeds the remaining ${beatLabel(remaining)} beat${Math.abs(remaining - 1) < 0.001 ? "" : "s"} in this bar.`
+        );
+      }
+      const overlap = eventStarts(located.stream, denominator).find(
+        (item) =>
+          item.event.id !== event.id &&
+          rangesOverlap(startBeat, replacement, item.beat, item.beats)
+      );
+      if (overlap) {
+        throw new AnswerError(
+          "event-overlap",
+          `That duration overlaps an existing event at beat ${beatLabel(overlap.beat)}.`
         );
       }
       event.duration = changes.duration;
@@ -326,9 +430,9 @@
     if (!located || !isEditable(question, located.measure, located.voice)) {
       throw new AnswerError("locked-region", "The supplied notation is locked.");
     }
+    const deletedBeat = Number(located.event.beat || 1);
     located.stream.splice(located.eventIndex, 1);
-    const beat = usedBeats(located.stream) + 1;
-    next.cursors[located.voice] = { measure: located.measure, beat };
+    next.cursors[located.voice] = { measure: located.measure, beat: deletedBeat };
     next.selectedId = null;
     return withRevision(next);
   }
@@ -475,9 +579,117 @@
     );
   }
 
+  function eventPitches(event, field = null) {
+    if (Array.isArray(event.pitches)) return event.pitches;
+    if (event.pitch) return [event.pitch];
+    return field && Array.isArray(event[field]) ? event[field] : [];
+  }
+
+  function sourceVisibleEvents(question, measureNumber, staff) {
+    const measure = question.score.measures[measureNumber - 1];
+    if (!measure) return [];
+    const denominator = timeSignatureAt(question, measureNumber).denominator;
+
+    if (question.category === "satb") {
+      const voicesOnStaff = staff === "treble"
+        ? ["soprano", "alto"]
+        : ["tenor", "bass"];
+      if (measure.voices && !measure.events) {
+        const source = measure.questionVoices || measure.voices;
+        return voicesOnStaff.flatMap((voice) => {
+          let beat = 1;
+          return (source[voice] || []).flatMap((event) => {
+            const currentBeat = beat;
+            beat += durationBeats(event.duration || "q", denominator);
+            const pitches = eventPitches(event);
+            return pitches.length
+              ? [{ beat: currentBeat, pitches: copy(pitches), voice, staff, supplied: true }]
+              : [];
+          });
+        });
+      }
+      let beat = 1;
+      return (measure.events || []).flatMap((event) => {
+        const currentBeat = beat;
+        beat += durationBeats(event.duration || "q", denominator);
+        const source = event.questionVoices || event.voices || {};
+        return voicesOnStaff.flatMap((voice) => {
+          const value = source[voice];
+          const pitches = value == null ? [] : Array.isArray(value) ? value : [value];
+          return pitches.length
+            ? [{ beat: currentBeat, pitches: copy(pitches), voice, staff, supplied: true }]
+            : [];
+        });
+      });
+    }
+
+    if (measure.staffVoices) {
+      return (measure.staffVoices[staff] || []).flatMap((voice, voiceIndex) => {
+        let beat = 1;
+        return (voice.events || []).flatMap((event) => {
+          const currentBeat = beat;
+          beat += durationBeats(event.duration || "q", denominator);
+          const pitches = eventPitches(event, staff);
+          return pitches.length
+            ? [{
+                beat: currentBeat,
+                pitches: copy(pitches),
+                voice: voice.role || `${staff}-${voiceIndex + 1}`,
+                staff,
+                supplied: true,
+              }]
+            : [];
+        });
+      });
+    }
+
+    let beat = 1;
+    const questionField = staff === "treble" ? "qTreble" : "qBass";
+    return (measure.events || []).flatMap((event) => {
+      const currentBeat = beat;
+      beat += durationBeats(
+        event[`${staff}Duration`] || event.duration || "q",
+        denominator
+      );
+      const pitches = Object.hasOwn(event, questionField)
+        ? event[questionField] || []
+        : event[staff] || [];
+      return pitches.length
+        ? [{ beat: currentBeat, pitches: copy(pitches), voice: staff, staff, supplied: true }]
+        : [];
+    });
+  }
+
+  function visibleAccidentalContext(question, state, details) {
+    const measureNumber = Number(details.measure);
+    const insertionBeat = Number(details.beat);
+    const staff = details.staff;
+    const denominator = timeSignatureAt(question, measureNumber).denominator;
+    const voicesOnStaff = question.category === "satb"
+      ? staff === "treble" ? ["soprano", "alto"] : ["tenor", "bass"]
+      : [staff];
+    const student = voicesOnStaff.flatMap((voice) =>
+      eventStarts(streamFor(state, measureNumber, voice), denominator).map(
+        (item) => ({
+          beat: item.beat,
+          pitches: copy(item.event.pitches || []),
+          voice,
+          staff,
+          supplied: false,
+        })
+      )
+    );
+    return [...sourceVisibleEvents(question, measureNumber, staff), ...student]
+      .filter((event) => event.beat < insertionBeat - 0.001)
+      .sort((first, second) =>
+        first.beat - second.beat || Number(second.supplied) - Number(first.supplied)
+      );
+  }
+
   function emptyPlaceholder(question, measureNumber) {
     const beats = measureCapacity(question, measureNumber);
-    return [{ duration: DURATION_FOR_BEATS.get(beats) || "w" }];
+    const denominator = timeSignatureAt(question, measureNumber).denominator;
+    return [{ duration: durationForExactBeats(beats, denominator) || "w" }];
   }
 
   function composeScore(question, state, options = {}) {
@@ -497,15 +709,19 @@
       );
       if (question.category === "satb") {
         const source = includeSource ? sourceSatbStreams(measure) : {};
+        const denominator = timeSignatureAt(question, measureNumber).denominator;
         const voices = Object.fromEntries(
           SATB_VOICES.map((voice) => {
             const student = includeStudent
-              ? copy(streamFor(state, measureNumber, voice))
+              ? materializeTimedStream(
+                  copy(streamFor(state, measureNumber, voice)),
+                  denominator
+                )
               : [];
             const sourceEvents = source[voice] || [];
             const events = student.length
               ? student.map((event) => ({
-                  pitch: event.pitches[0] || null,
+                  pitch: event.pitches?.[0] || null,
                   duration: event.duration,
                   rest: event.rest,
                   tieToNext: event.tieToNext,
@@ -519,14 +735,18 @@
       }
 
       const source = includeSource ? sourcePianoStreams(measure) : {};
+      const denominator = timeSignatureAt(question, measureNumber).denominator;
       const staffVoices = Object.fromEntries(
         PIANO_STAVES.map((staff) => {
           const sourceEvents = source[staff] || [];
           const studentEvents = includeStudent
-            ? copy(streamFor(state, measureNumber, staff)).map((event) => ({
-                ...event,
-                editorNoteId: event.id,
-              }))
+            ? materializeTimedStream(
+                copy(streamFor(state, measureNumber, staff)),
+                denominator
+              ).map((event) => ({
+                  ...event,
+                  editorNoteId: event.id,
+                }))
             : [];
           return [staff, [
             {
@@ -608,13 +828,34 @@
     const letter = LETTERS[((diatonicIndex % 7) + 7) % 7];
     let accidental = normalizeAccidental(details.accidental);
     if (!accidental) {
+      const insertionBeat = Number(details.insertionBeat);
       const earlier = (details.priorEvents || [])
-        .flatMap((event) => event.pitches || [])
-        .map((pitch) => /^([A-Ga-g])((?:##|bb|#|b|n)?)(-?\d+)$/.exec(normalizeAccidental(pitch)))
-        .filter(Boolean)
-        .filter((match) => match[1].toUpperCase() === letter && Number(match[3]) === octave)
+        .filter(
+          (event) =>
+            !Number.isFinite(insertionBeat) ||
+            !Number.isFinite(Number(event.beat)) ||
+            Number(event.beat) < insertionBeat - 0.001
+        )
+        .flatMap((event) => eventPitches(event).map((pitch) => ({ event, pitch })))
+        .map(({ event, pitch }) => ({
+          event,
+          match: /^([A-Ga-g])((?:##|bb|#|b|n)?)(-?\d+)$/.exec(
+            normalizeAccidental(pitch)
+          ),
+        }))
+        .filter((item) => item.match)
+        .filter((item) =>
+          item.match[1].toUpperCase() === letter &&
+          Number(item.match[3]) === octave
+        )
+        .sort((first, second) =>
+          Number(first.event.beat || 0) - Number(second.event.beat || 0)
+        )
+        .map((item) => item.match)
         .at(-1);
-      accidental = earlier ? earlier[2] : keyAccidental(details.keySignature, letter);
+      accidental = earlier
+        ? earlier[2] || keyAccidental(details.keySignature, letter)
+        : keyAccidental(details.keySignature, letter);
     }
     return `${letter}${accidental}${octave}`;
   }
@@ -638,9 +879,14 @@
     measureCapacity,
     durationBeats,
     usedBeats,
+    eventStarts,
+    materializeTimedStream,
+    snapBeatAtX,
     composeScore,
     questionOnlyScore,
     scoreForPlayback,
+    sourceVisibleEvents,
+    visibleAccidentalContext,
     spellPitchAtStaffPosition,
   });
 })();

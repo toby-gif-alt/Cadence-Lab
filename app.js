@@ -394,10 +394,6 @@
     return point.matrixTransform(svg.getScreenCTM().inverse());
   }
 
-  function priorEventsForCursor(voice, measure) {
-    return studentAnswer?.measures[measure - 1]?.voices[voice] || [];
-  }
-
   function handleScorePointer(event) {
     if (!currentQuestion?.interaction || submitted) return;
     const studentNode = event.target.closest?.(".student-note");
@@ -424,15 +420,48 @@
       setEditorStatus(`Bar ${hit.measure.measure} is supplied and locked for ${voiceLabels[selectedVoice]}.`, true);
       return;
     }
+    const duration = currentDuration();
+    const denominator = Number(String(hit.measure.timeSignature || "4/4").split("/")[1]);
+    let tappedBeat;
+    try {
+      tappedBeat = answerModel.snapBeatAtX({
+        x: point.x,
+        startX: hit.measure.x,
+        endX: hit.measure.endX,
+        capacity: hit.measure.expectedBeats,
+        duration,
+        denominator,
+      });
+    } catch (error) {
+      handleAnswerError(error);
+      return;
+    }
     const spacing = hit.staff === "treble" ? hit.measure.topSpacing : hit.measure.bottomSpacing;
     const topY = hit.staff === "treble" ? hit.measure.topY : hit.measure.bottomY;
     const stepsFromTopLine = Math.round((point.y - topY) / (spacing / 2));
+    const selectedLocation = selectedForPitchMove
+      ? answerModel.locate(studentAnswer, studentAnswer.selectedId)
+      : null;
+    const spellingMeasure = selectedLocation?.measure || hit.measure.measure;
+    const spellingBeat = selectedLocation
+      ? Number(selectedLocation.event.beat || 1)
+      : tappedBeat;
+    const spellingGeometry = selectedLocation
+      ? scoreElement._cadenceHitMap.measures.find(
+          (measure) => measure.measure === selectedLocation.measure
+        )
+      : hit.measure;
     const pitch = answerModel.spellPitchAtStaffPosition({
       staff: hit.staff,
       stepsFromTopLine,
       accidental: selectedAccidental,
-      keySignature: hit.measure.keySignature,
-      priorEvents: priorEventsForCursor(selectedVoice, hit.measure.measure),
+      keySignature: spellingGeometry?.keySignature || hit.measure.keySignature,
+      insertionBeat: spellingBeat,
+      priorEvents: answerModel.visibleAccidentalContext(currentQuestion, studentAnswer, {
+        measure: spellingMeasure,
+        beat: spellingBeat,
+        staff: hit.staff,
+      }),
     });
     try {
       const addToChord = document.querySelector("#add-to-chord").checked;
@@ -449,26 +478,20 @@
         }
         return;
       }
-      const cursor = studentAnswer.cursors[selectedVoice];
-      if (cursor.measure !== hit.measure.measure) {
-        studentAnswer = copy(studentAnswer);
-        studentAnswer.cursors[selectedVoice] = {
-          measure: hit.measure.measure,
-          beat: answerModel.usedBeats(
-            studentAnswer.measures[hit.measure.measure - 1].voices[selectedVoice] || []
-          ) + 1,
-        };
-        answerHistory.present = copy(studentAnswer);
-      }
       const next = answerModel.insert(studentAnswer, currentQuestion, {
         voice: selectedVoice,
+        measure: hit.measure.measure,
+        beat: tappedBeat,
         pitches: restMode ? [] : [pitch],
-        duration: currentDuration(),
+        duration,
         rest: restMode,
         addToChord,
       });
       selectedForPitchMove = false;
-      commitAnswer(next, restMode ? "Rest entered." : `${pitch} entered.`);
+      commitAnswer(
+        next,
+        `${restMode ? "Rest" : pitch} entered at bar ${hit.measure.measure}, beat ${formatBeat(tappedBeat)}.`
+      );
       if (!restMode && document.querySelector("#audition-entry").checked) {
         playback.auditionPitch(pitch);
       }

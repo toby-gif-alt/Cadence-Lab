@@ -20,7 +20,7 @@
     <script src="../question-bank.js?v=2026-09-interaction-3"></script>
     <script src="../score-renderer.js?v=2026-09-interaction-3"></script>
     <script src="../question-validator.js?v=2026-09-interaction-3"></script>
-    <script src="../student-answer.js?v=2026-09-interaction-3"></script>
+    <script src="../student-answer.js?v=2026-09-interaction-4"></script>
     <script src="../playback-engine.js?v=2026-09-interaction-3"></script>
     <script>
       const results = document.querySelector("#results");
@@ -77,6 +77,7 @@
           );
 
           const satbQuestion = questions.find((question) => question.id === "satb-f-c");
+          const pianoQuestion = questions.find((question) => question.id === "piano-d-f");
           const satbSourceBefore = JSON.stringify(satbQuestion);
           let satbState = answer.create(satbQuestion);
           satbState = answer.insert(satbState, satbQuestion, {
@@ -142,6 +143,73 @@
             [["w", 4], ["h", 2], ["q", 1], ["8", 0.5], ["16", 0.25]]
               .every(([duration, beats]) => answer.durationBeats(duration) === beats)
           );
+          assert("horizontalGeometrySnapsToDurationAwareOnsets",
+            answer.snapBeatAtX({
+              x: 200, startX: 0, endX: 400, capacity: 4,
+              duration: "q", denominator: 4,
+            }) === 3 &&
+            answer.snapBeatAtX({
+              x: 150, startX: 0, endX: 400, capacity: 4,
+              duration: "8", denominator: 4,
+            }) === 2.5 &&
+            answer.snapBeatAtX({
+              x: 125, startX: 0, endX: 400, capacity: 4,
+              duration: "16", denominator: 4,
+            }) === 2.25 &&
+            answer.snapBeatAtX({
+              x: 300, startX: 0, endX: 600, capacity: 6,
+              duration: "8", denominator: 8,
+            }) === 4 &&
+            answer.durationBeats("8", 8) === 1 &&
+            answer.durationBeats("16", 8) === 0.5
+          );
+          let timedState = answer.create(satbQuestion);
+          timedState = answer.insert(timedState, satbQuestion, {
+            voice: "alto", measure: 1, beat: 3,
+            pitches: ["C4"], duration: "q",
+          });
+          const timedMaterialized = answer.materializeTimedStream(
+            timedState.measures[0].voices.alto
+          );
+          assert("tappingBeatThreeCreatesABeatThreeOnset",
+            timedState.measures[0].voices.alto[0].beat === 3 &&
+            timedState.cursors.alto.beat === 4 &&
+            timedMaterialized[0].rest === true &&
+            timedMaterialized[0].generatedGap === true &&
+            timedMaterialized[0].duration === "h" &&
+            timedMaterialized[1].beat === 3
+          );
+          const timedScore = answer.composeScore(satbQuestion, timedState);
+          assert("rhythmicGapsComposeAsExplicitRests",
+            timedScore.measures[0].voices.alto[0].rest === true &&
+            timedScore.measures[0].voices.alto[0].duration === "h" &&
+            timedScore.measures[0].voices.alto[1].editorNoteId === timedState.selectedId
+          );
+          assert("overlappingStudentEventsAreRejected",
+            expectedError(
+              () => answer.insert(timedState, satbQuestion, {
+                voice: "alto", measure: 1, beat: 2,
+                pitches: ["D4"], duration: "h",
+              }),
+              "event-overlap"
+            )
+          );
+          const timedId = timedState.selectedId;
+          const durationEdited = answer.updateSelected(
+            answer.select(timedState, timedId), satbQuestion, { duration: "8" }
+          );
+          assert("editingAnExistingEventPreservesItsOnset",
+            durationEdited.measures[0].voices.alto.length === 1 &&
+            durationEdited.measures[0].voices.alto[0].beat === 3
+          );
+          const chordAtBeatThree = answer.insert(timedState, satbQuestion, {
+            voice: "alto", measure: 1, beat: 3,
+            pitches: ["E4"], duration: "q", addToChord: true,
+          });
+          assert("addToChordIsTheOnlySameVoiceOverlapException",
+            chordAtBeatThree.measures[0].voices.alto.length === 1 &&
+            chordAtBeatThree.measures[0].voices.alto[0].pitches.join(",") === "C4,E4"
+          );
           assert("keySignaturesAndMeasureAccidentalsPreserveSpelling",
             answer.spellPitchAtStaffPosition({
               staff: "treble", stepsFromTopLine: 0, keySignature: "G",
@@ -150,6 +218,75 @@
               staff: "treble", stepsFromTopLine: 0, keySignature: "G",
               priorEvents: [{ pitches: ["Fn5"] }],
             }) === "Fn5"
+          );
+          const accidentalQuestion = JSON.parse(JSON.stringify(pianoQuestion));
+          accidentalQuestion.id = "accidental-context-fixture";
+          accidentalQuestion.score.keySignature = "G";
+          accidentalQuestion.score.timeSignature = "4/4";
+          accidentalQuestion.score.measures = [
+            { expectedBeats: 4, events: [
+              { qTreble: ["Fn5"], qBass: [], duration: "q" },
+              { qTreble: [], qBass: [], duration: "q" },
+              { qTreble: [], qBass: [], duration: "q" },
+              { qTreble: [], qBass: [], duration: "q" },
+            ] },
+            { expectedBeats: 4, events: [
+              { qTreble: [], qBass: [], duration: "w" },
+            ] },
+          ];
+          accidentalQuestion.interaction.editableRegions = [{
+            measures: [1, 2], voices: ["treble"],
+          }];
+          let accidentalState = answer.create(accidentalQuestion);
+          const suppliedNaturalContext = answer.visibleAccidentalContext(
+            accidentalQuestion, accidentalState,
+            { measure: 1, beat: 2, staff: "treble" }
+          );
+          assert("suppliedNaturalCancelsKeySignatureWithinBar",
+            suppliedNaturalContext.some((event) => event.supplied && event.pitches[0] === "Fn5") &&
+            answer.spellPitchAtStaffPosition({
+              staff: "treble", stepsFromTopLine: 0, keySignature: "G",
+              insertionBeat: 2, priorEvents: suppliedNaturalContext,
+            }) === "Fn5"
+          );
+          accidentalState = answer.insert(accidentalState, accidentalQuestion, {
+            voice: "treble", measure: 1, beat: 2,
+            pitches: ["F#5"], duration: "q",
+          });
+          const studentCarryContext = answer.visibleAccidentalContext(
+            accidentalQuestion, accidentalState,
+            { measure: 1, beat: 3, staff: "treble" }
+          );
+          assert("studentAccidentalCarriesLaterWithinBar",
+            answer.spellPitchAtStaffPosition({
+              staff: "treble", stepsFromTopLine: 0, keySignature: "G",
+              insertionBeat: 3, priorEvents: studentCarryContext,
+            }) === "F#5"
+          );
+          const nextBarContext = answer.visibleAccidentalContext(
+            accidentalQuestion, accidentalState,
+            { measure: 2, beat: 1, staff: "treble" }
+          );
+          assert("accidentalContextResetsAtBarline",
+            nextBarContext.length === 0 &&
+            answer.spellPitchAtStaffPosition({
+              staff: "treble", stepsFromTopLine: 0, keySignature: "G",
+              insertionBeat: 1, priorEvents: nextBarContext,
+            }) === "F#5"
+          );
+          assert("accidentalCarryIsOctaveSpecific",
+            answer.spellPitchAtStaffPosition({
+              staff: "treble", stepsFromTopLine: 0, keySignature: "G",
+              insertionBeat: 3,
+              priorEvents: [{ beat: 1, pitches: ["Fn4"] }],
+            }) === "F#5"
+          );
+          assert("exactChromaticSpellingRemainsIntact",
+            answer.spellPitchAtStaffPosition({
+              staff: "treble", stepsFromTopLine: 1, keySignature: "C",
+              insertionBeat: 3,
+              priorEvents: [{ beat: 1, pitches: ["E#5"] }],
+            }) === "E#5"
           );
           const history = new answer.History(answer.create(satbQuestion));
           history.commit(toolState);
@@ -164,14 +301,14 @@
             deleted.measures[0].voices.tenor.length === 1
           );
 
-          const pianoQuestion = questions.find((question) => question.id === "piano-d-f");
           let pianoState = answer.create(pianoQuestion);
           pianoState = answer.insert(pianoState, pianoQuestion, {
             voice: "bass", measure: 2, pitches: ["D3"], duration: "q",
           });
           const cursorAfterOnset = JSON.stringify(pianoState.cursors.bass);
           pianoState = answer.insert(pianoState, pianoQuestion, {
-            voice: "bass", measure: 2, pitches: ["A3"], duration: "q", addToChord: true,
+            voice: "bass", measure: 2, beat: 1,
+            pitches: ["A3"], duration: "q", addToChord: true,
           });
           assert("addToChordBuildsASingleRhythmicOnset",
             pianoState.measures[1].voices.bass.length === 1 &&
@@ -319,6 +456,23 @@
           assert("all32QuestionsAreSpoilerSafeBeforeReveal",
             preRevealLeaks.length === 0,
             preRevealLeaks
+          );
+
+          appWindow.CadenceLab.showQuestion("satb-f-c");
+          const beatThreeTarget = appDocument.querySelector(
+            '.editor-hit-target[data-measure="1"][data-staff="treble"]'
+          );
+          const beatThreeBounds = beatThreeTarget.getBoundingClientRect();
+          beatThreeTarget.dispatchEvent(new appWindow.PointerEvent("pointerdown", {
+            bubbles: true,
+            clientX: beatThreeBounds.left + beatThreeBounds.width / 2,
+            clientY: beatThreeBounds.top + beatThreeBounds.height / 2,
+          }));
+          const pointerState = appWindow.CadenceLab.getStudentAnswer();
+          assert("pointerTapAtBeatThreeDoesNotAppendEarlier",
+            pointerState.measures[0].voices.alto.length === 1 &&
+            pointerState.measures[0].voices.alto[0].beat === 3 &&
+            appDocument.querySelector("#editor-status").textContent.includes("beat 3")
           );
 
           const revealedConcepts = [
