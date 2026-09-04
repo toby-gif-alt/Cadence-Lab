@@ -56,37 +56,44 @@
     <main id="gallery"></main>
 
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../question-bank.js?v=2026-09-source-fidelity-4"></script>
-    <script src="../score-renderer.js?v=2026-09-source-fidelity-4"></script>
-    <script src="../question-validator.js?v=2026-09-source-fidelity-4"></script>
+    <script src="../question-bank.js?v=2026-09-engraving-4"></script>
+    <script src="../score-renderer.js?v=2026-09-engraving-4"></script>
+    <script src="../question-validator.js?v=2026-09-engraving-4"></script>
     <script>
       const params = new URLSearchParams(location.search);
       const category = params.get("category") || "analysis";
+      const sourceType = params.get("source");
       const requestedWidth = Number(params.get("width")) || 780;
-      const width = requestedWidth <= 390 ? 390 : 780;
+      const width = Math.min(1040, Math.max(340, requestedWidth));
       const questions = window.CadenceData.questions.filter(
-        (question) => question.category === category
+        (question) => sourceType
+          ? question.sourceType === sourceType
+          : question.category === category
       );
       const gallery = document.querySelector("#gallery");
       gallery.style.width = `${width + 30}px`;
       document.querySelector("#summary").textContent =
-        `${category} • ${questions.length} templates • question and model • ${width}px score width`;
+        `${sourceType || category} • ${questions.length} templates • question and model • ${width}px score width`;
 
       questions.forEach((question) => {
         const article = document.createElement("article");
+        article.dataset.questionId = question.id;
         const title = document.createElement("h2");
         title.textContent = `${question.id} — ${question.title}`;
         const meta = document.createElement("p");
         meta.className = "meta";
         meta.textContent = `${question.sourceType} • ${question.score.layout} • ${question.score.timeSignature}`;
         article.append(title, meta);
-        const warning = window.CadenceQuestionValidator.report.reviewWarnings.find(
+        const warnings = window.CadenceQuestionValidator.report.reviewWarnings.filter(
           (item) => item.questionId === question.id
         );
-        if (warning) {
+        if (warnings.length) {
           const notice = document.createElement("p");
           notice.className = "review-warning";
-          notice.textContent = warning.message;
+          notice.textContent = warnings.length === 1
+            ? warnings[0].message
+            : `${warnings.length} manual-review items; hover for the individual validation notes.`;
+          notice.title = warnings.map((warning) => warning.message).join("\n");
           article.append(notice);
         }
 
@@ -97,10 +104,14 @@
           heading.textContent = showAnswer ? "Model" : "Question";
           const score = document.createElement("div");
           score.className = "score";
+          score.dataset.view = showAnswer ? "model" : "question";
           score.style.width = `${width}px`;
           view.append(heading, score);
           article.append(view);
-          window.CadenceScoreRenderer.render(score, question.score, { showAnswer });
+          window.CadenceScoreRenderer.render(score, question.score, {
+            showAnswer,
+            width,
+          });
         });
         gallery.append(article);
       });
