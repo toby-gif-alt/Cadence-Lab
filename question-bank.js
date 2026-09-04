@@ -392,41 +392,76 @@ const modulationResponses = {
   ],
 };
 
+const nonHarmonicToneChoices = [
+  "passing note",
+  "accented passing note",
+  "auxiliary / neighbour note",
+  "suspension",
+  "appoggiatura",
+];
+
+const harmonicTechniqueChoices = [
+  "tonic pedal",
+  "descending chromatic inner line",
+  "descending chromatic bass",
+  "sequence",
+  "harmonic-rhythm change",
+  "dominant pedal",
+];
+
 const featureResponses = {
   "nzqa-2023-poulenc-pedal": [
-    ["feature", "Feature", ["tonic pedal"]],
-    ["function", "Function", ["tonal stability with upper-part friction"]],
+    ["feature", "Feature", ["tonic pedal"], [
+      "tonic pedal", "dominant pedal", "ostinato bass", "descending chromatic bass",
+    ]],
+    ["function", "Function", ["tonal stability with upper-part friction"], [
+      "tonal stability with upper-part friction", "increased instability without a tonal anchor",
+      "a sequential bass pattern", "reduced harmonic tension",
+    ]],
   ],
   "feature-diminished": [
-    ["feature", "Chord X", ["F♯ diminished seventh"]],
-    ["function", "Function", ["vii°7/V", "decorates and strengthens the dominant"]],
+    ["feature", "Chord X", ["F♯ diminished seventh"], [
+      "F♯ diminished seventh", "F♯ minor seventh", "D7/F♯", "G diminished seventh",
+    ]],
+    ["function", "Function", ["vii°7/V"], [
+      "vii°7/V", "vii°7", "V7/V", "common-tone diminished seventh",
+    ]],
   ],
   "feature-pedal": [
-    ["feature", "Feature", ["tonic pedal"]],
-    ["function", "Function", ["keeps the tonic present"]],
+    ["feature", "Feature", ["tonic pedal"], [
+      "tonic pedal", "dominant pedal", "ostinato bass", "descending chromatic bass",
+    ]],
+    ["function", "Function", ["keeps the tonic present"], [
+      "keeps the tonic present", "increases instability", "weakens the tonal centre",
+      "creates a sequential bass pattern",
+    ]],
   ],
   "feature-chromatic-bass": [
-    ["feature", "Bass motion", ["descending chromatic bass"]],
-    ["effect", "Effect", ["creates momentum"]],
+    ["feature", "Bass motion", ["descending chromatic bass"], [
+      "descending chromatic bass", "ascending chromatic bass", "tonic pedal", "diatonic sequence",
+    ]],
+    ["effect", "Effect", ["creates momentum"], [
+      "creates momentum", "creates greater stability", "slows the harmonic motion",
+      "removes tonal direction",
+    ]],
   ],
   "feature-nonharmonic": [
-    ["f-sharp", "F♯", ["chord tone"]],
-    ["a-natural", "A", ["passing note"]],
+    ["f-sharp", "F♯", ["chord tone"], [
+      "chord tone", "passing note", "auxiliary / neighbour note", "suspension", "appoggiatura",
+    ]],
+    ["a-natural", "A", ["passing note"], nonHarmonicToneChoices],
   ],
   "feature-harmonic-rhythm": [
-    ["feature", "Pattern", ["accelerating harmonic rhythm"]],
-    ["effect", "Effect", ["increases urgency"]],
+    ["feature", "Pattern", ["accelerating harmonic rhythm"], [
+      "accelerating harmonic rhythm", "regular harmonic rhythm", "decelerating harmonic rhythm",
+      "static harmony",
+    ]],
+    ["effect", "Effect", ["increases urgency"], [
+      "increases urgency", "creates greater repose", "weakens the cadence",
+      "creates metrical ambiguity",
+    ]],
   ],
 };
-
-const featureChoiceOptions = [
-  "tonic pedal", "dominant pedal", "descending chromatic bass",
-  "accelerating harmonic rhythm", "F♯ diminished seventh", "vii°7/V",
-  "chord tone", "passing note", "auxiliary note", "accented passing note",
-  "appoggiatura", "creates momentum", "increases urgency",
-  "tonal stability with upper-part friction", "decorates and strengthens the dominant",
-  "keeps the tonic present",
-];
 
 const jazzDistractors = {
   "nzqa-2021-valentine-techniques": ["Cmaj7", "F7", "Gm7"],
@@ -540,15 +575,18 @@ function jazzInteraction(config, score) {
   };
   if (config.id === "nzqa-2021-valentine-techniques") {
     interaction.fields = [
-      { id: "x", label: "X", kind: "classification", acceptedAnswers: [{ label: "auxiliary note" }] },
-      { id: "y", label: "Y", kind: "classification", acceptedAnswers: [{ label: "accented passing note" }] },
-      { id: "z", label: "Z", kind: "classification", acceptedAnswers: [{ label: "appoggiatura" }] },
-      { id: "technique", label: "Harmonic technique", kind: "classification", acceptedAnswers: [{ label: "descending chromatic inner line and tonic pedal" }] },
+      { id: "x", label: "X", kind: "classification", choices: nonHarmonicToneChoices, acceptedAnswers: [{ label: "auxiliary / neighbour note" }] },
+      { id: "y", label: "Y", kind: "classification", choices: nonHarmonicToneChoices, acceptedAnswers: [{ label: "accented passing note" }] },
+      { id: "z", label: "Z", kind: "classification", choices: nonHarmonicToneChoices, acceptedAnswers: [{ label: "appoggiatura" }] },
+      { id: "technique-1", label: "Harmonic technique 1", kind: "classification", choices: harmonicTechniqueChoices, acceptedAnswers: [{ label: "descending chromatic inner line" }, { label: "tonic pedal" }] },
+      { id: "technique-2", label: "Harmonic technique 2", kind: "classification", choices: harmonicTechniqueChoices, acceptedAnswers: [{ label: "descending chromatic inner line" }, { label: "tonic pedal" }] },
     ];
-    interaction.classificationChoices = [
-      "auxiliary note", "accented passing note", "appoggiatura",
-      "passing note", "suspension", "descending chromatic inner line and tonic pedal",
-    ];
+    interaction.unorderedFieldGroups = [{
+      id: "harmonic-techniques",
+      label: "Harmonic techniques",
+      fieldIds: ["technique-1", "technique-2"],
+      acceptedSets: [["descending chromatic inner line", "tonic pedal"]],
+    }];
   }
   return interaction;
 }
@@ -557,11 +595,11 @@ function featureInteraction(config) {
   return {
     type: "feature-analysis",
     allowPaper: true,
-    choices: featureChoiceOptions,
-    fields: (featureResponses[config.id] || []).map(([id, label, answers]) => ({
+    fields: (featureResponses[config.id] || []).map(([id, label, answers, choices]) => ({
       id,
       label,
       kind: "classification",
+      choices,
       acceptedAnswers: answers.map((answer) => ({ label: answer })),
     })),
     evidencePrompt: "Optional: cite the relevant pitches, bass motion, cadence or rate of change.",

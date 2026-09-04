@@ -101,6 +101,33 @@
           errors.push(`${question.id}: structured response item lacks an id, label or acceptedAnswers`);
         }
       });
+      if (interaction.type === "roman-analysis") {
+        slots.forEach((slot) => {
+          if (typeof slot.allowDualAnalysis !== "boolean") {
+            errors.push(`${question.id}: Roman slot ${slot.id} lacks an explicit allowDualAnalysis flag`);
+          }
+        });
+      }
+      fields.filter((field) => field.kind === "classification").forEach((field) => {
+        if (!Array.isArray(field.choices) || !field.choices.length) {
+          errors.push(`${question.id}: classification field ${field.id} lacks field-specific choices`);
+          return;
+        }
+        const choices = new Set(field.choices);
+        if (field.acceptedAnswers.some((answer) => !choices.has(answer.label))) {
+          errors.push(`${question.id}: classification field ${field.id} omits an accepted answer from its choices`);
+        }
+      });
+      (interaction.unorderedFieldGroups || []).forEach((group) => {
+        const fieldIds = group.fieldIds || [];
+        const acceptedSets = group.acceptedSets || [];
+        if (!group.id || !group.label || fieldIds.length < 2 ||
+            new Set(fieldIds).size !== fieldIds.length ||
+            fieldIds.some((fieldId) => !fields.some((field) => field.id === fieldId)) ||
+            !acceptedSets.length || acceptedSets.some((set) => set.length !== fieldIds.length)) {
+          errors.push(`${question.id}: unordered response group ${group.id || "unknown"} is invalid`);
+        }
+      });
       if (interaction.type === "jazz-chord-placement") {
         const bankLabels = (interaction.bank || []).map((token) => token.label);
         const requiredLabels = slots.map((slot) => slot.acceptedAnswers[0]?.label);

@@ -331,8 +331,15 @@
     return match ? { root: match[1], mode: match[2] } : null;
   }
 
+  function romanInversionChoices(extent) {
+    return extent === "seventh" ? ["root", "b", "c", "d"] : ["root", "b", "c"];
+  }
+
   function romanBuilderRow(index, value = {}, optional = false) {
     const key = value.key ? structuredModel.formatKey(value.key) : "";
+    const extent = value.extent === "seventh" ? "seventh" : "triad";
+    const inversionChoices = romanInversionChoices(extent);
+    const inversion = inversionChoices.includes(value.inversion) ? value.inversion : "root";
     return `
       <div class="builder-row" data-analysis-index="${index}">
         <label>${optional ? "Pivot / second key" : "Key label"}
@@ -348,10 +355,10 @@
           <select data-part="quality">${optionMarkup(["major", "minor", "diminished", "half-diminished", "augmented"], value.quality || "major", "Quality")}</select>
         </label>
         <label>Chord
-          <select data-part="extent">${optionMarkup(["triad", "seventh"], value.extent || "triad", "Chord size")}</select>
+          <select data-part="extent">${optionMarkup(["triad", "seventh"], extent, "Chord size")}</select>
         </label>
         <label>Inversion
-          <select data-part="inversion">${optionMarkup(["root", "b", "c", "d"], value.inversion || "root", "Inversion")}</select>
+          <select data-part="inversion">${optionMarkup(inversionChoices, inversion, "Inversion")}</select>
         </label>
         <label>Secondary to
           <select data-part="secondaryOf">${optionMarkup(["I", "II", "III", "IV", "V", "VI", "VII"], value.secondaryOf || "", "None")}</select>
@@ -374,6 +381,12 @@
           </button>`;
         }).join("")}
       </div>`;
+    structuredControls.querySelectorAll("[data-slot-id]").forEach((button) => {
+      button.addEventListener("click", () => {
+        structuredAnswer = structuredModel.setActiveSlot(structuredAnswer, button.dataset.slotId);
+        buildStructuredResponse(currentQuestion);
+      });
+    });
     const slot = slots.find((candidate) => candidate.id === structuredAnswer.activeSlotId) || slots[0];
     if (!slot) {
       structuredBuilder.hidden = true;
@@ -385,14 +398,23 @@
     structuredBuilder.innerHTML = `
       <p class="builder-preview">${escapeText(structuredModel.formatValue(current, interaction.type) || "Build a Roman-numeral answer")}</p>
       ${romanBuilderRow(0, analyses[0] || {})}
-      <details${analyses[1] ? " open" : ""}>
+      ${slot.allowDualAnalysis ? `<details${analyses[1] ? " open" : ""}>
         <summary>Add a second / pivot analysis</summary>
         ${romanBuilderRow(1, analyses[1] || {}, true)}
-      </details>
+      </details>` : ""}
       <div class="builder-actions">
         <button type="button" class="button button-primary" data-save-roman>Place analysis</button>
         <button type="button" class="button button-ghost" data-clear-slot>Clear</button>
       </div>`;
+    structuredBuilder.querySelectorAll('[data-part="extent"]').forEach((extentSelect) => {
+      extentSelect.addEventListener("change", () => {
+        const row = extentSelect.closest("[data-analysis-index]");
+        const inversionSelect = row.querySelector('[data-part="inversion"]');
+        const choices = romanInversionChoices(extentSelect.value);
+        const selected = choices.includes(inversionSelect.value) ? inversionSelect.value : "root";
+        inversionSelect.innerHTML = optionMarkup(choices, selected, "Inversion");
+      });
+    });
     structuredBuilder.querySelector("[data-save-roman]").addEventListener("click", () => {
       const analysesValue = [...structuredBuilder.querySelectorAll("[data-analysis-index]")]
         .map((row) => {
@@ -515,7 +537,7 @@
     const choicesFor = (field) => {
       if (field.kind === "key") return interaction.keyChoices;
       if (field.kind === "relationship") return interaction.relationshipChoices;
-      return interaction.classificationChoices || interaction.choices || [];
+      return field.choices || interaction.classificationChoices || interaction.choices || [];
     };
     structuredControls.innerHTML = `
       <div class="structured-field-grid">
@@ -559,7 +581,8 @@
         supplementary.className = "structured-field-grid";
         supplementary.innerHTML = question.interaction.fields.map((field) => {
           const selected = structuredModel.formatValue(structuredAnswer.fields[field.id], question.interaction.type);
-          return `<div class="structured-field"><label for="field-${field.id}">${escapeText(field.label)}</label><select id="field-${field.id}" data-field-id="${field.id}">${optionMarkup(question.interaction.classificationChoices, selected)}</select></div>`;
+          const choices = field.choices || question.interaction.classificationChoices || [];
+          return `<div class="structured-field"><label for="field-${field.id}">${escapeText(field.label)}</label><select id="field-${field.id}" data-field-id="${field.id}">${optionMarkup(choices, selected)}</select></div>`;
         }).join("");
         structuredControls.appendChild(supplementary);
         supplementary.querySelectorAll("[data-field-id]").forEach((select) =>

@@ -37,6 +37,11 @@
     const fields = Object.fromEntries(
       (interaction.fields || []).map((field) => [field.id, null])
     );
+    const slotConstraints = Object.fromEntries(
+      (interaction.slots || []).map((slot) => [slot.id, {
+        allowDualAnalysis: slot.allowDualAnalysis === true,
+      }])
+    );
     const bank = interaction.type === "jazz-chord-placement"
       ? deterministicShuffle(
           (interaction.bank || []).map((token, index) => ({
@@ -51,6 +56,7 @@
       questionId: question.id,
       type: interaction.type,
       slots,
+      slotConstraints,
       fields,
       evidence: "",
       bank,
@@ -72,10 +78,36 @@
       throw new Error(`Unknown answer position: ${slotId}`);
     }
     const next = copy(state);
-    next.slots[slotId] = value ? copy(value) : null;
+    next.slots[slotId] = value
+      ? state.type === "roman-analysis"
+        ? sanitizeRomanValue(value, next.slotConstraints?.[slotId])
+        : copy(value)
+      : null;
     next.activeSlotId = slotId;
     next.revision += 1;
     return next;
+  }
+
+  function sanitizeRomanAnalysis(value) {
+    const next = copy(value || {});
+    const extent = next.extent === "seventh" ? "seventh" : "triad";
+    const validInversions = extent === "seventh"
+      ? ["root", "b", "c", "d"]
+      : ["root", "b", "c"];
+    next.extent = extent;
+    next.inversion = validInversions.includes(next.inversion) ? next.inversion : "root";
+    return next;
+  }
+
+  function sanitizeRomanValue(value, constraints = {}) {
+    const next = copy(value || {});
+    if (Array.isArray(next.analyses)) {
+      next.analyses = next.analyses
+        .slice(0, constraints.allowDualAnalysis === true ? 2 : 1)
+        .map(sanitizeRomanAnalysis);
+      return next;
+    }
+    return sanitizeRomanAnalysis(next);
   }
 
   function setActiveSlot(state, slotId) {
@@ -224,6 +256,38 @@
 
   function comparison(question, state) {
     const interaction = question.interaction;
+    const groupedFieldIds = new Set(
+      (interaction.unorderedFieldGroups || []).flatMap((group) => group.fieldIds || [])
+    );
+    const ordinaryFields = (interaction.fields || [])
+      .filter((field) => !groupedFieldIds.has(field.id))
+      .map((field) => ({
+        id: field.id,
+        label: field.label,
+        response: formatValue(state?.fields?.[field.id], interaction.type),
+        model: acceptedLabels(field)[0] || "",
+        status: compareItem(field, state?.fields?.[field.id], interaction.type),
+      }));
+    const groupedFields = (interaction.unorderedFieldGroups || []).map((group) => {
+      const responses = group.fieldIds.map((fieldId) =>
+        formatValue(state?.fields?.[fieldId], interaction.type)
+      );
+      const normalizedResponses = responses.filter(Boolean).map(normalize).sort();
+      const acceptedSet = (group.acceptedSets || []).find((set) =>
+        JSON.stringify(set.map(normalize).sort()) === JSON.stringify(normalizedResponses)
+      );
+      return {
+        id: group.id,
+        label: group.label,
+        response: responses.filter(Boolean).join(" + "),
+        model: (group.acceptedSets?.[0] || []).join(" + "),
+        status: responses.some((response) => !response)
+          ? "unanswered"
+          : acceptedSet
+            ? "matches"
+            : "different",
+      };
+    });
     return {
       slots: (interaction.slots || []).map((slot) => ({
         id: slot.id,
@@ -232,13 +296,7 @@
         model: acceptedLabels(slot)[0] || "",
         status: compareItem(slot, state?.slots?.[slot.id], interaction.type),
       })),
-      fields: (interaction.fields || []).map((field) => ({
-        id: field.id,
-        label: field.label,
-        response: formatValue(state?.fields?.[field.id], interaction.type),
-        model: acceptedLabels(field)[0] || "",
-        status: compareItem(field, state?.fields?.[field.id], interaction.type),
-      })),
+      fields: [...ordinaryFields, ...groupedFields],
       evidence: state?.evidence || "",
     };
   }
@@ -277,6 +335,7 @@
     reset,
     formatKey,
     formatRomanAnalysis,
+    sanitizeRomanValue,
     formatValue,
     comparison,
     scoreWithResponses,

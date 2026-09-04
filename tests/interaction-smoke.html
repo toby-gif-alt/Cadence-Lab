@@ -559,6 +559,39 @@
             structured.formatValue(pivotValue, "roman-analysis") === "C: I / G: IV" &&
             structured.formatRomanAnalysis({ degree: "V", quality: "major", extent: "seventh", inversion: "d" }) === "V⁷d"
           );
+          const ordinaryRomanSlot = analysisQuestion.interaction.slots.find(
+            (slot) => !slot.allowDualAnalysis
+          );
+          const pivotRomanSlot = analysisQuestion.interaction.slots.find(
+            (slot) => slot.allowDualAnalysis
+          );
+          let constrainedRomanState = structured.create(analysisQuestion);
+          constrainedRomanState = structured.setSlot(constrainedRomanState, ordinaryRomanSlot.id, {
+            analyses: [
+              { degree: "V", quality: "major", extent: "triad", inversion: "d" },
+              { degree: "IV", quality: "major", extent: "triad", inversion: "root" },
+            ],
+          });
+          assert("ordinaryRomanSlotsRejectDualAnalysisAndTriadD",
+            constrainedRomanState.slots[ordinaryRomanSlot.id].analyses.length === 1 &&
+            constrainedRomanState.slots[ordinaryRomanSlot.id].analyses[0].inversion === "root"
+          );
+          constrainedRomanState = structured.setSlot(constrainedRomanState, pivotRomanSlot.id, pivotValue);
+          assert("pivotRomanSlotsRetainTwoAnalyses",
+            constrainedRomanState.slots[pivotRomanSlot.id].analyses.length === 2
+          );
+          constrainedRomanState = structured.setSlot(constrainedRomanState, ordinaryRomanSlot.id, {
+            analyses: [{ degree: "V", quality: "major", extent: "seventh", inversion: "d" }],
+          });
+          assert("seventhChordsCanStoreInversionD",
+            constrainedRomanState.slots[ordinaryRomanSlot.id].analyses[0].inversion === "d"
+          );
+          constrainedRomanState = structured.setSlot(constrainedRomanState, ordinaryRomanSlot.id, {
+            analyses: [{ degree: "V", quality: "major", extent: "triad", inversion: "d" }],
+          });
+          assert("switchingSeventhToTriadSanitisesInversionD",
+            constrainedRomanState.slots[ordinaryRomanSlot.id].analyses[0].inversion === "root"
+          );
 
           const modulationQuestion = questions.find((question) => question.id === "nzqa-2023-bach-key-regions");
           let modulationState = structured.create(modulationQuestion);
@@ -609,6 +642,53 @@
             acceptedComparison.slots[0].status === "matches" &&
             differentComparison.slots[0].status === "different" &&
             acceptedComparison.slots[1].status === "unanswered"
+          );
+          const valentine = questions.find((question) => question.id === "nzqa-2021-valentine-techniques");
+          const nhtChoices = [
+            "passing note", "accented passing note", "auxiliary / neighbour note",
+            "suspension", "appoggiatura",
+          ];
+          const valentineFields = Object.fromEntries(
+            valentine.interaction.fields.map((field) => [field.id, field])
+          );
+          assert("valentineUsesDedicatedNhtAndTechniqueChoiceSets",
+            ["x", "y", "z"].every((id) =>
+              valentineFields[id].choices.join("|") === nhtChoices.join("|")
+            ) &&
+            ["technique-1", "technique-2"].every((id) =>
+              valentineFields[id].choices.includes("tonic pedal") &&
+              valentineFields[id].choices.includes("descending chromatic inner line") &&
+              !valentineFields[id].choices.includes("appoggiatura")
+            )
+          );
+          let valentineState = structured.create(valentine);
+          valentineState = structured.setField(valentineState, "technique-1", { label: "tonic pedal" });
+          valentineState = structured.setField(valentineState, "technique-2", { label: "descending chromatic inner line" });
+          const valentineComparison = structured.comparison(valentine, valentineState);
+          let duplicateTechniqueState = structured.create(valentine);
+          duplicateTechniqueState = structured.setField(duplicateTechniqueState, "technique-1", { label: "tonic pedal" });
+          duplicateTechniqueState = structured.setField(duplicateTechniqueState, "technique-2", { label: "tonic pedal" });
+          assert("valentineTechniqueComparisonIsOrderInsensitive",
+            valentineComparison.fields.find((field) => field.id === "harmonic-techniques").status === "matches" &&
+            !valentineComparison.fields.some((field) => ["technique-1", "technique-2"].includes(field.id)) &&
+            structured.comparison(valentine, duplicateTechniqueState).fields
+              .find((field) => field.id === "harmonic-techniques").status === "different"
+          );
+          const featureChoiceQuestions = [
+            "nzqa-2023-poulenc-pedal", "feature-diminished", "feature-pedal",
+            "feature-chromatic-bass", "feature-nonharmonic", "feature-harmonic-rhythm",
+          ].map((id) => questions.find((question) => question.id === id));
+          assert("featureFieldsDeclarePlausibleFieldSpecificChoices",
+            featureChoiceQuestions.every((question) =>
+              question.interaction.fields.every((field) =>
+                Array.isArray(field.choices) && field.choices.length >= 4 &&
+                field.acceptedAnswers.every((answer) => field.choices.includes(answer.label))
+              )
+            ) &&
+            !questions.find((question) => question.id === "feature-nonharmonic")
+              .interaction.fields[0].choices.includes("creates momentum") &&
+            !questions.find((question) => question.id === "feature-pedal")
+              .interaction.fields[1].choices.includes("F♯ diminished seventh")
           );
           const lockedStructured = structured.setSubmitted(acceptedJazzState);
           assert("structuredSubmissionSnapshotsAreLocked",
@@ -699,6 +779,28 @@
 
           appWindow.CadenceLab.showQuestion("analysis-c-g");
           const editableScoreBoxes = [...appDocument.querySelectorAll(".analysis-box-editable")];
+          assert("ordinaryRomanSlotsDoNotExposeSecondAnalysisControls",
+            !appDocument.querySelector("#structured-builder summary") &&
+            ![...appDocument.querySelectorAll('[data-part="inversion"] option')]
+              .some((option) => option.value === "d")
+          );
+          const romanExtent = appDocument.querySelector('[data-part="extent"]');
+          const romanInversion = appDocument.querySelector('[data-part="inversion"]');
+          romanExtent.value = "seventh";
+          romanExtent.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
+          const seventhIncludesD = [...romanInversion.options].some((option) => option.value === "d");
+          romanInversion.value = "d";
+          romanExtent.value = "triad";
+          romanExtent.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
+          assert("romanInversionControlsFollowChordSize",
+            seventhIncludesD && romanInversion.value === "root" &&
+            ![...romanInversion.options].some((option) => option.value === "d")
+          );
+          appDocument.querySelectorAll(".structured-slot")[1].click();
+          assert("pivotRomanSlotsExposeSecondAnalysisControls",
+            appDocument.querySelector("#structured-builder summary")?.textContent.includes("second / pivot")
+          );
+          appDocument.querySelectorAll(".structured-slot")[0].click();
           editableScoreBoxes[1].dispatchEvent(new appWindow.PointerEvent("pointerdown", {
             bubbles: true,
           }));
