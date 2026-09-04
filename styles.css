@@ -330,6 +330,12 @@ select:focus-visible, button:focus-visible, input:focus-visible {
 .tone-chip { min-height: 36px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; padding: 6px 10px; font-weight: 750; cursor: pointer; }
 
 .analysis-box-group.analysis-box-editable { cursor: pointer; }
+.analysis-box-group.analysis-box-editable .analysis-box {
+  fill: #f8fbff;
+  stroke: #4f74b8;
+  stroke-dasharray: 4 2;
+}
+.analysis-box-group.analysis-box-editable .analysis-box-label { fill: #1e3a8a; }
 .analysis-box-group.analysis-box-editable:hover .analysis-box,
 .analysis-box-group.analysis-box-editable:focus .analysis-box {
   fill: #eff6ff;
