@@ -13,17 +13,18 @@
   <body data-status="running">
     <h1>Cadence Lab interaction smoke test</h1>
     <div id="render-fixture" aria-hidden="true"></div>
-    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-interaction-13"></iframe>
+    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-interaction-14"></iframe>
     <pre id="results">Running…</pre>
 
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../question-bank.js?v=2026-09-interaction-13"></script>
-    <script src="../score-renderer.js?v=2026-09-interaction-13"></script>
-    <script src="../question-validator.js?v=2026-09-interaction-13"></script>
-    <script src="../student-answer.js?v=2026-09-interaction-13"></script>
-    <script src="../structured-answer.js?v=2026-09-interaction-13"></script>
-    <script src="../chord-generator.js?v=2026-09-interaction-13"></script>
-    <script src="../playback-engine.js?v=2026-09-interaction-13"></script>
+    <script src="../key-relationships.js?v=2026-09-interaction-14"></script>
+    <script src="../question-bank.js?v=2026-09-interaction-14"></script>
+    <script src="../score-renderer.js?v=2026-09-interaction-14"></script>
+    <script src="../question-validator.js?v=2026-09-interaction-14"></script>
+    <script src="../student-answer.js?v=2026-09-interaction-14"></script>
+    <script src="../structured-answer.js?v=2026-09-interaction-14"></script>
+    <script src="../chord-generator.js?v=2026-09-interaction-14"></script>
+    <script src="../playback-engine.js?v=2026-09-interaction-14"></script>
     <script>
       const results = document.querySelector("#results");
       const assertions = {};
@@ -59,6 +60,7 @@
           const answer = window.CadenceStudentAnswer;
           const structured = window.CadenceStructuredAnswer;
           const chordGenerator = window.CadenceChordGenerator;
+          const keyRelationships = window.CadenceKeyRelationships;
           const playback = window.CadencePlayback;
           const renderer = window.CadenceScoreRenderer;
           const report = window.CadenceQuestionValidator.report;
@@ -902,6 +904,144 @@
             modulationState.fields["x-key"].label === "E♭ major" &&
             modulationState.fields["x-relationship"].label === "relative major of the subdominant" &&
             modulationState.evidence === "B♭7–E♭ cadence"
+          );
+          const requiredKeyRelationshipCases = [
+            ["B♭ major", "E♭ major", "subdominant", "IV"],
+            ["B♭ major", "F major", "dominant", "V"],
+            ["G minor", "B♭ major", "relative major", "III"],
+            ["G minor", "C minor", "subdominant", "iv"],
+            ["G minor", "E♭ major", "submediant", "VI"],
+            ["G minor", "F major", "subtonic", "VII"],
+            ["A major", "F♯ minor", "relative minor", "vi"],
+            ["A major", "D major", "subdominant", "IV"],
+            ["A major", "E major", "dominant", "V"],
+            ["C minor", "E♭ major", "relative major", "III"],
+            ["C minor", "F minor", "subdominant", "iv"],
+            ["C minor", "G minor", "dominant minor", "v"],
+            ["E major", "C♯ minor", "relative minor", "vi"],
+            ["E major", "A major", "subdominant", "IV"],
+            ["E major", "B major", "dominant", "V"],
+          ];
+          assert("semanticKeyRelationshipEngineCoversFlatSharpMajorAndMinorKeys",
+            requiredKeyRelationshipCases.every(([homeKey, localKey, canonical, degree]) => {
+              const relationship = keyRelationships.relationshipBetween(homeKey, localKey);
+              return relationship.canonical === canonical &&
+                relationship.degree === degree &&
+                relationship.acceptedLabels.includes(canonical) &&
+                relationship.acceptedLabels.includes(degree);
+            })
+          );
+          const gMinorToEFlat = keyRelationships.relationshipBetween("G minor", "E♭ major");
+          const gMinorToF = keyRelationships.relationshipBetween("G minor", "F major");
+          const bFlatToEFlat = keyRelationships.relationshipBetween("B♭ major", "E♭ major");
+          assert("compoundKeyRelationshipsAreDerivedForTheExactSemanticPairOnly",
+            gMinorToEFlat.acceptedLabels.includes("relative major of the subdominant") &&
+            !gMinorToEFlat.acceptedLabels.includes("relative major") &&
+            gMinorToF.acceptedLabels.includes("relative major of the dominant") &&
+            bFlatToEFlat.acceptedLabels.includes("subdominant") &&
+            !bFlatToEFlat.acceptedLabels.includes("relative major of the subdominant")
+          );
+          const reportedQuestion = questions.find((question) =>
+            question.id === "modulation-gminor-eb-f"
+          );
+          const reportedXRelationship = reportedQuestion.interaction.fields.find(
+            (field) => field.id === "x-relationship"
+          );
+          let incorrectRelativeState = structured.create(reportedQuestion);
+          incorrectRelativeState = structured.setField(
+            incorrectRelativeState,
+            "x-relationship",
+            { label: "relative major" }
+          );
+          let incorrectSubdominantState = structured.create(reportedQuestion);
+          incorrectSubdominantState = structured.setField(
+            incorrectSubdominantState,
+            "x-relationship",
+            { label: "subdominant" }
+          );
+          let correctSubmediantState = structured.create(reportedQuestion);
+          correctSubmediantState = structured.setField(
+            correctSubmediantState,
+            "x-relationship",
+            { label: "submediant / VI" }
+          );
+          assert("reportedGMinorPromptNowSuppliesTheHomeTonic",
+            reportedQuestion.studentContext ===
+              "The passage begins in G minor and moves through two related key regions. Identify X and Y, give musical evidence for each key, and describe each relationship to G minor."
+          );
+          assert("gMinorToEFlatUsesSubmediantRatherThanRelativeMajor",
+            reportedXRelationship.acceptedAnswers[0].label === "submediant / VI" &&
+            !reportedXRelationship.acceptedAnswers.some((answer) =>
+              answer.label === "relative major" || answer.label === "subdominant"
+            ) &&
+            structured.comparison(reportedQuestion, incorrectRelativeState).fields.find(
+              (field) => field.id === "x-relationship"
+            ).status === "different" &&
+            structured.comparison(reportedQuestion, incorrectSubdominantState).fields.find(
+              (field) => field.id === "x-relationship"
+            ).status === "different" &&
+            structured.comparison(reportedQuestion, correctSubmediantState).fields.find(
+              (field) => field.id === "x-relationship"
+            ).status === "matches"
+          );
+          const modulationQuestions = questions.filter((question) =>
+            question.category === "modulation"
+          );
+          const normalizeKeyContext = (value) => String(value)
+            .replace(/[‐‑–—-]/g, " ")
+            .replaceAll(/\s+/g, " ")
+            .toLocaleLowerCase("en-NZ");
+          assert("allModulationRelationshipsCarryAuditedSemanticKeyMetadata",
+            modulationQuestions.length === 6 && modulationQuestions.every((question) =>
+              question.homeKey && question.keyRegions.length &&
+              question.interaction.homeKey === question.homeKey &&
+              normalizeKeyContext(question.studentContext).includes(
+                normalizeKeyContext(question.homeKey)
+              ) &&
+              question.keyRegions.every((region) => {
+                const relationship = keyRelationships.relationshipBetween(
+                  question.homeKey,
+                  region.localKey
+                );
+                const field = question.interaction.fields.find((candidate) =>
+                  candidate.id === `${region.section.toLowerCase()}-relationship`
+                );
+                return field && field.homeKey === question.homeKey &&
+                  field.localKey === region.localKey &&
+                  field.acceptedAnswers.every((answer) =>
+                    relationship.acceptedLabels.includes(answer.label)
+                  );
+              })
+            )
+          );
+          const romanAndRegionKeyLabels = questions.flatMap((question) => [
+            ...(question.category === "modulation"
+              ? [question.homeKey, ...question.keyRegions.map((region) => region.localKey)]
+              : []),
+            ...((question.score.harmonicEvents || []).map((event) => event.localKey)),
+          ]).filter(Boolean);
+          assert("romanAnalysisAndKeyRegionSpellingsPassSemanticAudit",
+            romanAndRegionKeyLabels.every((label) => {
+              try {
+                return keyRelationships.formatKey(label) === label;
+              } catch (_error) {
+                return false;
+              }
+            })
+          );
+          assert("nzqaRelationshipTerminologyRemainsSourceExactAndSemanticallyValid",
+            JSON.stringify(modulationQuestion.sourceSpec.keyRelationships) === JSON.stringify([
+              { section: "X", homeKey: "G minor", localKey: "E♭ major", acceptedLabels: ["relative major of the subdominant"] },
+              { section: "Y", homeKey: "G minor", localKey: "C minor", acceptedLabels: ["subdominant"] },
+              { section: "Z", homeKey: "G minor", localKey: "F major", acceptedLabels: ["relative major of the dominant"] },
+            ]) && modulationQuestion.keyRegions.every((region) =>
+              region.acceptedRelationshipLabels.every((label) =>
+                keyRelationships.relationshipBetween(
+                  modulationQuestion.homeKey,
+                  region.localKey
+                ).acceptedLabels.includes(label)
+              )
+            )
           );
 
           const commercial = questions.find((question) => question.id === "nzqa-2024-commercial-chromatic-bass");
