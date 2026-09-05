@@ -275,13 +275,34 @@
       if (acceptedLabels.some((label) => !relationship.acceptedLabels.includes(label))) {
         errors.push(`${question.id}: region ${region.section} accepts an invalid relationship to ${homeKey}`);
       }
-      if (acceptedLabels.some((label) =>
-        !question.interaction.relationshipChoices.includes(label)
+      const visibleChoices = relationshipField.choices || [];
+      const visibleCorrectChoices = visibleChoices.filter((label) =>
+        relationship.acceptedLabels.includes(label)
+      );
+      if (visibleChoices.length < 4 || visibleChoices.length > 6) {
+        errors.push(`${question.id}: region ${region.section} relationship choices must contain 4–6 options`);
+      }
+      if (new Set(visibleChoices).size !== visibleChoices.length) {
+        errors.push(`${question.id}: region ${region.section} relationship choices contain duplicates`);
+      }
+      if (!visibleChoices.includes(region.modelRelationship) ||
+          visibleCorrectChoices.length !== 1 ||
+          visibleCorrectChoices[0] !== region.modelRelationship) {
+        errors.push(`${question.id}: region ${region.section} must show exactly one preferred relationship answer`);
+      }
+      if (visibleChoices.some((label) =>
+        /^(?:I|II|III|IV|V|VI|VII|i|ii|iii|iv|v|vi|vii)$/.test(label) ||
+        /\/[ ]*(?:I|II|III|IV|V|VI|VII|i|ii|iii|iv|v|vi|vii)$/.test(label)
       )) {
-        errors.push(`${question.id}: region ${region.section} has an accepted relationship unavailable in the UI`);
+        errors.push(`${question.id}: region ${region.section} mixes Roman degrees into learner relationship choices`);
+      }
+      if (region.relationshipChoices &&
+          JSON.stringify(visibleChoices) !== JSON.stringify(region.relationshipChoices)) {
+        errors.push(`${question.id}: region ${region.section} does not preserve its authored relationship choices`);
       }
       if (relationshipField.homeKey !== homeKey ||
           relationshipField.localKey !== localKey ||
+          relationshipField.modelRelationship !== region.modelRelationship ||
           relationshipField.semanticRelationship?.canonical !== relationship.canonical ||
           relationshipField.semanticRelationship?.degree !== relationship.degree) {
         errors.push(`${question.id}: region ${region.section} semantic relationship metadata is inconsistent`);
