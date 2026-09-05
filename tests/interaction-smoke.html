@@ -13,16 +13,17 @@
   <body data-status="running">
     <h1>Cadence Lab interaction smoke test</h1>
     <div id="render-fixture" aria-hidden="true"></div>
-    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c"></iframe>
+    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-interaction-13"></iframe>
     <pre id="results">Running…</pre>
 
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../question-bank.js?v=2026-09-structured-1"></script>
-    <script src="../score-renderer.js?v=2026-09-structured-1"></script>
-    <script src="../question-validator.js?v=2026-09-structured-1"></script>
-    <script src="../student-answer.js?v=2026-09-interaction-5"></script>
-    <script src="../structured-answer.js?v=2026-09-structured-1"></script>
-    <script src="../playback-engine.js?v=2026-09-interaction-5"></script>
+    <script src="../question-bank.js?v=2026-09-interaction-13"></script>
+    <script src="../score-renderer.js?v=2026-09-interaction-13"></script>
+    <script src="../question-validator.js?v=2026-09-interaction-13"></script>
+    <script src="../student-answer.js?v=2026-09-interaction-13"></script>
+    <script src="../structured-answer.js?v=2026-09-interaction-13"></script>
+    <script src="../chord-generator.js?v=2026-09-interaction-13"></script>
+    <script src="../playback-engine.js?v=2026-09-interaction-13"></script>
     <script>
       const results = document.querySelector("#results");
       const assertions = {};
@@ -57,9 +58,19 @@
           const questions = window.CadenceData.questions;
           const answer = window.CadenceStudentAnswer;
           const structured = window.CadenceStructuredAnswer;
+          const chordGenerator = window.CadenceChordGenerator;
           const playback = window.CadencePlayback;
           const renderer = window.CadenceScoreRenderer;
           const report = window.CadenceQuestionValidator.report;
+          const frame = document.querySelector("#app-frame");
+          const appWindow = frame.contentWindow;
+          const appDocument = frame.contentDocument;
+
+          assert("learnerTargetSelectorAndBadgeAreRemoved",
+            !appDocument.querySelector("#difficulty") &&
+            !appDocument.querySelector("#difficulty-chip") &&
+            !appDocument.body.textContent.includes("Target: Merit")
+          );
 
           assert("all32QuestionsHaveSpoilerAuditMetadata",
             questions.length === 32 && questions.every((question) =>
@@ -271,6 +282,14 @@
             durationEdited.measures[0].voices.alto.length === 1 &&
             durationEdited.measures[0].voices.alto[0].beat === 3
           );
+          const movedTimed = answer.moveSelected(
+            answer.select(timedState, timedId), satbQuestion,
+            { voice: "alto", measure: 1, beat: 2, pitches: ["D4"] }
+          );
+          assert("selectedStudentNoteCanMoveSemantically",
+            movedTimed.measures[0].voices.alto[0].beat === 2 &&
+            movedTimed.measures[0].voices.alto[0].pitches[0] === "D4"
+          );
           const chordAtBeatThree = answer.insert(timedState, satbQuestion, {
             voice: "alto", measure: 1, beat: 3,
             pitches: ["E4"], duration: "q", addToChord: true,
@@ -452,6 +471,29 @@
             satbFixture.querySelectorAll(".locked-note").length > 0 &&
             satbFixture.querySelectorAll(".editor-hit-target").length === 6
           );
+          renderer.renderEditorPreview(satbFixture, {
+            voice: "alto", measure: 1, beat: 2.5, pitch: "F#4",
+            duration: "8d", x: 220, y: 94, stemDirection: "down",
+            displayAccidental: "♯", rest: false,
+          });
+          const dottedGhost = satbFixture.querySelector(".editor-ghost-preview");
+          assert("ghostPreviewShowsPitchDurationStemDotAndAccidental",
+            dottedGhost.dataset.previewPitch === "F#4" &&
+            dottedGhost.dataset.previewDuration === "8d" &&
+            dottedGhost.querySelector(".editor-ghost-notehead") &&
+            dottedGhost.querySelector(".editor-ghost-stem") &&
+            dottedGhost.querySelector(".editor-ghost-flag") &&
+            dottedGhost.querySelector(".editor-ghost-dot") &&
+            dottedGhost.querySelector(".editor-ghost-accidental")?.textContent === "♯"
+          );
+          renderer.renderEditorPreview(satbFixture, {
+            voice: "tenor", measure: 1, beat: 3, duration: "q",
+            x: 280, y: 170, stemDirection: "up", rest: true,
+          });
+          assert("ghostPreviewUsesADurationSpecificRestGlyph",
+            satbFixture.querySelector(".editor-ghost-rest") &&
+            satbFixture.querySelector(".editor-ghost-preview").dataset.previewPitch === "rest"
+          );
           assert("satbVoiceStemDirectionsRemainIndependent",
             ["soprano", "alto", "tenor", "bass"].every((voice) =>
               composedSatb.measures.every((measure) => Array.isArray(measure.voices[voice]))
@@ -611,6 +653,245 @@
             constrainedRomanState.slots[ordinaryRomanSlot.id].analyses[0].extent === "triad" &&
             structured.formatValue(constrainedRomanState.slots[ordinaryRomanSlot.id], "roman-analysis") === "vii°"
           );
+          let advancingRomanState = structured.create(analysisQuestion);
+          const romanSlotIds = analysisQuestion.interaction.slots.map((slot) => slot.id);
+          advancingRomanState = structured.setSlot(advancingRomanState, romanSlotIds[0], {
+            analyses: [{ degree: "I", quality: "major", extent: "triad", inversion: "root" }],
+          });
+          advancingRomanState = structured.advanceToNextUnanswered(advancingRomanState, romanSlotIds);
+          assert("romanAutoAdvanceSelectsNextUnansweredSlot",
+            advancingRomanState.activeSlotId === romanSlotIds[1]
+          );
+          const semanticJazzExamples = [
+            [{ root: "C", formula: "major" }, "C"],
+            [{ root: "C", formula: "minor-ninth" }, "Cm9"],
+            [{ root: "C", formula: "minor-add-nine" }, "Cm(add9)"],
+            [{ root: "C", formula: "minor-ninth-major-seventh" }, "Cm9(maj7)"],
+            [{ root: "C", formula: "minor-nine-add-six" }, "Cm9(add6)"],
+            [{ root: "C♯", formula: "dominant-seven-sus-four" }, "C♯7sus4"],
+            [{ root: "C", formula: "six-add-nine", bass: "E" }, "C6(add9)/E"],
+            [{ root: "D", formula: "dominant-thirteenth", bass: "F♯" }, "D13/F♯"],
+            [{ root: "E", formula: "dominant-sharp-nine", bass: "G♯" }, "E7♯9/G♯"],
+            [{ root: "B", formula: "half-diminished", bass: "D" }, "Bm7♭5/D"],
+          ];
+          assert("semanticJazzFormatterAvoidsInvalidConcatenation",
+            semanticJazzExamples.every(([value, expected]) =>
+              structured.formatJazzChord(value) === expected
+            ) && structured.JAZZ_FORMULAS.length >= 27
+          );
+          const authoredJazzQuestions = questions.filter((question) =>
+            question.interaction.type === "jazz-chord-placement"
+          );
+          const authoredJazzAnswers = authoredJazzQuestions.flatMap((question) =>
+            question.interaction.slots.flatMap((slot) =>
+              slot.acceptedAnswers.map((answer) => ({
+                questionId: question.id,
+                slotId: slot.id,
+                label: typeof answer === "string" ? answer : answer.label,
+              }))
+            )
+          );
+          const unrepresentableJazzAnswers = authoredJazzAnswers.filter(({ label }) => {
+            const parsed = structured.parseJazzChordSymbol(label);
+            return !parsed || structured.formatJazzChord(parsed) !== label;
+          });
+          assert("everyAuthoredJazzAnswerHasAnExactSemanticRepresentation",
+            unrepresentableJazzAnswers.length === 0,
+            unrepresentableJazzAnswers
+          );
+          assert("nzqa2021And2024ReferenceSymbolsAreExplicitSemanticAcceptanceCases",
+            ["nzqa-2021-valentine-techniques", "nzqa-2024-commercial-chromatic-bass"]
+              .flatMap((questionId) => questions.find((question) =>
+                question.id === questionId
+              ).sourceSpec.chordSymbols)
+              .every((label) => {
+                const parsed = structured.parseJazzChordSymbol(label);
+                return parsed && structured.formatJazzChord(parsed) === label;
+              }) &&
+            ["Cm9(maj7)", "Cm9(add6)", "C♯m(add9)", "C♯7sus4", "Dm7(♭5)"]
+              .every((label) => ["nzqa-2021-valentine-techniques", "nzqa-2024-commercial-chromatic-bass"]
+                .flatMap((questionId) => questions.find((question) =>
+                  question.id === questionId
+                ).sourceSpec.chordSymbols)
+                .includes(label))
+          );
+
+          const generatedEntry = (key, root, formula) => chordGenerator.catalog.find(
+            (entry) => entry.key === key && entry.root === root && entry.formula === formula
+          );
+          const identityFixture = (key, root, formula, bass) => {
+            const entry = generatedEntry(key, root, formula);
+            return chordGenerator.createIdentityFixture(entry, {
+              bass,
+              seed: `${key}-${root}-${formula}-${bass}`,
+            });
+          };
+          const pitchSpellings = (event) => [...event.treble, ...event.bass].map(
+            (pitch) => pitch.replace(/-?\d+$/, "")
+          );
+          const identityIsValid = (fixture) => chordGenerator.validateHarmonicIdentity(
+            fixture.event,
+            { key: fixture.key, keySignature: fixture.keySignature }
+          ).valid;
+          const cSixth = identityFixture("C major", "C", "sixth", "C");
+          const dMinorSixth = identityFixture("D minor", "D", "minor-sixth", "D");
+          const bHalfDiminished = identityFixture("A minor", "B", "half-diminished", "D");
+          const eSuspended = identityFixture("G major", "E", "suspended-four", "E");
+          const gSuspended = identityFixture("C major", "G", "suspended-four", "D");
+          assert("generatedSixthAndMinorSeventhIdentitiesAreNotAutomaticallyInterchangeable",
+            JSON.stringify(cSixth.acceptedAnswers) === JSON.stringify(["C6"]) &&
+            !cSixth.acceptedAnswers.includes("Am7/C") &&
+            JSON.stringify(dMinorSixth.acceptedAnswers) === JSON.stringify(["Dm6"]) &&
+            !dMinorSixth.acceptedAnswers.includes("Bm7♭5/D") &&
+            [cSixth, dMinorSixth].every(identityIsValid)
+          );
+          assert("generatedHalfDiminishedIdentityDoesNotAutomaticallyAcceptMinorSixth",
+            JSON.stringify(bHalfDiminished.acceptedAnswers) === JSON.stringify(["Bm7♭5/D"]) &&
+            !bHalfDiminished.acceptedAnswers.includes("Dm6") &&
+            identityIsValid(bHalfDiminished)
+          );
+          assert("generatedSuspensionsDoNotAcceptAutomaticAlternateRoots",
+            JSON.stringify(eSuspended.acceptedAnswers) === JSON.stringify(["Esus4"]) &&
+            !eSuspended.acceptedAnswers.includes("Asus2/E") &&
+            JSON.stringify(gSuspended.acceptedAnswers) === JSON.stringify(["Gsus4/D"]) &&
+            !gSuspended.acceptedAnswers.includes("Csus2/D") &&
+            [eSuspended, gSuspended].every(identityIsValid)
+          );
+          assert("constrainedGeneratedVoicingsEmphasiseTheIntendedRoot",
+            [cSixth, dMinorSixth, bHalfDiminished, eSuspended, gSuspended].every((fixture) => {
+              const spellings = pitchSpellings(fixture.event);
+              const identity = fixture.entry.harmonicIdentity;
+              const rootCount = spellings.filter((pitch) => pitch === fixture.entry.root).length;
+              return rootCount >= identity.minRootOccurrences &&
+                identity.competingRoots.every((root) =>
+                  rootCount > spellings.filter((pitch) => pitch === root).length
+                );
+            })
+          );
+          const competitorHeavyIdentity = structuredClone(cSixth.event);
+          competitorHeavyIdentity.treble.push("A5");
+          competitorHeavyIdentity.generatedSourceSpec.voicing.treble.push("A5");
+          competitorHeavyIdentity.generatedSourceSpec.voicing.competingRootOccurrences.A = 2;
+          const competitorHeavyValidation = chordGenerator.validateHarmonicIdentity(
+            competitorHeavyIdentity,
+            { key: cSixth.key, keySignature: cSixth.keySignature }
+          );
+          assert("harmonicIdentityRejectsAnEquallyEmphasisedCompetingRoot",
+            !competitorHeavyValidation.valid &&
+            competitorHeavyValidation.errors.some((error) =>
+              error.includes("not stronger than competing root A")
+            )
+          );
+          const misspelledIdentity = structuredClone(cSixth.event);
+          misspelledIdentity.treble[0] = "B#4";
+          assert("harmonicIdentityValidationPreservesExactSpelling",
+            !chordGenerator.validateHarmonicIdentity(misspelledIdentity, {
+              key: cSixth.key,
+              keySignature: cSixth.keySignature,
+            }).valid
+          );
+
+          const generatedVariants = Array.from({ length: 500 }, (_, index) =>
+            chordGenerator.create(`smoke-${index}`)
+          );
+          const generatedKeys = new Set(
+            chordGenerator.catalog.map((entry) => entry.key)
+          );
+          const generatedSymbols = chordGenerator.catalog.map((entry) =>
+            structured.formatJazzChord({ root: entry.root.replaceAll("#", "♯").replaceAll("b", "♭"), formula: entry.formula })
+          );
+          assert("seededChordGeneratorValidatesHundredsOfVariants",
+            generatedVariants.every((question) => chordGenerator.validateVariant(question)) &&
+            chordGenerator.catalog.every((entry) => chordGenerator.validateCatalogEntry(entry)) &&
+            generatedKeys.size === 8 &&
+            generatedVariants.every((question) =>
+              question.sourceType === "generated-practice" &&
+              question.category === "chord-identification" &&
+              question.interaction.slots.length === 4 &&
+              question.interaction.slots.every((slot) => slot.acceptedAnswers.length === 1) &&
+              question.score.measures.every((measure) =>
+                Boolean(measure.keySignature) && Boolean(measure.keyLabel)
+              ) &&
+              question.variantId.startsWith("CID-") &&
+              !/NZQA reference/i.test(question.source.acknowledgement)
+            )
+          );
+          const roundTripOriginal = chordGenerator.create("visible-variant-round-trip");
+          const roundTripRestored = chordGenerator.createFromVariantId(roundTripOriginal.variantId);
+          assert("visibleVariantIdRecreatesIdenticalQuestionData",
+            JSON.stringify(roundTripOriginal) === JSON.stringify(roundTripRestored) &&
+            JSON.stringify(roundTripOriginal.score.measures.map((measure) => ({
+              keySignature: measure.keySignature,
+              keyLabel: measure.keyLabel,
+              treble: measure.events[0].treble,
+              bass: measure.events[0].bass,
+              voicing: measure.events[0].generatedSourceSpec.voicing,
+              accepted: measure.events[0].acceptableChordSymbols,
+            }))) === JSON.stringify(roundTripRestored.score.measures.map((measure) => ({
+              keySignature: measure.keySignature,
+              keyLabel: measure.keyLabel,
+              treble: measure.events[0].treble,
+              bass: measure.events[0].bass,
+              voicing: measure.events[0].generatedSourceSpec.voicing,
+              accepted: measure.events[0].acceptableChordSymbols,
+            })))
+          );
+          const deliberateAmbiguity = chordGenerator.createIdentityFixture(
+            chordGenerator.intentionalAmbiguityFixture,
+            { bass: "A", seed: "intentional-ambiguity" }
+          );
+          const deliberateAmbiguityQuestion = {
+            id: "intentional-ambiguity-fixture",
+            interaction: {
+              type: "jazz-chord-placement",
+              slots: [{
+                id: "ambiguous-chord",
+                label: "Ambiguous chord",
+                acceptedAnswers: deliberateAmbiguity.acceptedAnswers.map((label) => ({ label })),
+              }],
+              bank: [],
+            },
+          };
+          let alternativeState = structured.create(deliberateAmbiguityQuestion);
+          alternativeState = structured.setSlot(alternativeState, "ambiguous-chord", {
+            label: deliberateAmbiguity.acceptedAnswers[1],
+            source: "builder",
+          });
+          assert("intentionalAmbiguityFixtureSupportsEveryExplicitlyDeclaredAnalysis",
+            deliberateAmbiguity.acceptedAnswers.length === 2 &&
+            deliberateAmbiguity.acceptedAnswers.includes("Dm6/A") &&
+            deliberateAmbiguity.acceptedAnswers.includes("Bm7♭5/A") &&
+            identityIsValid(deliberateAmbiguity) &&
+            structured.comparison(deliberateAmbiguityQuestion, alternativeState).slots[0].status === "matches"
+          );
+          assert("generatedVocabularyIncludesAdvancedRequiredChords",
+            ["D13", "G7♭9", "C6", "C6(add9)", "Fmaj9", "Bm7♭5", "E7♯9", "Esus4", "Gsus4"]
+              .every((symbol) => generatedSymbols.includes(symbol))
+          );
+          const requiredSlashExamples = [
+            ["D", "dominant-thirteenth", "F#", "D13/F♯"],
+            ["C", "sixth", "E", "C6/E"],
+            ["F", "major-ninth", "A", "Fmaj9/A"],
+            ["B", "half-diminished", "D", "Bm7♭5/D"],
+            ["E", "dominant-sharp-nine", "G#", "E7♯9/G♯"],
+          ];
+          assert("generatedVocabularyIncludesRequestedHighComplexitySlashChords",
+            requiredSlashExamples.every(([root, formula, bass, symbol]) => {
+              const entry = chordGenerator.catalog.find((candidate) =>
+                candidate.root === root && candidate.formula === formula && candidate.allowedBasses.includes(bass)
+              );
+              return entry && structured.formatJazzChord({
+                root: root.replaceAll("#", "♯").replaceAll("b", "♭"),
+                formula,
+                bass: bass.replaceAll("#", "♯").replaceAll("b", "♭"),
+              }) === symbol;
+            })
+          );
+          assert("alteredDominantUsesExactTheoreticalSharpNineSpelling",
+            chordGenerator.catalog.find((entry) =>
+              entry.root === "E" && entry.formula === "dominant-sharp-nine"
+            )?.tones.includes("F##")
+          );
 
           const modulationQuestion = questions.find((question) => question.id === "nzqa-2023-bach-key-regions");
           let modulationState = structured.create(modulationQuestion);
@@ -738,12 +1019,16 @@
               .every((question) => question.score.harmonicEvents.every((event) => event.answerRole === "none"))
           );
 
-          const frame = document.querySelector("#app-frame");
-          const appWindow = frame.contentWindow;
-          const appDocument = frame.contentDocument;
           const preRevealLeaks = [];
           questions.forEach((question) => {
             appWindow.CadenceLab.showQuestion(question.id);
+            const expectedTaskCount = ["A", "M", "E"].reduce(
+              (count, level) => count + (question.tasks[level] || []).length,
+              0
+            );
+            if (appDocument.querySelectorAll("#task-list li").length !== expectedTaskCount) {
+              preRevealLeaks.push(`${question.id}: full Excellence task contract is not visible`);
+            }
             const promptNodes = [
               appDocument.querySelector("#question-title"),
               appDocument.querySelector("#question-context"),
@@ -843,6 +1128,10 @@
             appDocument.querySelector(".structured-slot.is-active small").textContent === "Bar 2, beat 1" &&
             !appDocument.querySelector("#structured-builder").hidden
           );
+          appDocument.querySelector("[data-save-roman]").click();
+          assert("placingRomanAnalysisAutoAdvancesAcrossEditableBoxes",
+            appDocument.querySelector(".structured-slot.is-active small").textContent === "Bar 2, beat 3"
+          );
 
           appWindow.CadenceLab.showQuestion("satb-f-c");
           assert("notationToolbarUsesLocalSvgIconsAndHighlightsSelectedStaff",
@@ -858,6 +1147,22 @@
           const beatThreeBounds = beatThreeTarget.getBoundingClientRect();
           beatThreeTarget.dispatchEvent(new appWindow.PointerEvent("pointerdown", {
             bubbles: true,
+            pointerId: 7,
+            pointerType: "mouse",
+            clientX: beatThreeBounds.left + beatThreeBounds.width / 2,
+            clientY: beatThreeBounds.top + beatThreeBounds.height / 2,
+          }));
+          const ghost = appDocument.querySelector(".editor-ghost-preview");
+          const beforeReleaseState = appWindow.CadenceLab.getStudentAnswer();
+          assert("ghostPreviewUsesTheCommittedSemanticIntentBeforePlacement",
+            ghost && beforeReleaseState.measures[0].voices.alto == null &&
+            ghost.dataset.previewMeasure === "1" && ghost.dataset.previewBeat === "3" &&
+            ghost.querySelector(".editor-ghost-notehead") && ghost.querySelector(".editor-ghost-stem")
+          );
+          beatThreeTarget.dispatchEvent(new appWindow.PointerEvent("pointerup", {
+            bubbles: true,
+            pointerId: 7,
+            pointerType: "mouse",
             clientX: beatThreeBounds.left + beatThreeBounds.width / 2,
             clientY: beatThreeBounds.top + beatThreeBounds.height / 2,
           }));
@@ -866,6 +1171,118 @@
             pointerState.measures[0].voices.alto.length === 1 &&
             pointerState.measures[0].voices.alto[0].beat === 3 &&
             appDocument.querySelector("#editor-status").textContent.includes("beat 3")
+          );
+          const renderedStudentPitch = pointerState.measures[0].voices.alto[0].pitches[0];
+          assert("ghostAndCommittedPitchCalculationsAgree",
+            ghost.dataset.previewPitch === renderedStudentPitch
+          );
+          const currentHitTarget = appDocument.querySelector(
+            '.editor-hit-target[data-measure="1"][data-staff="treble"]'
+          );
+          const currentBounds = currentHitTarget.getBoundingClientRect();
+          currentHitTarget.dispatchEvent(new appWindow.PointerEvent("pointerdown", {
+            bubbles: true, pointerId: 8, pointerType: "mouse",
+            clientX: currentBounds.left + currentBounds.width / 2,
+            clientY: currentBounds.top + currentBounds.height / 2,
+          }));
+          currentHitTarget.dispatchEvent(new appWindow.PointerEvent("pointerup", {
+            bubbles: true, pointerId: 8, pointerType: "mouse",
+            clientX: currentBounds.left + currentBounds.width / 2,
+            clientY: currentBounds.top + currentBounds.height / 2,
+          }));
+          assert("secondTapOnSelectedStudentNoteDeletesAndLeavesUndoAvailable",
+            !appWindow.CadenceLab.getStudentAnswer().measures[0].voices.alto.length &&
+            !appDocument.querySelector("#undo-edit").disabled &&
+            appDocument.querySelector("#editor-status").textContent.includes("Undo")
+          );
+          appDocument.querySelector("#undo-edit").click();
+          assert("undoRestoresDirectlyDeletedStudentNote",
+            appWindow.CadenceLab.getStudentAnswer().measures[0].voices.alto.length === 1
+          );
+          const scoreSvg = appDocument.querySelector("#score svg");
+          const lockedNote = scoreSvg.querySelector(".locked-note");
+          const voiceHitLayer = scoreSvg.querySelector(".editor-hit-areas");
+          assert("voiceSafeHitLayerSitsAboveLockedNotation",
+            lockedNote && voiceHitLayer &&
+            Boolean(lockedNote.compareDocumentPosition(voiceHitLayer) & appWindow.Node.DOCUMENT_POSITION_FOLLOWING)
+          );
+
+          appDocument.querySelector('[data-voice="tenor"]').click();
+          const tenorHit = appDocument.querySelector(
+            '.editor-hit-target[data-measure="1"][data-staff="bass"]'
+          );
+          const tenorBounds = tenorHit.getBoundingClientRect();
+          const tenorPointer = (type) => tenorHit.dispatchEvent(new appWindow.PointerEvent(type, {
+            bubbles: true, pointerId: 14, pointerType: "mouse",
+            clientX: tenorBounds.left + tenorBounds.width / 2,
+            clientY: tenorBounds.top + tenorBounds.height / 2,
+          }));
+          tenorPointer("pointerdown");
+          tenorPointer("pointerup");
+          assert("suppliedBassDoesNotBlockEditableTenorEntry",
+            appWindow.CadenceLab.getStudentAnswer().measures[0].voices.tenor.length === 1 &&
+            JSON.stringify(satbQuestion) === satbSourceBefore
+          );
+
+          const pianoSourceBeforeUi = JSON.stringify(pianoQuestion.score);
+          appWindow.CadenceLab.showQuestion("piano-d-f");
+          appDocument.querySelector('[data-voice="bass"]').click();
+          let pianoHit = appDocument.querySelector(
+            '.editor-hit-target[data-measure="2"][data-staff="bass"]'
+          );
+          let pianoBounds = pianoHit.getBoundingClientRect();
+          const pianoX = pianoBounds.left + pianoBounds.width * 0.25;
+          const pianoY = pianoBounds.top + pianoBounds.height * 0.5;
+          const firePianoPointer = (type, pointerId, y) => pianoHit.dispatchEvent(
+            new appWindow.PointerEvent(type, {
+              bubbles: true, pointerId, pointerType: "touch",
+              clientX: pianoX, clientY: y,
+            })
+          );
+          firePianoPointer("pointerdown", 21, pianoY);
+          const touchBeforeRelease = appWindow.CadenceLab.getStudentAnswer();
+          firePianoPointer("pointerup", 21, pianoY);
+          const firstPianoBeat = appWindow.CadenceLab.getStudentAnswer()
+            .measures[1].voices.bass[0].beat;
+          assert("touchPreviewCommitsOnlyOnRelease",
+            touchBeforeRelease.measures[1].voices.bass == null &&
+            appWindow.CadenceLab.getStudentAnswer().measures[1].voices.bass.length === 1
+          );
+          appDocument.querySelector("#add-to-chord").click();
+          pianoHit = appDocument.querySelector(
+            '.editor-hit-target[data-measure="2"][data-staff="bass"]'
+          );
+          pianoBounds = pianoHit.getBoundingClientRect();
+          pianoHit.dispatchEvent(new appWindow.PointerEvent("pointerdown", {
+            bubbles: true, pointerId: 22, pointerType: "touch",
+            clientX: pianoBounds.left + pianoBounds.width * 0.25,
+            clientY: pianoBounds.top + pianoBounds.height * 0.5 - 10,
+          }));
+          const chordGhostBeat = appDocument.querySelector(".editor-ghost-preview")?.dataset.previewBeat;
+          const chordGhostTarget = Boolean(appDocument.querySelector(".editor-ghost-chord-target"));
+          const chordNoteTarget = Boolean(appDocument.querySelector(".student-note.is-chord-target"));
+          assert("addChordToneGhostHighlightsTheReceivingOnset",
+            chordGhostBeat === String(firstPianoBeat) && chordGhostTarget && chordNoteTarget,
+            { chordGhostBeat, chordGhostTarget, chordNoteTarget,
+              studentMetadata: [...appDocument.querySelectorAll(".student-note")].map((node) => ({
+                voice: node.dataset.editorVoice,
+                measure: node.dataset.editorMeasure,
+                beat: node.dataset.editorBeat,
+              })) }
+          );
+          pianoHit.dispatchEvent(new appWindow.PointerEvent("pointerup", {
+            bubbles: true, pointerId: 22, pointerType: "touch",
+            clientX: pianoBounds.left + pianoBounds.width * 0.25,
+            clientY: pianoBounds.top + pianoBounds.height * 0.5 - 10,
+          }));
+          const pianoChordState = appWindow.CadenceLab.getStudentAnswer();
+          assert("pianoAddChordToneBuildsOneSharedOnset",
+            pianoChordState.measures[1].voices.bass.length === 1 &&
+            pianoChordState.measures[1].voices.bass[0].pitches.length === 2
+          );
+          assert("suppliedPianoMelodyDoesNotBlockOrChangeAccompanimentEntry",
+            JSON.stringify(pianoQuestion.score) === pianoSourceBeforeUi &&
+            pianoChordState.measures[1].voices.bass.length === 1
           );
 
           const revealedConcepts = [
@@ -903,7 +1320,153 @@
           assert("submissionBuildsModelDOMAndUnlocksComparisonPlayback",
             appDocument.querySelector("#answer-copy").children.length > 0 &&
             appDocument.querySelector("#model-score").children.length > 0 &&
-            afterPermissions.question && afterPermissions.model && !afterPermissions.context
+            afterPermissions.question && !afterPermissions.model && !afterPermissions.context &&
+            !appDocument.querySelector('[data-playback-mode="question"]').hidden
+          );
+
+          const authoredBuilderFailures = [];
+          const chooseBuilderValue = (selector, value, context) => {
+            const select = appDocument.querySelector(selector);
+            if (!select || ![...select.options].some((option) => option.value === value)) {
+              authoredBuilderFailures.push(`${context}: ${selector} cannot select ${value}`);
+              return false;
+            }
+            select.value = value;
+            select.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
+            return true;
+          };
+          authoredJazzQuestions.forEach((question) => {
+            appWindow.CadenceLab.showQuestion(question.id);
+            question.interaction.slots.forEach((slot) => {
+              slot.acceptedAnswers.forEach((answer) => {
+                const label = typeof answer === "string" ? answer : answer.label;
+                const chord = structured.parseJazzChordSymbol(label);
+                const context = `${question.id}/${slot.id}/${label}`;
+                const slotButton = appDocument.querySelector(`[data-slot-id="${slot.id}"]`);
+                if (!slotButton || !chord) {
+                  authoredBuilderFailures.push(`${context}: slot or semantic chord unavailable`);
+                  return;
+                }
+                slotButton.click();
+                const rootMatch = /^([A-G])([♯♭]?)$/.exec(chord.root);
+                if (!rootMatch ||
+                    !chooseBuilderValue("[data-chord-root]", rootMatch[1], context) ||
+                    !chooseBuilderValue("[data-chord-root-accidental]", rootMatch[2], context) ||
+                    !chooseBuilderValue("[data-chord-quality]", chord.quality, context) ||
+                    !chooseBuilderValue("[data-chord-extension]", chord.extension, context)) return;
+                if (chord.alteration && chord.quality === "dominant") {
+                  if (!chooseBuilderValue("[data-chord-alteration]", chord.alteration, context)) return;
+                }
+                if (chord.addition) {
+                  if (!chooseBuilderValue("[data-chord-addition]", chord.addition, context)) return;
+                }
+                if (chord.suspension) {
+                  if (!chooseBuilderValue("[data-chord-suspension]", chord.suspension, context)) return;
+                }
+                if (!chooseBuilderValue("[data-chord-bass]", chord.bass, context)) return;
+                const preview = appDocument.querySelector("[data-jazz-preview]").textContent;
+                if (preview !== label) {
+                  authoredBuilderFailures.push(`${context}: preview formatted ${preview}`);
+                  return;
+                }
+                appDocument.querySelector("[data-place-built]").click();
+                const state = appWindow.CadenceLab.getStructuredAnswer();
+                const placed = structured.formatValue(
+                  state.slots[slot.id], question.interaction.type
+                );
+                const status = structured.comparison(question, state).slots.find(
+                  (candidate) => candidate.id === slot.id
+                )?.status;
+                if (placed !== label || status !== "matches") {
+                  authoredBuilderFailures.push(`${context}: placed ${placed}, status ${status}`);
+                }
+              });
+            });
+          });
+          assert("standardBuilderProducesEveryAuthoredAcceptedJazzAnswer",
+            authoredBuilderFailures.length === 0,
+            authoredBuilderFailures
+          );
+          appWindow.CadenceLab.showQuestion("nzqa-2024-commercial-chromatic-bass");
+          chooseBuilderValue("[data-chord-root]", "C", "C♯m(add9)");
+          chooseBuilderValue("[data-chord-root-accidental]", "♯", "C♯m(add9)");
+          chooseBuilderValue("[data-chord-quality]", "minor", "C♯m(add9)");
+          chooseBuilderValue("[data-chord-extension]", "triad", "C♯m(add9)");
+          chooseBuilderValue("[data-chord-addition]", "add9", "C♯m(add9)");
+          assert("standardBuilderAlsoConstructsTheSupplied2024MinorAddNine",
+            appDocument.querySelector("[data-jazz-preview]").textContent === "C♯m(add9)"
+          );
+
+          appWindow.CadenceLab.showGeneratedQuestion("ui-generated-smoke");
+          const generatedQuestionAtLoad = appWindow.CadenceLab.getCurrentQuestion();
+          const renderedMeasureKeyLabels = [...appDocument.querySelectorAll(
+            "#score .measure-key-label"
+          )].map((label) => label.textContent);
+          assert("generatedPracticeHasFourIndependentChordBoxesAndVariantId",
+            appDocument.querySelector("#category").value === "chord-identification" &&
+            appDocument.querySelector("#source-type").value === "generated-practice" &&
+            appDocument.querySelector("#variant-chip").textContent.startsWith("CID-") &&
+            appDocument.querySelectorAll(".analysis-box-editable").length === 4
+          );
+          assert("everyGeneratedMeasureShowsItsOwnKeyContext",
+            JSON.stringify(renderedMeasureKeyLabels) === JSON.stringify(
+              generatedQuestionAtLoad.score.measures.map((measure) => measure.keyLabel)
+            ) &&
+            JSON.stringify(JSON.parse(appDocument.querySelector("#score").dataset.measureKeyLabels)) ===
+              JSON.stringify(renderedMeasureKeyLabels) &&
+            generatedQuestionAtLoad.score.measures.every((measure) =>
+              Boolean(measure.keySignature)
+            )
+          );
+          assert("semanticJazzBuilderIsPrimaryAndHintBankStartsClosed",
+            appDocument.querySelector("[data-chord-quality]") &&
+            appDocument.querySelector("[data-chord-extension]") &&
+            appDocument.querySelector("[data-chord-alteration]") &&
+            appDocument.querySelector("[data-chord-suspension]") &&
+            !appDocument.querySelector(".hint-bank").open &&
+            appDocument.querySelector(".hint-bank summary").textContent.includes("Need a hint")
+          );
+          const jazzRoot = appDocument.querySelector("[data-chord-root]");
+          const jazzQuality = appDocument.querySelector("[data-chord-quality]");
+          const jazzExtension = appDocument.querySelector("[data-chord-extension]");
+          const jazzAlteration = appDocument.querySelector("[data-chord-alteration]");
+          const jazzBass = appDocument.querySelector("[data-chord-bass]");
+          jazzRoot.value = "C";
+          jazzRoot.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
+          jazzQuality.value = "dominant";
+          jazzQuality.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
+          jazzExtension.value = "7";
+          jazzExtension.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
+          jazzAlteration.value = "b9";
+          jazzAlteration.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
+          jazzBass.value = "B♭";
+          jazzBass.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
+          assert("semanticJazzBuilderFormatsCompatibleChordParts",
+            appDocument.querySelector("[data-jazz-preview]").textContent === "C7♭9/B♭"
+          );
+          appDocument.querySelector("[data-place-built]").click();
+          const builtJazzAnswer = appWindow.CadenceLab.getStructuredAnswer().slots["generated-chord-1"];
+          assert("semanticJazzBuilderStoresStructuredChordAndAutoAdvances",
+            builtJazzAnswer.chord.formula === "dominant-flat-nine" &&
+            builtJazzAnswer.chord.root === "C" && builtJazzAnswer.chord.bass === "B♭" &&
+            appWindow.CadenceLab.getStructuredAnswer().activeSlotId === "generated-chord-2"
+          );
+          const generatedStateBeforeHint = JSON.stringify(appWindow.CadenceLab.getStructuredAnswer().slots);
+          appDocument.querySelector(".hint-bank summary").click();
+          assert("openingJazzHintBankDoesNotResetAnswers",
+            JSON.stringify(appWindow.CadenceLab.getStructuredAnswer().slots) === generatedStateBeforeHint
+          );
+          const generatedQuestionForComparison = appWindow.CadenceLab.getCurrentQuestion();
+          const acceptedFirstLabel = generatedQuestionForComparison.interaction.slots[0].acceptedAnswers[0].label;
+          appDocument.querySelector('[data-slot-id="generated-chord-1"]').click();
+          [...appDocument.querySelectorAll("[data-token-id]")].find(
+            (button) => button.textContent === acceptedFirstLabel && !button.disabled
+          )?.click();
+          appWindow.CadenceLab.submit({ skipConfirmation: true, noScroll: true });
+          assert("singleIdentityGeneratedComparisonUsesIntendedAnalysisLanguage",
+            appDocument.querySelector("#student-comparison").textContent.includes("matches intended analysis") &&
+            appDocument.querySelector("#student-comparison").textContent.includes("Intended analysis") &&
+            !appDocument.querySelector("#student-comparison").textContent.includes("Accepted analyses")
           );
 
           appWindow.CadenceLab.showQuestion("satb-f-c");
@@ -911,15 +1474,21 @@
           const questionModeButton = appDocument.querySelector('[data-playback-mode="question"]');
           assert("hearMyWorkIsAvailableButSilentTransportWaitsForAnEntry",
             !studentModeButton.disabled && questionModeButton.disabled &&
-            appDocument.querySelector("#play-start").disabled
+            appDocument.querySelector("#play-pause").disabled &&
+            !appDocument.querySelector("#play-selection") &&
+            !appDocument.querySelector("#start-bar")
           );
           appWindow.CadenceLab.submit({ skipConfirmation: true, noScroll: true });
           const interactivePostPermissions = appWindow.CadenceLab.getPlaybackPermissions();
           assert("interactiveSubmissionUnlocksAllComparisonModes",
-            ["student", "question", "context", "model"]
-              .every((mode) => interactivePostPermissions[mode]) &&
-            [...appDocument.querySelectorAll("[data-playback-mode]")]
-              .every((button) => !button.disabled)
+            interactivePostPermissions.student && !interactivePostPermissions.question &&
+            interactivePostPermissions.context && interactivePostPermissions.model &&
+            appDocument.querySelector('[data-playback-mode="question"]').hidden &&
+            !appDocument.querySelector('[data-playback-mode="student"]').hidden &&
+            !appDocument.querySelector('[data-playback-mode="context"]').hidden &&
+            !appDocument.querySelector('[data-playback-mode="model"]').hidden &&
+            appDocument.querySelector('[data-playback-mode="model"]').textContent.trim() === "Play model answer" &&
+            appDocument.querySelector("#model-playback-cursor")
           );
 
           finish();

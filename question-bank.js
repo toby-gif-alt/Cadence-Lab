@@ -158,10 +158,14 @@ const studentPresentationById = {
   },
   "analysis-a-c": {
     title: "Original: Roman numeral and modulation analysis",
+    context:
+      "The passage changes key. Analyse the consecutive harmonies, identify the shared chord, and label it in both local keys.",
     hiddenConceptTerms: ["pivot chord"],
   },
   "analysis-gminor-bflat": {
     title: "Original: Roman numeral and modulation analysis",
+    context:
+      "The passage moves from G minor to a related major key. Analyse the consecutive harmonies, include inversion figures, and label the shared chord in both keys.",
     hiddenConceptTerms: ["relative-major pivot", "pivot chord"],
   },
   "nzqa-2024-bach-analysis": {
@@ -210,14 +214,20 @@ const studentPresentationById = {
   },
   "satb-f-c": {
     title: "Original: complete the inner parts",
+    context:
+      "Complete alto and tenor beneath the supplied outer parts. Maintain smooth common-tone voice leading through the key change and resolve tendency notes correctly.",
     hiddenConceptTerms: [],
   },
   "satb-gminor": {
     title: "Original: complete the inner parts",
+    context:
+      "Fill the inner parts while keeping the supplied soprano and bass intact. Handle the raised leading note and resolve the dominant seventh by step.",
     hiddenConceptTerms: [],
   },
   "satb-c-aminor": {
     title: "Original: complete the inner parts",
+    context:
+      "Complete the alto and tenor lines through the move from C major to A minor. Keep each voice in range and resolve the closing minor-key tendency note correctly.",
     hiddenConceptTerms: [],
   },
   "piano-d-f": {
@@ -259,14 +269,14 @@ const studentPresentationById = {
   "jazz-c-turnaround": {
     title: "Original: analyse the chord sequence",
     context:
-      "Write a chord symbol in every box and explain how the altered dominant extends the turnaround. Include the final added sixth.",
-    hiddenConceptTerms: ["secondary dominant", "A7"],
+      "Write a complete chord symbol in every box and explain how the chromatic sonority extends the turnaround. Include every added tone shown in the final voicing.",
+    hiddenConceptTerms: ["secondary dominant", "A7", "added sixth"],
   },
   "jazz-e-turnaround": {
     title: "Original: analyse the chord sequence",
     context:
-      "Name the chords, including sevenths and the final added sixth. Explain the function of the altered dominant.",
-    hiddenConceptTerms: ["C-sharp 7", "C♯7", "secondary dominant"],
+      "Name every chord completely, including any sevenths or added tones. Explain how the chromatic sonority redirects the progression.",
+    hiddenConceptTerms: ["C-sharp 7", "C♯7", "secondary dominant", "added sixth"],
   },
   "jazz-blues-secondary": {
     title: "Original: analyse the chord sequence",
@@ -277,11 +287,13 @@ const studentPresentationById = {
   "jazz-sus-line": {
     title: "Original: analyse the extended chords",
     context:
-      "Name the extended chords, distinguish the altered dominant from its internal resolution, and explain the delayed dominant motion.",
+      "Name every extended chord, treat the internal note change within the held harmony accurately, and explain its effect on the approach to the cadence.",
     hiddenConceptTerms: ["suspended dominant", "G7sus4", "suspension"],
   },
   "nzqa-2023-poulenc-pedal": {
     title: "Reference: identify the bass device",
+    context:
+      "Identify the compositional device in the bass of this 3/8 opening and explain its tonal and expressive effect beneath the changing melody and inner parts.",
     hiddenConceptTerms: ["tonic pedal", "pedal point"],
   },
   "feature-diminished": {
@@ -298,11 +310,15 @@ const studentPresentationById = {
   },
   "feature-nonharmonic": {
     title: "Original: classify the marked note",
-    hiddenConceptTerms: ["passing note"],
+    context:
+      "The active harmony remains Gmaj7 for the whole bar. Classify F-sharp and the marked A at beat 2 in relation to that harmony, and justify each classification.",
+    hiddenConceptTerms: ["passing note", "chord tone", "chordal"],
   },
   "feature-harmonic-rhythm": {
     title: "Original: compare the rate of harmonic change",
-    hiddenConceptTerms: ["harmonic rhythm", "harmonic-rhythm acceleration"],
+    context:
+      "Compare the rate of harmonic change across all three measures and explain how the changing rate shapes the cadence. Cite the displayed beats and barlines.",
+    hiddenConceptTerms: ["harmonic-rhythm acceleration", "accelerating harmonic rhythm", "acceleration"],
   },
 };
 

@@ -164,6 +164,7 @@ select:focus-visible, button:focus-visible, input:focus-visible {
 .paper-meta span { border-radius: 999px; padding: 6px 10px; background: var(--blue-soft); color: var(--navy-2); font-size: .78rem; font-weight: 800; }
 .paper-meta .source-nzqa-reference { background: #fff3cd; color: #75510a; }
 .paper-meta .source-original-practice { background: #e7f6ef; color: #0b624e; }
+.paper-meta .source-generated-practice { background: #ede9fe; color: #5b21b6; }
 .instruction { margin-top: 24px; max-width: 880px; color: #2f3b4c; }
 .source-attribution {
   margin: 8px 0 0;
@@ -200,7 +201,7 @@ select:focus-visible, button:focus-visible, input:focus-visible {
   height: auto;
 }
 
-.is-editable-score .notation-canvas { cursor: crosshair; touch-action: manipulation; }
+.is-editable-score .notation-canvas { cursor: none; touch-action: none; }
 .student-note { color: #1d4ed8; }
 .student-note path:not(.editor-note-hit-target),
 .student-note rect:not(.editor-note-hit-target) {
@@ -348,6 +349,23 @@ select:focus-visible, button:focus-visible, input:focus-visible {
   stroke-width: 1;
   stroke-dasharray: 5 4;
 }
+.editor-hit-areas { pointer-events: none; }
+.editor-hit-target { pointer-events: all; }
+.editor-ghost-preview { color: #2563eb; opacity: .58; }
+.editor-ghost-notehead.is-filled,
+.editor-ghost-dot { fill: currentColor; stroke: currentColor; }
+.editor-ghost-notehead.is-open { fill: rgba(255,255,255,.9); stroke: currentColor; stroke-width: 2; }
+.editor-ghost-stem { stroke: currentColor; stroke-width: 1.8; }
+.editor-ghost-flag { fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.editor-ghost-accidental { fill: currentColor; font: 22px Georgia, serif; }
+.editor-ghost-rest { fill: currentColor; font-family: Bravura, serif; font-size: 34px; }
+.editor-ghost-chord-target { fill: rgba(124,58,237,.08); stroke: #7c3aed; stroke-width: 1.5; stroke-dasharray: 3 2; }
+.student-note.is-chord-target path:not(.editor-note-hit-target),
+.student-note.is-chord-target rect:not(.editor-note-hit-target) {
+  filter: drop-shadow(0 0 3px rgba(124,58,237,.75));
+}
+.hint-bank { margin-top: 12px; }
+.hint-bank summary { cursor: pointer; color: #1e3a8a; font-weight: 800; }
 
 .paper-option { max-width: 260px; margin: 0; color: var(--muted); font-size: .8rem; text-align: right; }
 .structured-slot-grid, .structured-field-grid, .comparison-grid { display: grid; gap: 9px; margin-top: 14px; }
@@ -425,7 +443,7 @@ button.structured-slot { color: #172033; text-align: left; cursor: pointer; }
   color: var(--navy);
   padding: 8px 12px;
 }
-.tempo-control, .bar-control {
+.tempo-control {
   display: grid;
   grid-template-columns: auto auto;
   align-items: center;
@@ -445,7 +463,6 @@ button.structured-slot { color: #172033; text-align: left; cursor: pointer; }
   background: white;
 }
 .tempo-control span { grid-row: 2; }
-.bar-control select { grid-column: 1 / -1; min-width: 104px; }
 
 .answer-panel { margin-top: 34px; padding-top: 28px; border-top: 2px solid var(--success); }
 .answer-banner { display: flex; align-items: center; gap: 14px; }

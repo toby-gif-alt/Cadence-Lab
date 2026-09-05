@@ -453,6 +453,7 @@
           questionVoiceStreams,
           staffVoiceStreams,
           expectedBeats: measure.expectedBeats || null,
+          keyLabel: measure.keyLabel || null,
           keySignature: measure.keySignature || null,
           effectiveKeySignature: currentKeySignature,
           cancelKeySignature: measure.cancelKeySignature || null,
@@ -833,6 +834,20 @@
     let intervals;
     if (/^(m|min)9(?:add6|6)/.test(lowerQuality)) {
       intervals = [0, 2, 3, 7, 9];
+    } else if (/^13b9/.test(lowerQuality)) {
+      intervals = [0, 1, 4, 7, 9, 10];
+    } else if (/^13/.test(lowerQuality)) {
+      intervals = [0, 2, 4, 7, 9, 10];
+    } else if (/^11/.test(lowerQuality)) {
+      intervals = [0, 2, 4, 5, 7, 10];
+    } else if (/^7b9/.test(lowerQuality)) {
+      intervals = [0, 1, 4, 7, 10];
+    } else if (/^7#9/.test(lowerQuality)) {
+      intervals = [0, 3, 4, 7, 10];
+    } else if (/^7#11/.test(lowerQuality)) {
+      intervals = [0, 4, 6, 7, 10];
+    } else if (/^6add9/.test(lowerQuality)) {
+      intervals = [0, 2, 4, 7, 9];
     } else if (/^(m|min)9maj7/.test(lowerQuality)) {
       intervals = [0, 2, 3, 7, 11];
     } else if (/^(m7b5|half-?dim)/.test(lowerQuality)) {
@@ -1352,6 +1367,8 @@
       noteId: noteId || null,
       staff,
       role: role || staff,
+      measure: Number(event._measureIndex) + 1,
+      beat: Number(event.beat ?? event._beat ?? 1),
     };
   }
 
@@ -1365,6 +1382,8 @@
       element.dataset.editorNoteId = metadata.noteId;
       element.dataset.editorStaff = metadata.staff;
       element.dataset.editorVoice = metadata.role;
+      element.dataset.editorMeasure = String(metadata.measure);
+      element.dataset.editorBeat = String(metadata.beat);
     }
     if (!metadata.locked && !metadata.noteId) return;
     const bounds = element.getBBox?.();
@@ -2344,6 +2363,9 @@
     target.dataset.systemMeasureCounts = JSON.stringify(
       systems.map((system) => system.measures.length)
     );
+    target.dataset.measureKeyLabels = JSON.stringify(
+      normalizedScore.measures.map((measure) => measure.keyLabel)
+    );
 
     const caption = document.createElement("div");
     caption.className = "score-caption";
@@ -2478,6 +2500,7 @@
           expectedBeats:
             measure.expectedBeats || measure.effectiveTimeSignature.numerator,
           timeSignature: measure.effectiveTimeSignature.text,
+          keyLabel: measure.keyLabel,
           keySignature: measure.effectiveKeySignature,
         });
 
@@ -2684,12 +2707,28 @@
             }));
           });
         });
-        svg.insertBefore(hitGroup, svg.firstChild);
+        // This transparent semantic layer deliberately sits above the notation.
+        // Pointer resolution therefore depends on the selected voice/staff and
+        // rhythmic geometry, not whichever overlapping SVG note was painted last.
+        svg.appendChild(hitGroup);
       }
 
       const decorationGroup = createSvgElement("g", {
         class: "score-decorations",
         "aria-hidden": "true",
+      });
+      hitMeasures.forEach((measure) => {
+        if (!measure.keyLabel) return;
+        decorationGroup.appendChild(createSvgElement("text", {
+          class: "measure-key-label",
+          x: (measure.x + measure.endX) / 2,
+          y: measure.topY - 14,
+          "text-anchor": "middle",
+          "font-size": 11,
+          "font-weight": 600,
+          fill: "#526176",
+          "data-measure": measure.measure,
+        }, measure.keyLabel));
       });
       brackets.forEach((bracket) =>
         drawBracket(
@@ -2768,6 +2807,82 @@
     };
   }
 
+  function clearEditorPreview(target) {
+    target?.querySelector?.(".editor-ghost-preview")?.remove();
+  }
+
+  function renderEditorPreview(target, preview) {
+    clearEditorPreview(target);
+    const svg = target?.querySelector?.("svg");
+    if (!svg || !preview) return null;
+    const group = createSvgElement("g", {
+      class: "editor-ghost-preview",
+      "aria-hidden": "true",
+      "pointer-events": "none",
+      "data-preview-pitch": preview.pitch || "rest",
+      "data-preview-duration": preview.duration,
+      "data-preview-measure": preview.measure,
+      "data-preview-beat": preview.beat,
+      "data-preview-voice": preview.voice,
+    });
+    const baseDuration = String(preview.duration || "q").replaceAll("d", "");
+    const dots = (String(preview.duration || "").match(/d/g) || []).length;
+    const x = Number(preview.x);
+    const y = Number(preview.y);
+    if (preview.receivingChord) {
+      group.appendChild(createSvgElement("rect", {
+        x: x - 15, y: y - 25, width: 30, height: 50, rx: 8,
+        class: "editor-ghost-chord-target",
+      }));
+    }
+    if (preview.rest) {
+      const glyph = { w: "\uE4E3", h: "\uE4E4", q: "\uE4E5", 8: "\uE4E6", 16: "\uE4E7" }[baseDuration] || "\uE4E5";
+      group.appendChild(createSvgElement("text", {
+        x, y: y + 7, class: "editor-ghost-rest", "text-anchor": "middle",
+      }, glyph));
+    } else {
+      if (preview.displayAccidental) {
+        group.appendChild(createSvgElement("text", {
+          x: x - 14, y: y + 6, class: "editor-ghost-accidental", "text-anchor": "middle",
+        }, preview.displayAccidental));
+      }
+      group.appendChild(createSvgElement("ellipse", {
+        cx: x, cy: y, rx: baseDuration === "w" ? 7 : 6.2, ry: 4.25,
+        transform: `rotate(-12 ${x} ${y})`,
+        class: `editor-ghost-notehead ${["w", "h"].includes(baseDuration) ? "is-open" : "is-filled"}`,
+      }));
+      const stemUp = preview.stemDirection !== "down";
+      if (baseDuration !== "w") {
+        const stemX = x + (stemUp ? 5.5 : -5.5);
+        const stemEndY = y + (stemUp ? -30 : 30);
+        group.appendChild(createSvgElement("line", {
+          x1: stemX, y1: y, x2: stemX, y2: stemEndY,
+          class: "editor-ghost-stem",
+        }));
+        if (["8", "16"].includes(baseDuration)) {
+          const flagCount = baseDuration === "16" ? 2 : 1;
+          for (let index = 0; index < flagCount; index += 1) {
+            const flagY = stemEndY + (stemUp ? index * 6 : -index * 6);
+            group.appendChild(createSvgElement("path", {
+              d: stemUp
+                ? `M ${stemX} ${flagY} C ${stemX + 12} ${flagY + 5}, ${stemX + 12} ${flagY + 14}, ${stemX + 3} ${flagY + 18}`
+                : `M ${stemX} ${flagY} C ${stemX - 12} ${flagY - 5}, ${stemX - 12} ${flagY - 14}, ${stemX - 3} ${flagY - 18}`,
+              class: "editor-ghost-flag",
+            }));
+          }
+        }
+      }
+      for (let index = 0; index < dots; index += 1) {
+        group.appendChild(createSvgElement("circle", {
+          cx: x + 11 + index * 5, cy: y - 1, r: 1.8,
+          class: "editor-ghost-dot",
+        }));
+      }
+    }
+    svg.appendChild(group);
+    return group;
+  }
+
   window.CadenceScoreRenderer = Object.freeze({
     render,
     version: VEXFLOW_VERSION,
@@ -2782,5 +2897,7 @@
     normalizeNoteAnnotations,
     estimateMeasureWidth,
     validateChordIdentification,
+    renderEditorPreview,
+    clearEditorPreview,
   });
 })();
