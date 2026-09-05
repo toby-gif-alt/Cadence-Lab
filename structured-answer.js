@@ -60,6 +60,7 @@
       fields,
       evidence: "",
       bank,
+      hintBankVisible: false,
       activeSlotId: interaction.slots?.[0]?.id || null,
       submitted: false,
       revision: 0,
@@ -117,6 +118,20 @@
     const next = copy(state);
     next.activeSlotId = slotId;
     return next;
+  }
+
+  function advanceToNextUnanswered(state, orderedSlotIds) {
+    const ids = (orderedSlotIds || Object.keys(state?.slots || {})).filter(
+      (slotId) => Object.hasOwn(state.slots, slotId)
+    );
+    if (!ids.length) return state;
+    const activeIndex = Math.max(0, ids.indexOf(state.activeSlotId));
+    const nextId = [
+      ...ids.slice(activeIndex + 1),
+      ...ids.slice(0, activeIndex),
+    ].find((slotId) => !state.slots[slotId]);
+    if (!nextId) return state;
+    return setActiveSlot(state, nextId);
   }
 
   function setField(state, fieldId, value) {
@@ -178,6 +193,13 @@
     return next;
   }
 
+  function setHintBankVisible(state, visible) {
+    assertEditable(state);
+    const next = copy(state);
+    next.hintBankVisible = Boolean(visible);
+    return next;
+  }
+
   function formatKey(value) {
     if (!value) return "";
     const root = String(value.root || "").replaceAll("#", "♯").replaceAll("b", "♭");
@@ -222,6 +244,110 @@
     return `${prefix}${accidental}${degree}${qualityMark}${superscriptSeventh(analysis.extent)}${inversion}${secondary}${suspension}`;
   }
 
+  const JAZZ_FORMULAS = Object.freeze([
+    "major", "minor", "sixth", "minor-sixth", "dominant-seventh",
+    "major-seventh", "minor-seventh", "dominant-ninth", "major-ninth",
+    "minor-ninth", "dominant-eleventh", "dominant-thirteenth",
+    "dominant-flat-nine", "dominant-sharp-nine", "dominant-sharp-eleven",
+    "thirteenth-flat-nine", "add-nine", "six-add-nine", "suspended-two",
+    "suspended-four", "diminished", "diminished-seventh", "half-diminished",
+  ]);
+
+  const JAZZ_FORMULA_PARTS = Object.freeze({
+    major: { quality: "major", extension: "triad", alteration: "", addition: "" },
+    minor: { quality: "minor", extension: "triad", alteration: "", addition: "" },
+    sixth: { quality: "major", extension: "6", alteration: "", addition: "" },
+    "minor-sixth": { quality: "minor", extension: "6", alteration: "", addition: "" },
+    "dominant-seventh": { quality: "dominant", extension: "7", alteration: "", addition: "" },
+    "major-seventh": { quality: "major", extension: "maj7", alteration: "", addition: "" },
+    "minor-seventh": { quality: "minor", extension: "7", alteration: "", addition: "" },
+    "dominant-ninth": { quality: "dominant", extension: "9", alteration: "", addition: "" },
+    "major-ninth": { quality: "major", extension: "maj9", alteration: "", addition: "" },
+    "minor-ninth": { quality: "minor", extension: "9", alteration: "", addition: "" },
+    "dominant-eleventh": { quality: "dominant", extension: "11", alteration: "", addition: "" },
+    "dominant-thirteenth": { quality: "dominant", extension: "13", alteration: "", addition: "" },
+    "dominant-flat-nine": { quality: "dominant", extension: "7", alteration: "b9", addition: "" },
+    "dominant-sharp-nine": { quality: "dominant", extension: "7", alteration: "#9", addition: "" },
+    "dominant-sharp-eleven": { quality: "dominant", extension: "7", alteration: "#11", addition: "" },
+    "thirteenth-flat-nine": { quality: "dominant", extension: "13", alteration: "b9", addition: "" },
+    "add-nine": { quality: "major", extension: "triad", alteration: "", addition: "add9" },
+    "six-add-nine": { quality: "major", extension: "6", alteration: "", addition: "6(add9)" },
+    "suspended-two": { quality: "suspended", extension: "sus2", alteration: "", addition: "" },
+    "suspended-four": { quality: "suspended", extension: "sus4", alteration: "", addition: "" },
+    diminished: { quality: "diminished", extension: "triad", alteration: "", addition: "" },
+    "diminished-seventh": { quality: "diminished", extension: "7", alteration: "", addition: "" },
+    "half-diminished": { quality: "half-diminished", extension: "7", alteration: "b5", addition: "" },
+  });
+
+  function jazzFormulaFromParts(value) {
+    const quality = value.quality || "major";
+    const extension = String(value.extension || "triad");
+    const alteration = String(value.alteration || "");
+    const addition = String(value.addition || "");
+    if (quality === "half-diminished") return "half-diminished";
+    if (quality === "diminished") return extension === "7" ? "diminished-seventh" : "diminished";
+    if (quality === "suspended") return extension === "sus2" ? "suspended-two" : "suspended-four";
+    if (quality === "minor") {
+      return { "6": "minor-sixth", "7": "minor-seventh", "9": "minor-ninth" }[extension] || "minor";
+    }
+    if (quality === "dominant") {
+      if (extension === "13" && alteration === "b9") return "thirteenth-flat-nine";
+      if (alteration === "b9") return "dominant-flat-nine";
+      if (alteration === "#9") return "dominant-sharp-nine";
+      if (alteration === "#11") return "dominant-sharp-eleven";
+      return { 9: "dominant-ninth", 11: "dominant-eleventh", 13: "dominant-thirteenth" }[extension] || "dominant-seventh";
+    }
+    if (addition === "6(add9)") return "six-add-nine";
+    if (addition === "add9") return "add-nine";
+    return { 6: "sixth", maj7: "major-seventh", maj9: "major-ninth" }[extension] || "major";
+  }
+
+  function semanticJazzChord(root, formula, bass = "") {
+    const safeFormula = JAZZ_FORMULAS.includes(formula) ? formula : "major";
+    return { root, ...copy(JAZZ_FORMULA_PARTS[safeFormula]), bass, formula: safeFormula };
+  }
+
+  function sanitizeJazzChord(value) {
+    const next = copy(value || {});
+    next.root = String(next.root || "");
+    next.bass = String(next.bass || "");
+    const formula = JAZZ_FORMULAS.includes(next.formula)
+      ? next.formula
+      : jazzFormulaFromParts(next);
+    return semanticJazzChord(next.root, formula, next.bass);
+  }
+
+  function formatJazzChord(value) {
+    const chord = sanitizeJazzChord(value);
+    if (!chord.root) return "";
+    const suffix = {
+      major: "",
+      minor: "m",
+      sixth: "6",
+      "minor-sixth": "m6",
+      "dominant-seventh": "7",
+      "major-seventh": "maj7",
+      "minor-seventh": "m7",
+      "dominant-ninth": "9",
+      "major-ninth": "maj9",
+      "minor-ninth": "m9",
+      "dominant-eleventh": "11",
+      "dominant-thirteenth": "13",
+      "dominant-flat-nine": "7♭9",
+      "dominant-sharp-nine": "7♯9",
+      "dominant-sharp-eleven": "7♯11",
+      "thirteenth-flat-nine": "13♭9",
+      "add-nine": "add9",
+      "six-add-nine": "6(add9)",
+      "suspended-two": "sus2",
+      "suspended-four": "sus4",
+      diminished: "dim",
+      "diminished-seventh": "dim7",
+      "half-diminished": "m7♭5",
+    }[chord.formula];
+    return `${chord.root}${suffix}${chord.bass ? `/${chord.bass}` : ""}`;
+  }
+
   function formatValue(value, type) {
     if (!value) return "";
     if (typeof value === "string") return value;
@@ -229,6 +355,9 @@
     if (type === "roman-analysis") {
       const analyses = value.analyses || [value];
       return analyses.map(formatRomanAnalysis).filter(Boolean).join(" / ");
+    }
+    if (type === "jazz-chord-placement" && value.chord) {
+      return formatJazzChord(value.chord);
     }
     if (value.key) return formatKey(value.key);
     return String(value.value || "");
@@ -239,6 +368,8 @@
       .trim()
       .replaceAll("#", "♯")
       .replaceAll("b", "♭")
+      .replaceAll("(", "")
+      .replaceAll(")", "")
       .replaceAll(/\s+/g, " ")
       .toLocaleLowerCase("en-NZ");
   }
@@ -330,14 +461,20 @@
     create,
     setSlot,
     setActiveSlot,
+    advanceToNextUnanswered,
     setField,
     setEvidence,
     placeToken,
     returnToken,
     tokenInSlot,
     reset,
+    setHintBankVisible,
     formatKey,
     formatRomanAnalysis,
+    sanitizeJazzChord,
+    semanticJazzChord,
+    formatJazzChord,
+    JAZZ_FORMULAS,
     sanitizeRomanValue,
     formatValue,
     comparison,

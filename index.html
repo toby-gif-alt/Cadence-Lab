@@ -10,7 +10,7 @@
     />
     <title>Cadence Lab | AS 91421 Practice</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=2026-09-structured-1" />
+    <link rel="stylesheet" href="./styles.css?v=2026-09-interaction-11" />
   </head>
   <body>
     <header class="topbar">
@@ -40,6 +40,7 @@
           <option value="satb">SATB / vocal completion</option>
           <option value="piano">Complete the piano part</option>
           <option value="jazz">Jazz / rock chords</option>
+          <option value="chord-identification">Chord identification</option>
           <option value="features">Harmonic or tonal feature</option>
         </select>
 
@@ -48,13 +49,7 @@
           <option value="mixed">Mixed sources</option>
           <option value="nzqa-reference">NZQA reference</option>
           <option value="original-practice">Original practice</option>
-        </select>
-
-        <label class="field-label" for="difficulty">Target level</label>
-        <select id="difficulty">
-          <option value="achievement">Achievement</option>
-          <option value="merit" selected>Merit</option>
-          <option value="excellence">Excellence</option>
+          <option value="generated-practice">Generated practice</option>
         </select>
 
         <button class="button button-primary" id="new-question" type="button">
@@ -77,7 +72,6 @@
             </div>
             <div class="paper-meta">
               <span id="source-chip">Original practice</span>
-              <span id="difficulty-chip">Merit</span>
               <span id="variant-chip">Variant 01</span>
             </div>
           </div>
@@ -167,22 +161,17 @@
               <p id="playback-lock-message" class="playback-lock-message">Available after you submit your answer.</p>
             </div>
             <div class="playback-modes" id="playback-modes" role="group" aria-label="Playback source">
-              <button type="button" data-playback-mode="student">Hear my work</button>
-              <button type="button" data-playback-mode="question" disabled>Question / source</button>
-              <button type="button" data-playback-mode="context" disabled>My answer in context</button>
-              <button type="button" data-playback-mode="model" disabled>Model answer</button>
+              <button type="button" data-playback-mode="student">Play just my notes</button>
+              <button type="button" data-playback-mode="question" disabled>Play the score</button>
+              <button type="button" data-playback-mode="context" disabled>Play my answer with supplied parts</button>
+              <button type="button" data-playback-mode="model" disabled>Play source with model answer</button>
             </div>
             <div class="transport-row">
               <button type="button" class="button button-transport" id="play-pause" disabled>▶ Play / Pause</button>
               <button type="button" class="button button-transport" id="stop-playback" disabled>■ Stop</button>
-              <button type="button" class="button button-transport" id="play-start" disabled>Play from start</button>
-              <button type="button" class="button button-transport" id="play-selection" disabled>Play from selected bar</button>
               <label class="tempo-control" for="tempo">Tempo
                 <input id="tempo" type="number" min="40" max="160" value="88" inputmode="numeric" />
                 <span>BPM</span>
-              </label>
-              <label class="bar-control" for="start-bar">Start bar
-                <select id="start-bar"></select>
               </label>
             </div>
             <p id="playback-status" class="playback-status" role="status" aria-live="polite">Playback stopped.</p>
@@ -199,6 +188,7 @@
             <div id="student-comparison" class="student-comparison" hidden></div>
             <div id="model-score-wrap" class="model-score-wrap" hidden>
               <div id="model-score" role="img"></div>
+              <div id="model-playback-cursor" class="playback-cursor" hidden aria-hidden="true"></div>
             </div>
             <div class="answer-copy" id="answer-copy"></div>
 
@@ -232,12 +222,13 @@
     </main>
 
     <script src="./vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="./question-bank.js?v=2026-09-structured-1"></script>
-    <script src="./score-renderer.js?v=2026-09-structured-1"></script>
-    <script src="./question-validator.js?v=2026-09-structured-1"></script>
-    <script src="./student-answer.js?v=2026-09-interaction-5"></script>
-    <script src="./structured-answer.js?v=2026-09-structured-1"></script>
-    <script src="./playback-engine.js?v=2026-09-interaction-5"></script>
-    <script src="./app.js?v=2026-09-structured-1"></script>
+    <script src="./question-bank.js?v=2026-09-interaction-11"></script>
+    <script src="./score-renderer.js?v=2026-09-interaction-11"></script>
+    <script src="./question-validator.js?v=2026-09-interaction-11"></script>
+    <script src="./student-answer.js?v=2026-09-interaction-11"></script>
+    <script src="./structured-answer.js?v=2026-09-interaction-11"></script>
+    <script src="./chord-generator.js?v=2026-09-interaction-11"></script>
+    <script src="./playback-engine.js?v=2026-09-interaction-11"></script>
+    <script src="./app.js?v=2026-09-interaction-11"></script>
   </body>
 </html>

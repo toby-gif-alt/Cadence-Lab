@@ -424,6 +424,49 @@
     return withRevision(next);
   }
 
+  function moveSelected(state, question, details) {
+    if (!state?.selectedId) {
+      throw new AnswerError("nothing-selected", "Select one of your notes first.");
+    }
+    if (state.submitted) {
+      throw new AnswerError("answer-locked", "This answer is locked after submission.");
+    }
+    const next = copy(state);
+    const located = locate(next, next.selectedId);
+    const measure = Number(details.measure || located?.measure);
+    const voice = details.voice || located?.voice;
+    const beat = Number(details.beat);
+    if (!located || !isEditable(question, measure, voice)) {
+      throw new AnswerError("locked-region", "The supplied notation is locked.");
+    }
+    const denominator = timeSignatureAt(question, measure).denominator;
+    const beats = durationBeats(located.event.duration, denominator);
+    const capacity = measureCapacity(question, measure);
+    if (beat < 1 || beat + beats > capacity + 1 + 0.001) {
+      throw new AnswerError("measure-overfill", "That position does not leave enough room for the selected duration.");
+    }
+    const targetStream = streamFor(next, measure, voice, true);
+    const overlap = eventStarts(targetStream, denominator).find((item) =>
+      item.event.id !== located.event.id && rangesOverlap(beat, beats, item.beat, item.beats)
+    );
+    if (overlap) {
+      throw new AnswerError(
+        "event-overlap",
+        `That position overlaps an existing event at beat ${beatLabel(overlap.beat)}.`
+      );
+    }
+    located.stream.splice(located.eventIndex, 1);
+    located.event.beat = beat;
+    if (details.pitches) {
+      located.event.pitches = [...new Set(details.pitches)];
+      located.event.rest = false;
+    }
+    targetStream.push(located.event);
+    targetStream.sort((first, second) => Number(first.beat || 1) - Number(second.beat || 1));
+    next.cursors[voice] = { measure, beat };
+    return withRevision(next);
+  }
+
   function deleteSelected(state, question) {
     if (!state?.selectedId) {
       throw new AnswerError("nothing-selected", "Select one of your notes first.");
@@ -917,6 +960,7 @@
     insert,
     select,
     updateSelected,
+    moveSelected,
     deleteSelected,
     removePitchFromSelected,
     toggleTie,
