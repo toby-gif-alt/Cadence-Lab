@@ -13,17 +13,17 @@
   <body data-status="running">
     <h1>Cadence Lab interaction smoke test</h1>
     <div id="render-fixture" aria-hidden="true"></div>
-    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-interaction-12"></iframe>
+    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-interaction-13"></iframe>
     <pre id="results">Running…</pre>
 
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../question-bank.js?v=2026-09-interaction-12"></script>
-    <script src="../score-renderer.js?v=2026-09-interaction-12"></script>
-    <script src="../question-validator.js?v=2026-09-interaction-12"></script>
-    <script src="../student-answer.js?v=2026-09-interaction-12"></script>
-    <script src="../structured-answer.js?v=2026-09-interaction-12"></script>
-    <script src="../chord-generator.js?v=2026-09-interaction-12"></script>
-    <script src="../playback-engine.js?v=2026-09-interaction-12"></script>
+    <script src="../question-bank.js?v=2026-09-interaction-13"></script>
+    <script src="../score-renderer.js?v=2026-09-interaction-13"></script>
+    <script src="../question-validator.js?v=2026-09-interaction-13"></script>
+    <script src="../student-answer.js?v=2026-09-interaction-13"></script>
+    <script src="../structured-answer.js?v=2026-09-interaction-13"></script>
+    <script src="../chord-generator.js?v=2026-09-interaction-13"></script>
+    <script src="../playback-engine.js?v=2026-09-interaction-13"></script>
     <script>
       const results = document.querySelector("#results");
       const assertions = {};
@@ -716,29 +716,79 @@
                 .includes(label))
           );
 
-          const minorSixthEquivalents = chordGenerator.acceptedAnalysesForChord(
-            { root: "D", formula: "minor-sixth", tones: ["D", "F", "A", "B"] },
-            { ...structured.semanticJazzChord("D", "minor-sixth"), bassPitch: "D" }
+          const generatedEntry = (key, root, formula) => chordGenerator.catalog.find(
+            (entry) => entry.key === key && entry.root === root && entry.formula === formula
           );
-          const minorSeventhEquivalents = chordGenerator.acceptedAnalysesForChord(
-            { root: "D", formula: "minor-seventh", tones: ["D", "F", "A", "C"] },
-            { ...structured.semanticJazzChord("D", "minor-seventh", "F"), bassPitch: "F" }
+          const identityFixture = (key, root, formula, bass) => {
+            const entry = generatedEntry(key, root, formula);
+            return chordGenerator.createIdentityFixture(entry, {
+              bass,
+              seed: `${key}-${root}-${formula}-${bass}`,
+            });
+          };
+          const pitchSpellings = (event) => [...event.treble, ...event.bass].map(
+            (pitch) => pitch.replace(/-?\d+$/, "")
           );
-          const sixthEquivalents = chordGenerator.acceptedAnalysesForChord(
-            { root: "F", formula: "sixth", tones: ["F", "A", "C", "D"] },
-            { ...structured.semanticJazzChord("F", "sixth"), bassPitch: "F" }
+          const identityIsValid = (fixture) => chordGenerator.validateHarmonicIdentity(
+            fixture.event,
+            { key: fixture.key, keySignature: fixture.keySignature }
+          ).valid;
+          const cSixth = identityFixture("C major", "C", "sixth", "C");
+          const dMinorSixth = identityFixture("D minor", "D", "minor-sixth", "D");
+          const bHalfDiminished = identityFixture("A minor", "B", "half-diminished", "D");
+          const eSuspended = identityFixture("G major", "E", "suspended-four", "E");
+          const gSuspended = identityFixture("C major", "G", "suspended-four", "D");
+          assert("generatedSixthAndMinorSeventhIdentitiesAreNotAutomaticallyInterchangeable",
+            JSON.stringify(cSixth.acceptedAnswers) === JSON.stringify(["C6"]) &&
+            !cSixth.acceptedAnswers.includes("Am7/C") &&
+            JSON.stringify(dMinorSixth.acceptedAnswers) === JSON.stringify(["Dm6"]) &&
+            !dMinorSixth.acceptedAnswers.includes("Bm7♭5/D") &&
+            [cSixth, dMinorSixth].every(identityIsValid)
           );
-          const halfDiminishedEquivalents = chordGenerator.acceptedAnalysesForChord(
-            { root: "B", formula: "half-diminished", tones: ["B", "D", "F", "A"] },
-            { ...structured.semanticJazzChord("B", "half-diminished", "D"), bassPitch: "D" }
+          assert("generatedHalfDiminishedIdentityDoesNotAutomaticallyAcceptMinorSixth",
+            JSON.stringify(bHalfDiminished.acceptedAnswers) === JSON.stringify(["Bm7♭5/D"]) &&
+            !bHalfDiminished.acceptedAnswers.includes("Dm6") &&
+            identityIsValid(bHalfDiminished)
           );
-          assert("generatedSixthAndMinorSeventhEquivalencesAreDeclared",
-            JSON.stringify(minorSeventhEquivalents) === JSON.stringify(["Dm7/F", "F6"]) &&
-            JSON.stringify(sixthEquivalents) === JSON.stringify(["F6", "Dm7/F"])
+          assert("generatedSuspensionsDoNotAcceptAutomaticAlternateRoots",
+            JSON.stringify(eSuspended.acceptedAnswers) === JSON.stringify(["Esus4"]) &&
+            !eSuspended.acceptedAnswers.includes("Asus2/E") &&
+            JSON.stringify(gSuspended.acceptedAnswers) === JSON.stringify(["Gsus4/D"]) &&
+            !gSuspended.acceptedAnswers.includes("Csus2/D") &&
+            [eSuspended, gSuspended].every(identityIsValid)
           );
-          assert("generatedMinorSixthAndHalfDiminishedEquivalencesAreDeclared",
-            JSON.stringify(minorSixthEquivalents) === JSON.stringify(["Dm6", "Bm7♭5/D"]) &&
-            JSON.stringify(halfDiminishedEquivalents) === JSON.stringify(["Bm7♭5/D", "Dm6"])
+          assert("constrainedGeneratedVoicingsEmphasiseTheIntendedRoot",
+            [cSixth, dMinorSixth, bHalfDiminished, eSuspended, gSuspended].every((fixture) => {
+              const spellings = pitchSpellings(fixture.event);
+              const identity = fixture.entry.harmonicIdentity;
+              const rootCount = spellings.filter((pitch) => pitch === fixture.entry.root).length;
+              return rootCount >= identity.minRootOccurrences &&
+                identity.competingRoots.every((root) =>
+                  rootCount > spellings.filter((pitch) => pitch === root).length
+                );
+            })
+          );
+          const competitorHeavyIdentity = structuredClone(cSixth.event);
+          competitorHeavyIdentity.treble.push("A5");
+          competitorHeavyIdentity.generatedSourceSpec.voicing.treble.push("A5");
+          competitorHeavyIdentity.generatedSourceSpec.voicing.competingRootOccurrences.A = 2;
+          const competitorHeavyValidation = chordGenerator.validateHarmonicIdentity(
+            competitorHeavyIdentity,
+            { key: cSixth.key, keySignature: cSixth.keySignature }
+          );
+          assert("harmonicIdentityRejectsAnEquallyEmphasisedCompetingRoot",
+            !competitorHeavyValidation.valid &&
+            competitorHeavyValidation.errors.some((error) =>
+              error.includes("not stronger than competing root A")
+            )
+          );
+          const misspelledIdentity = structuredClone(cSixth.event);
+          misspelledIdentity.treble[0] = "B#4";
+          assert("harmonicIdentityValidationPreservesExactSpelling",
+            !chordGenerator.validateHarmonicIdentity(misspelledIdentity, {
+              key: cSixth.key,
+              keySignature: cSixth.keySignature,
+            }).valid
           );
 
           const generatedVariants = Array.from({ length: 500 }, (_, index) =>
@@ -758,6 +808,10 @@
               question.sourceType === "generated-practice" &&
               question.category === "chord-identification" &&
               question.interaction.slots.length === 4 &&
+              question.interaction.slots.every((slot) => slot.acceptedAnswers.length === 1) &&
+              question.score.measures.every((measure) =>
+                Boolean(measure.keySignature) && Boolean(measure.keyLabel)
+              ) &&
               question.variantId.startsWith("CID-") &&
               !/NZQA reference/i.test(question.source.acknowledgement)
             )
@@ -765,37 +819,53 @@
           const roundTripOriginal = chordGenerator.create("visible-variant-round-trip");
           const roundTripRestored = chordGenerator.createFromVariantId(roundTripOriginal.variantId);
           assert("visibleVariantIdRecreatesIdenticalQuestionData",
-            JSON.stringify(roundTripOriginal) === JSON.stringify(roundTripRestored)
+            JSON.stringify(roundTripOriginal) === JSON.stringify(roundTripRestored) &&
+            JSON.stringify(roundTripOriginal.score.measures.map((measure) => ({
+              keySignature: measure.keySignature,
+              keyLabel: measure.keyLabel,
+              treble: measure.events[0].treble,
+              bass: measure.events[0].bass,
+              voicing: measure.events[0].generatedSourceSpec.voicing,
+              accepted: measure.events[0].acceptableChordSymbols,
+            }))) === JSON.stringify(roundTripRestored.score.measures.map((measure) => ({
+              keySignature: measure.keySignature,
+              keyLabel: measure.keyLabel,
+              treble: measure.events[0].treble,
+              bass: measure.events[0].bass,
+              voicing: measure.events[0].generatedSourceSpec.voicing,
+              accepted: measure.events[0].acceptableChordSymbols,
+            })))
           );
-          const ambiguousVariant = generatedVariants.find((question) =>
-            question.interaction.slots.some((slot) => slot.acceptedAnswers.length > 1)
+          const deliberateAmbiguity = chordGenerator.createIdentityFixture(
+            chordGenerator.intentionalAmbiguityFixture,
+            { bass: "A", seed: "intentional-ambiguity" }
           );
-          const incompleteAmbiguityVariant = structuredClone(ambiguousVariant);
-          const ambiguousIndex = incompleteAmbiguityVariant.interaction.slots.findIndex(
-            (slot) => slot.acceptedAnswers.length > 1
-          );
-          incompleteAmbiguityVariant.interaction.slots[ambiguousIndex].acceptedAnswers =
-            incompleteAmbiguityVariant.interaction.slots[ambiguousIndex].acceptedAnswers.slice(0, 1);
-          incompleteAmbiguityVariant.score.measures[ambiguousIndex].events[0].acceptableChordSymbols =
-            incompleteAmbiguityVariant.score.measures[ambiguousIndex].events[0].acceptableChordSymbols.slice(0, 1);
-          assert("generatorRejectsUndeclaredStraightforwardAmbiguity",
-            Boolean(ambiguousVariant) && !chordGenerator.validateVariant(incompleteAmbiguityVariant)
-          );
-          const ambiguousSlot = ambiguousVariant.interaction.slots.find(
-            (slot) => slot.acceptedAnswers.length > 1
-          );
-          let alternativeState = structured.create(ambiguousVariant);
-          alternativeState = structured.setSlot(alternativeState, ambiguousSlot.id, {
-            label: ambiguousSlot.acceptedAnswers[1].label,
+          const deliberateAmbiguityQuestion = {
+            id: "intentional-ambiguity-fixture",
+            interaction: {
+              type: "jazz-chord-placement",
+              slots: [{
+                id: "ambiguous-chord",
+                label: "Ambiguous chord",
+                acceptedAnswers: deliberateAmbiguity.acceptedAnswers.map((label) => ({ label })),
+              }],
+              bank: [],
+            },
+          };
+          let alternativeState = structured.create(deliberateAmbiguityQuestion);
+          alternativeState = structured.setSlot(alternativeState, "ambiguous-chord", {
+            label: deliberateAmbiguity.acceptedAnswers[1],
             source: "builder",
           });
-          assert("generatedComparisonAcceptsEveryDeclaredAnalysis",
-            structured.comparison(ambiguousVariant, alternativeState).slots.find(
-              (slot) => slot.id === ambiguousSlot.id
-            ).status === "matches"
+          assert("intentionalAmbiguityFixtureSupportsEveryExplicitlyDeclaredAnalysis",
+            deliberateAmbiguity.acceptedAnswers.length === 2 &&
+            deliberateAmbiguity.acceptedAnswers.includes("Dm6/A") &&
+            deliberateAmbiguity.acceptedAnswers.includes("Bm7♭5/A") &&
+            identityIsValid(deliberateAmbiguity) &&
+            structured.comparison(deliberateAmbiguityQuestion, alternativeState).slots[0].status === "matches"
           );
           assert("generatedVocabularyIncludesAdvancedRequiredChords",
-            ["D13", "G7♭9", "C6", "C6(add9)", "Fmaj9", "Bm7♭5", "E7♯9"]
+            ["D13", "G7♭9", "C6", "C6(add9)", "Fmaj9", "Bm7♭5", "E7♯9", "Esus4", "Gsus4"]
               .every((symbol) => generatedSymbols.includes(symbol))
           );
           const requiredSlashExamples = [
@@ -808,7 +878,7 @@
           assert("generatedVocabularyIncludesRequestedHighComplexitySlashChords",
             requiredSlashExamples.every(([root, formula, bass, symbol]) => {
               const entry = chordGenerator.catalog.find((candidate) =>
-                candidate.root === root && candidate.formula === formula && candidate.fixedBass === bass
+                candidate.root === root && candidate.formula === formula && candidate.allowedBasses.includes(bass)
               );
               return entry && structured.formatJazzChord({
                 root: root.replaceAll("#", "♯").replaceAll("b", "♭"),
@@ -1328,11 +1398,25 @@
           );
 
           appWindow.CadenceLab.showGeneratedQuestion("ui-generated-smoke");
+          const generatedQuestionAtLoad = appWindow.CadenceLab.getCurrentQuestion();
+          const renderedMeasureKeyLabels = [...appDocument.querySelectorAll(
+            "#score .measure-key-label"
+          )].map((label) => label.textContent);
           assert("generatedPracticeHasFourIndependentChordBoxesAndVariantId",
             appDocument.querySelector("#category").value === "chord-identification" &&
             appDocument.querySelector("#source-type").value === "generated-practice" &&
             appDocument.querySelector("#variant-chip").textContent.startsWith("CID-") &&
             appDocument.querySelectorAll(".analysis-box-editable").length === 4
+          );
+          assert("everyGeneratedMeasureShowsItsOwnKeyContext",
+            JSON.stringify(renderedMeasureKeyLabels) === JSON.stringify(
+              generatedQuestionAtLoad.score.measures.map((measure) => measure.keyLabel)
+            ) &&
+            JSON.stringify(JSON.parse(appDocument.querySelector("#score").dataset.measureKeyLabels)) ===
+              JSON.stringify(renderedMeasureKeyLabels) &&
+            generatedQuestionAtLoad.score.measures.every((measure) =>
+              Boolean(measure.keySignature)
+            )
           );
           assert("semanticJazzBuilderIsPrimaryAndHintBankStartsClosed",
             appDocument.querySelector("[data-chord-quality]") &&
@@ -1379,9 +1463,10 @@
             (button) => button.textContent === acceptedFirstLabel && !button.disabled
           )?.click();
           appWindow.CadenceLab.submit({ skipConfirmation: true, noScroll: true });
-          assert("generatedComparisonUsesAcceptedAnalysisLanguage",
-            appDocument.querySelector("#student-comparison").textContent.includes("matches accepted analysis") &&
-            appDocument.querySelector("#student-comparison").textContent.includes("Accepted analyses")
+          assert("singleIdentityGeneratedComparisonUsesIntendedAnalysisLanguage",
+            appDocument.querySelector("#student-comparison").textContent.includes("matches intended analysis") &&
+            appDocument.querySelector("#student-comparison").textContent.includes("Intended analysis") &&
+            !appDocument.querySelector("#student-comparison").textContent.includes("Accepted analyses")
           );
 
           appWindow.CadenceLab.showQuestion("satb-f-c");

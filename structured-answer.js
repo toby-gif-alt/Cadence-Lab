@@ -468,6 +468,7 @@
         label: field.label,
         response: formatValue(state?.fields?.[field.id], interaction.type),
         model: acceptedLabels(field).join(" or "),
+        acceptedCount: acceptedLabels(field).length,
         status: compareItem(field, state?.fields?.[field.id], interaction.type),
       }));
     const groupedFields = (interaction.unorderedFieldGroups || []).map((group) => {
@@ -483,6 +484,7 @@
         label: group.label,
         response: responses.filter(Boolean).join(" + "),
         model: (group.acceptedSets?.[0] || []).join(" + "),
+        acceptedCount: (group.acceptedSets || []).length,
         status: responses.some((response) => !response)
           ? "unanswered"
           : acceptedSet
@@ -496,6 +498,7 @@
         label: slot.label,
         response: formatValue(state?.slots?.[slot.id], interaction.type),
         model: acceptedLabels(slot).join(" or "),
+        acceptedCount: acceptedLabels(slot).length,
         status: compareItem(slot, state?.slots?.[slot.id], interaction.type),
       })),
       fields: [...ordinaryFields, ...groupedFields],

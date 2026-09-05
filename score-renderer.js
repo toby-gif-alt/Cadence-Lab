@@ -453,6 +453,7 @@
           questionVoiceStreams,
           staffVoiceStreams,
           expectedBeats: measure.expectedBeats || null,
+          keyLabel: measure.keyLabel || null,
           keySignature: measure.keySignature || null,
           effectiveKeySignature: currentKeySignature,
           cancelKeySignature: measure.cancelKeySignature || null,
@@ -2362,6 +2363,9 @@
     target.dataset.systemMeasureCounts = JSON.stringify(
       systems.map((system) => system.measures.length)
     );
+    target.dataset.measureKeyLabels = JSON.stringify(
+      normalizedScore.measures.map((measure) => measure.keyLabel)
+    );
 
     const caption = document.createElement("div");
     caption.className = "score-caption";
@@ -2496,6 +2500,7 @@
           expectedBeats:
             measure.expectedBeats || measure.effectiveTimeSignature.numerator,
           timeSignature: measure.effectiveTimeSignature.text,
+          keyLabel: measure.keyLabel,
           keySignature: measure.effectiveKeySignature,
         });
 
@@ -2711,6 +2716,19 @@
       const decorationGroup = createSvgElement("g", {
         class: "score-decorations",
         "aria-hidden": "true",
+      });
+      hitMeasures.forEach((measure) => {
+        if (!measure.keyLabel) return;
+        decorationGroup.appendChild(createSvgElement("text", {
+          class: "measure-key-label",
+          x: (measure.x + measure.endX) / 2,
+          y: measure.topY - 14,
+          "text-anchor": "middle",
+          "font-size": 11,
+          "font-weight": 600,
+          fill: "#526176",
+          "data-measure": measure.measure,
+        }, measure.keyLabel));
       });
       brackets.forEach((bracket) =>
         drawBracket(

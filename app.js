@@ -1345,12 +1345,12 @@
     panel.hidden = false;
     panel.innerHTML = `
       <h4>Your response beside the model</h4>
-      <p>${generated ? "These labels compare your entry with the declared musically accepted analyses for this isolated sonority." : "These labels only compare your structured entry with the authored accepted answer; they are not automated NCEA grading."}</p>
+      <p>${generated ? "These labels compare your entry with the intended harmonic identity, including any deliberately declared alternative analysis." : "These labels only compare your structured entry with the authored accepted answer; they are not automated NCEA grading."}</p>
       <div class="comparison-grid">
         ${items.map((item) => `<div class="comparison-item" data-status="${item.status}">
-          <small>${escapeText(item.label)} · ${item.status === "matches" ? (generated ? "matches accepted analysis" : "matches model") : item.status === "different" ? (generated ? "not among accepted analyses" : "different from model") : "unanswered"}</small>
+          <small>${escapeText(item.label)} · ${item.status === "matches" ? (generated ? (item.acceptedCount > 1 ? "matches accepted analysis" : "matches intended analysis") : "matches model") : item.status === "different" ? (generated ? (item.acceptedCount > 1 ? "not among accepted analyses" : "different from intended analysis") : "different from model") : "unanswered"}</small>
           <strong>${escapeText(item.response || "—")}</strong>
-          <span>${generated ? "Accepted analyses" : "Model"}: ${escapeText(item.model || "—")}</span>
+          <span>${generated ? (item.acceptedCount > 1 ? "Accepted analyses" : "Intended analysis") : "Model"}: ${escapeText(item.model || "—")}</span>
         </div>`).join("")}
       </div>
       ${comparison.evidence ? `<div class="comparison-item"><small>Your written evidence</small><strong>${escapeText(comparison.evidence)}</strong></div>` : ""}`;
