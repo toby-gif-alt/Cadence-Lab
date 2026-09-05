@@ -327,55 +327,117 @@ const studentPresentationById = {
   },
 };
 
+function paperCompletion(completionType, completionRequirements, options = {}) {
+  const sharedChecks = completionType === "satb"
+    ? [
+      "The completed voices stay in a sensible singing range and do not cross.",
+      "Leading notes and chordal sevenths resolve appropriately.",
+      "There are no consecutive perfect fifths or octaves between parts.",
+    ]
+    : [
+      "The accompaniment is playable and uses a suitable register and spacing.",
+      "The bass and important chord tones support every supplied harmonic indication.",
+    ];
+  return {
+    type: "paper-completion",
+    completionType,
+    completionRequirements,
+    selfCheck: [
+      ...completionRequirements.selfCheck,
+      ...sharedChecks,
+    ],
+    printOrientation: options.printOrientation || "portrait",
+  };
+}
+
 const completionInteractions = {
   "nzqa-2024-bach-satb": {
-    type: "notation-completion",
-    editableRegions: [
-      { measures: [2, 3], voices: ["soprano", "alto", "tenor", "bass"] },
-    ],
+    ...paperCompletion("satb", {
+      suppliedMeasures: [1],
+      targetMeasures: [2, 3],
+      requiredVoices: ["soprano", "alto", "tenor", "bass"],
+      harmonicIndications: 8,
+      minimumPassingNotes: 2,
+      suspension: "V⁴–³",
+      selfCheck: [
+        "Bar 17 remains the supplied style model; all four parts are completed in bars 18–19.",
+        "All eight chord moments are realised across the printed harmonic route, with V⁴–³ treated as one dominant span.",
+        "The V⁴–³ suspension resolves from 4 to 3 while the dominant harmony remains active.",
+        "The completion contains at least two passing notes.",
+        "The melody, bass line and inner parts follow the rhythmic and chorale style of the supplied bar.",
+      ],
+    }, { printOrientation: "landscape" }),
   },
-  "satb-f-c": {
-    type: "notation-completion",
-    editableRegions: [
-      { measures: [1, 2, 3], voices: ["alto", "tenor"] },
+  "satb-f-c": paperCompletion("satb", {
+    suppliedVoices: ["soprano", "bass"],
+    requiredVoices: ["alto", "tenor"],
+    harmonicIndications: 7,
+    selfCheck: [
+      "The alto and tenor are complete beneath the supplied soprano and bass.",
+      "Common tones are preserved through the F/C pivot into C major.",
+      "B rises to C and the seventh F in G7 falls to E at the final cadence.",
     ],
-  },
-  "satb-gminor": {
-    type: "notation-completion",
-    editableRegions: [
-      { measures: [1, 2, 3], voices: ["alto", "tenor"] },
+  }),
+  "satb-gminor": paperCompletion("satb", {
+    suppliedVoices: ["soprano", "bass"],
+    requiredVoices: ["alto", "tenor"],
+    harmonicIndications: 7,
+    selfCheck: [
+      "The alto and tenor are complete while the supplied soprano and bass remain unchanged.",
+      "F♯ functions as the raised leading note and resolves to G.",
+      "C, the seventh of D7, resolves down by step to B♭.",
     ],
-  },
-  "satb-c-aminor": {
-    type: "notation-completion",
-    editableRegions: [
-      { measures: [1, 2, 3], voices: ["alto", "tenor"] },
+  }),
+  "satb-c-aminor": paperCompletion("satb", {
+    suppliedVoices: ["soprano", "bass"],
+    requiredVoices: ["alto", "tenor"],
+    harmonicIndications: 7,
+    selfCheck: [
+      "The alto and tenor are complete through the move from C major to A minor.",
+      "The pivot chord is convincing in both C major and A minor.",
+      "G♯ rises to A and the seventh D in E7 falls to C.",
     ],
-  },
-  "piano-d-f": {
-    type: "notation-completion",
-    editableRegions: [
-      { measures: [2, 3], voices: ["treble", "bass"] },
+  }),
+  "piano-d-f": paperCompletion("piano", {
+    targetMeasures: [2, 3],
+    harmonicIndications: 6,
+    texture: "quaver broken-chord accompaniment",
+    selfCheck: [
+      "The quaver broken-chord pattern continues beneath the supplied melody.",
+      "The change from D minor to F major is clear.",
+      "The final ii–V7–I cadence in F major is fully realised.",
     ],
-  },
-  "piano-a-fsharp": {
-    type: "notation-completion",
-    editableRegions: [
-      { measures: [2, 3], voices: ["treble", "bass"] },
+  }),
+  "piano-a-fsharp": paperCompletion("piano", {
+    targetMeasures: [2, 3],
+    harmonicIndications: 7,
+    texture: "crotchet chord pattern",
+    selfCheck: [
+      "The crotchet chord pattern and supplied melody remain clear.",
+      "The change from A major to F♯ minor is convincing.",
+      "E♯ is retained as the leading note and resolves upward to F♯.",
     ],
-  },
-  "piano-g-c": {
-    type: "notation-completion",
-    editableRegions: [
-      { measures: [2, 3], voices: ["treble", "bass"] },
+  }),
+  "piano-g-c": paperCompletion("piano", {
+    targetMeasures: [2, 3],
+    harmonicIndications: 7,
+    texture: "left-hand accompaniment pattern",
+    selfCheck: [
+      "The left-hand pattern continues after the supplied rest.",
+      "The second phrase moves clearly from G major towards a cadence in C major.",
+      "The supplied melody and its tie across the barline remain unchanged.",
     ],
-  },
-  "piano-bflat-gminor": {
-    type: "notation-completion",
-    editableRegions: [
-      { measures: [2, 3], voices: ["treble", "bass"] },
+  }),
+  "piano-bflat-gminor": paperCompletion("piano", {
+    targetMeasures: [2, 3],
+    harmonicIndications: 5,
+    texture: "dotted-quarter–quaver chordal accompaniment",
+    selfCheck: [
+      "The dotted-quarter–quaver pattern is preserved in 3/4 metre.",
+      "The chordal accompaniment supports the supplied melody without crowding it.",
+      "F♯ leads to G in a clear dominant-to-tonic close in G minor.",
     ],
-  },
+  }),
 };
 
 const keyChoices = [
@@ -1617,10 +1679,10 @@ const questionBank = [
         { measure: 2, event: 3, pitch: "E4", chordSymbol: "F/A", type: "passing note" },
       ],
     }),
-    answerHeading: "One acceptable SATB realisation",
+    answerHeading: "One possible model completion",
     answer: [
       "The model follows the published harmonic route F: Vb–I–Ib, pivoting as C: IVb, then C: Vb–Ib–I–V4–3–I. It includes passing motion in the final dominant span.",
-      "This is one acceptable realisation. Other solutions are possible; check voice order, singable ranges, tendency-note resolution, and the absence of consecutive perfect fifths or octaves.",
+      "This is one possible model completion. Other solutions are possible; check voice order, singable ranges, tendency-note resolution, and the absence of consecutive perfect fifths or octaves.",
     ],
   }),
   createQuestion({
@@ -1664,7 +1726,7 @@ const questionBank = [
         harmonicBox(3, 1, 0, "I", { questionLabel: "I", chordSymbol: "C" }),
       ],
     }),
-    answerHeading: "One acceptable SATB realisation",
+    answerHeading: "One possible model completion",
     answer: [
       "The F chord over C keeps the common tones A and F while functioning as a pivot into C major. B rises to C and the seventh F in G7 falls to E at the cadence.",
     ],
@@ -1710,7 +1772,7 @@ const questionBank = [
         harmonicBox(3, 3, 2, "i", { questionLabel: "i", chordSymbol: "Gm" }),
       ],
     }),
-    answerHeading: "One acceptable inner-part solution",
+    answerHeading: "One possible model completion",
     answer: [
       "F♯ resolves to G at the principal cadence and C, the seventh of D7, resolves down to B♭. Contrary motion between soprano and bass strengthens the close.",
     ],
@@ -1756,7 +1818,7 @@ const questionBank = [
         harmonicBox(3, 1, 0, "i", { questionLabel: "i", chordSymbol: "Am" }),
       ],
     }),
-    answerHeading: "One acceptable relative-minor solution",
+    answerHeading: "One possible model completion",
     answer: [
       "A minor serves as vi in C and i in the new key. At the close, G♯ rises to A while the seventh D in E7 falls to C.",
     ],

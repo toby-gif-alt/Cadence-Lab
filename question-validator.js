@@ -12,19 +12,12 @@
     jazz: 6,
     features: 6,
   };
-  const EDITOR_VOICES = new Set([
-    "soprano",
-    "alto",
-    "tenor",
-    "bass",
-    "treble",
-  ]);
   const INTERACTION_TYPES = new Set([
     "roman-analysis",
     "key-modulation",
     "jazz-chord-placement",
     "feature-analysis",
-    "notation-completion",
+    "paper-completion",
   ]);
 
   function pitchNumber(value) {
@@ -80,102 +73,97 @@
       errors.push(`${question.id}: unsupported interaction type ${interaction.type}`);
       return;
     }
-    if (interaction.type !== "notation-completion") {
-      const expectedType = {
-        analysis: "roman-analysis",
-        modulation: "key-modulation",
-        jazz: "jazz-chord-placement",
-        features: "feature-analysis",
-      }[question.category];
-      if (interaction.type !== expectedType) {
-        errors.push(`${question.id}: ${question.category} requires ${expectedType}`);
+    if (interaction.type === "paper-completion") {
+      if (!["satb", "piano"].includes(question.category)) {
+        errors.push(`${question.id}: paper completion is only valid for SATB or piano`);
       }
-      const slots = interaction.slots || [];
-      const fields = interaction.fields || [];
-      const identifiers = [...slots, ...fields].map((item) => item.id);
-      if (new Set(identifiers).size !== identifiers.length) {
-        errors.push(`${question.id}: interaction answer identifiers must be one-to-one`);
+      if (interaction.completionType !== question.category) {
+        errors.push(`${question.id}: paper completion type must match its category`);
       }
-      [...slots, ...fields].forEach((item) => {
-        if (!item.id || !item.label || !Array.isArray(item.acceptedAnswers) ||
-            !item.acceptedAnswers.length) {
-          errors.push(`${question.id}: structured response item lacks an id, label or acceptedAnswers`);
-        }
-      });
-      if (interaction.type === "roman-analysis") {
-        slots.forEach((slot) => {
-          if (typeof slot.allowDualAnalysis !== "boolean") {
-            errors.push(`${question.id}: Roman slot ${slot.id} lacks an explicit allowDualAnalysis flag`);
-          }
-        });
+      if (!question.score.completion) {
+        errors.push(`${question.id}: paper completion requires a completion score`);
       }
-      fields.filter((field) => field.kind === "classification").forEach((field) => {
-        if (!Array.isArray(field.choices) || !field.choices.length) {
-          errors.push(`${question.id}: classification field ${field.id} lacks field-specific choices`);
-          return;
-        }
-        const choices = new Set(field.choices);
-        if (field.acceptedAnswers.some((answer) => !choices.has(answer.label))) {
-          errors.push(`${question.id}: classification field ${field.id} omits an accepted answer from its choices`);
-        }
-      });
-      (interaction.unorderedFieldGroups || []).forEach((group) => {
-        const fieldIds = group.fieldIds || [];
-        const acceptedSets = group.acceptedSets || [];
-        if (!group.id || !group.label || fieldIds.length < 2 ||
-            new Set(fieldIds).size !== fieldIds.length ||
-            fieldIds.some((fieldId) => !fields.some((field) => field.id === fieldId)) ||
-            !acceptedSets.length || acceptedSets.some((set) => set.length !== fieldIds.length)) {
-          errors.push(`${question.id}: unordered response group ${group.id || "unknown"} is invalid`);
-        }
-      });
-      if (interaction.type === "jazz-chord-placement") {
-        const bankLabels = (interaction.bank || []).map((token) => token.label);
-        const requiredLabels = slots.map((slot) => slot.acceptedAnswers[0]?.label);
-        const count = (items, value) => items.filter((item) => item === value).length;
-        [...new Set(requiredLabels)].forEach((label) => {
-          if (count(bankLabels, label) !== count(requiredLabels, label)) {
-            errors.push(`${question.id}: chord bank multiplicity for ${label} does not match editable answers`);
-          }
-        });
-        const accepted = new Set(slots.flatMap((slot) =>
-          slot.acceptedAnswers.map((answer) => answer.label)
-        ));
-        const distractors = bankLabels.filter((label) => !requiredLabels.includes(label));
-        if (!distractors.length || distractors.some((label) => accepted.has(label))) {
-          errors.push(`${question.id}: chord bank needs controlled, non-answer distractors`);
-        }
+      if (!interaction.completionRequirements ||
+          typeof interaction.completionRequirements !== "object") {
+        errors.push(`${question.id}: paper completion lacks semantic requirements`);
+      }
+      if (!Array.isArray(interaction.selfCheck) || !interaction.selfCheck.length ||
+          interaction.selfCheck.some((item) => typeof item !== "string" || !item.trim())) {
+        errors.push(`${question.id}: paper completion lacks a question-aware self-check`);
+      }
+      if (!["portrait", "landscape"].includes(interaction.printOrientation)) {
+        errors.push(`${question.id}: paper completion has an invalid print orientation`);
+      }
+      if (interaction.editableRegions) {
+        errors.push(`${question.id}: paper completion must not declare browser-editable regions`);
       }
       return;
     }
-    if (!["satb", "piano"].includes(question.category)) {
-      errors.push(`${question.id}: notation completion is only valid for SATB or piano`);
+    const expectedType = {
+      analysis: "roman-analysis",
+      modulation: "key-modulation",
+      jazz: "jazz-chord-placement",
+      features: "feature-analysis",
+    }[question.category];
+    if (interaction.type !== expectedType) {
+      errors.push(`${question.id}: ${question.category} requires ${expectedType}`);
     }
-    if (!Array.isArray(interaction.editableRegions) || !interaction.editableRegions.length) {
-      errors.push(`${question.id}: interaction lacks editableRegions`);
-      return;
+    const slots = interaction.slots || [];
+    const fields = interaction.fields || [];
+    const identifiers = [...slots, ...fields].map((item) => item.id);
+    if (new Set(identifiers).size !== identifiers.length) {
+      errors.push(`${question.id}: interaction answer identifiers must be one-to-one`);
     }
-    const allowedVoices = question.category === "satb"
-      ? new Set(SATB_NAMES)
-      : new Set(["treble", "bass"]);
-    interaction.editableRegions.forEach((region, regionIndex) => {
-      if (!Array.isArray(region.measures) || !region.measures.length) {
-        errors.push(`${question.id}: editable region ${regionIndex + 1} lacks measures`);
+    [...slots, ...fields].forEach((item) => {
+      if (!item.id || !item.label || !Array.isArray(item.acceptedAnswers) ||
+          !item.acceptedAnswers.length) {
+        errors.push(`${question.id}: structured response item lacks an id, label or acceptedAnswers`);
       }
-      if (!Array.isArray(region.voices) || !region.voices.length) {
-        errors.push(`${question.id}: editable region ${regionIndex + 1} lacks voices`);
-      }
-      (region.measures || []).forEach((measure) => {
-        if (!Number.isInteger(measure) || measure < 1 || measure > question.score.measures.length) {
-          errors.push(`${question.id}: editable region refers to invalid measure ${measure}`);
-        }
-      });
-      (region.voices || []).forEach((voice) => {
-        if (!EDITOR_VOICES.has(voice) || !allowedVoices.has(voice)) {
-          errors.push(`${question.id}: editable region uses invalid voice ${voice}`);
-        }
-      });
     });
+    if (interaction.type === "roman-analysis") {
+      slots.forEach((slot) => {
+        if (typeof slot.allowDualAnalysis !== "boolean") {
+          errors.push(`${question.id}: Roman slot ${slot.id} lacks an explicit allowDualAnalysis flag`);
+        }
+      });
+    }
+    fields.filter((field) => field.kind === "classification").forEach((field) => {
+      if (!Array.isArray(field.choices) || !field.choices.length) {
+        errors.push(`${question.id}: classification field ${field.id} lacks field-specific choices`);
+        return;
+      }
+      const choices = new Set(field.choices);
+      if (field.acceptedAnswers.some((answer) => !choices.has(answer.label))) {
+        errors.push(`${question.id}: classification field ${field.id} omits an accepted answer from its choices`);
+      }
+    });
+    (interaction.unorderedFieldGroups || []).forEach((group) => {
+      const fieldIds = group.fieldIds || [];
+      const acceptedSets = group.acceptedSets || [];
+      if (!group.id || !group.label || fieldIds.length < 2 ||
+          new Set(fieldIds).size !== fieldIds.length ||
+          fieldIds.some((fieldId) => !fields.some((field) => field.id === fieldId)) ||
+          !acceptedSets.length || acceptedSets.some((set) => set.length !== fieldIds.length)) {
+        errors.push(`${question.id}: unordered response group ${group.id || "unknown"} is invalid`);
+      }
+    });
+    if (interaction.type === "jazz-chord-placement") {
+      const bankLabels = (interaction.bank || []).map((token) => token.label);
+      const requiredLabels = slots.map((slot) => slot.acceptedAnswers[0]?.label);
+      const count = (items, value) => items.filter((item) => item === value).length;
+      [...new Set(requiredLabels)].forEach((label) => {
+        if (count(bankLabels, label) !== count(requiredLabels, label)) {
+          errors.push(`${question.id}: chord bank multiplicity for ${label} does not match editable answers`);
+        }
+      });
+      const accepted = new Set(slots.flatMap((slot) =>
+        slot.acceptedAnswers.map((answer) => answer.label)
+      ));
+      const distractors = bankLabels.filter((label) => !requiredLabels.includes(label));
+      if (!distractors.length || distractors.some((label) => accepted.has(label))) {
+        errors.push(`${question.id}: chord bank needs controlled, non-answer distractors`);
+      }
+    }
   }
 
   function validateHarmonicAnswerRoles(question, errors) {
