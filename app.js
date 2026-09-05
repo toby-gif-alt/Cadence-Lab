@@ -666,7 +666,7 @@
   function buildFieldControls(interaction) {
     const choicesFor = (field) => {
       if (field.kind === "key") return interaction.keyChoices;
-      if (field.kind === "relationship") return interaction.relationshipChoices;
+      if (field.kind === "relationship") return field.choices || [];
       return field.choices || interaction.classificationChoices || interaction.choices || [];
     };
     structuredControls.innerHTML = `

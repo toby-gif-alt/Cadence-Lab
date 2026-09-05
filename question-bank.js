@@ -448,6 +448,58 @@ const keyChoices = [
   "B♭ minor", "E♭ minor",
 ];
 
+// Learner-facing labels deliberately use one naming system. The broader
+// semantic vocabulary in key-relationships.js remains available for marking.
+const learnerRelationshipVocabulary = Object.freeze([
+  "tonic major",
+  "tonic minor",
+  "dominant",
+  "dominant minor",
+  "subdominant",
+  "supertonic",
+  "mediant major",
+  "mediant minor",
+  "submediant",
+  "subtonic",
+  "relative major",
+  "relative minor",
+  "relative major of the dominant",
+  "relative minor of the dominant",
+  "relative major of the subdominant",
+  "relative minor of the subdominant",
+]);
+
+function stableRelationshipHash(value) {
+  let hash = 2166136261;
+  for (const character of String(value)) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function derivedRelationshipChoices(questionId, region, relationship) {
+  const seed = `${questionId}:${region.section}:${relationship.homeKey}:${relationship.localKey}`;
+  const rankedDistractors = learnerRelationshipVocabulary
+    .filter((label) =>
+      label !== region.modelRelationship &&
+      !relationship.acceptedLabels.includes(label)
+    )
+    .sort((first, second) =>
+      stableRelationshipHash(`${seed}:distractor:${first}`) -
+        stableRelationshipHash(`${seed}:distractor:${second}`) ||
+      first.localeCompare(second, "en-NZ")
+    )
+    .slice(0, 4);
+
+  return [region.modelRelationship, ...rankedDistractors]
+    .sort((first, second) =>
+      stableRelationshipHash(`${seed}:position:${first}`) -
+        stableRelationshipHash(`${seed}:position:${second}`) ||
+      first.localeCompare(second, "en-NZ")
+    );
+}
+
 const nonHarmonicToneChoices = [
   "passing note",
   "accented passing note",
@@ -588,10 +640,23 @@ function modulationInteraction(config) {
         `${config.id}: ${homeKey} → ${localKey} has invalid relationship metadata.`
       );
     }
+    const visibleChoices = region.relationshipChoices ||
+      derivedRelationshipChoices(config.id, region, relationship);
+    const visibleCorrectChoices = visibleChoices.filter((label) =>
+      relationship.acceptedLabels.includes(label)
+    );
+    if (visibleChoices.length < 4 || visibleChoices.length > 6 ||
+        new Set(visibleChoices).size !== visibleChoices.length ||
+        !visibleChoices.includes(region.modelRelationship) ||
+        visibleCorrectChoices.length !== 1 ||
+        visibleCorrectChoices[0] !== region.modelRelationship) {
+      throw new Error(`${config.id}: ${region.section} has invalid learner relationship choices.`);
+    }
     return {
       ...region,
       localKey,
       relationship,
+      visibleChoices: [...visibleChoices],
       acceptedLabels: [
         ...new Set([region.modelRelationship, ...acceptedLabels]),
       ],
@@ -602,12 +667,6 @@ function modulationInteraction(config) {
     allowPaper: true,
     homeKey,
     keyChoices,
-    relationshipChoices: [
-      ...new Set([
-        ...keyRelationships.relationshipChoices,
-        ...semanticRegions.flatMap((region) => region.acceptedLabels),
-      ]),
-    ],
     fields: semanticRegions.flatMap((region) => [
       {
         id: `${region.section.toLowerCase()}-key`,
@@ -627,6 +686,8 @@ function modulationInteraction(config) {
           canonical: region.relationship.canonical,
           degree: region.relationship.degree,
         },
+        modelRelationship: region.modelRelationship,
+        choices: region.visibleChoices,
         acceptedAnswers: region.acceptedLabels.map((label) => ({ label })),
       },
     ]),
@@ -1298,18 +1359,39 @@ const questionBank = [
         localKey: "E♭ major",
         modelRelationship: "relative major of the subdominant",
         acceptedRelationshipLabels: ["relative major of the subdominant"],
+        relationshipChoices: [
+          "relative major",
+          "subdominant",
+          "relative major of the subdominant",
+          "relative major of the dominant",
+          "relative minor",
+        ],
       },
       {
         section: "Y",
         localKey: "C minor",
         modelRelationship: "subdominant",
         acceptedRelationshipLabels: ["subdominant"],
+        relationshipChoices: [
+          "relative major",
+          "subdominant",
+          "dominant minor",
+          "relative major of the dominant",
+          "tonic minor",
+        ],
       },
       {
         section: "Z",
         localKey: "F major",
         modelRelationship: "relative major of the dominant",
         acceptedRelationshipLabels: ["relative major of the dominant"],
+        relationshipChoices: [
+          "relative major of the dominant",
+          "relative major",
+          "dominant",
+          "subdominant",
+          "relative major of the subdominant",
+        ],
       },
     ],
     sourceType: "nzqa-reference",
@@ -1494,7 +1576,7 @@ const questionBank = [
     category: "modulation",
     homeKey: "G minor",
     keyRegions: [
-      { section: "X", localKey: "E♭ major", modelRelationship: "submediant / VI" },
+      { section: "X", localKey: "E♭ major", modelRelationship: "submediant" },
       { section: "Y", localKey: "F major", modelRelationship: "relative major of the dominant" },
     ],
     sourceType: "original-practice",

@@ -13,17 +13,17 @@
   <body data-status="running">
     <h1>Cadence Lab interaction smoke test</h1>
     <div id="render-fixture" aria-hidden="true"></div>
-    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-paper-15"></iframe>
+    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-relationship-16"></iframe>
     <pre id="results">Running…</pre>
 
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../key-relationships.js?v=2026-09-paper-15"></script>
-    <script src="../question-bank.js?v=2026-09-paper-15"></script>
-    <script src="../score-renderer.js?v=2026-09-paper-15"></script>
-    <script src="../question-validator.js?v=2026-09-paper-15"></script>
-    <script src="../structured-answer.js?v=2026-09-paper-15"></script>
-    <script src="../chord-generator.js?v=2026-09-paper-15"></script>
-    <script src="../playback-engine.js?v=2026-09-paper-15"></script>
+    <script src="../key-relationships.js?v=2026-09-relationship-16"></script>
+    <script src="../question-bank.js?v=2026-09-relationship-16"></script>
+    <script src="../score-renderer.js?v=2026-09-relationship-16"></script>
+    <script src="../question-validator.js?v=2026-09-relationship-16"></script>
+    <script src="../structured-answer.js?v=2026-09-relationship-16"></script>
+    <script src="../chord-generator.js?v=2026-09-relationship-16"></script>
+    <script src="../playback-engine.js?v=2026-09-relationship-16"></script>
     <script>
       const results = document.querySelector("#results");
       const assertions = {};
@@ -568,7 +568,13 @@
               "The passage begins in G minor and moves through two related key regions. Identify X and Y, give musical evidence for each key, and describe each relationship to G minor."
           );
           assert("gMinorToEFlatUsesSubmediantRatherThanRelativeMajor",
-            reportedXRelationship.acceptedAnswers[0].label === "submediant / VI" &&
+            reportedXRelationship.modelRelationship === "submediant" &&
+            reportedXRelationship.acceptedAnswers[0].label === "submediant" &&
+            reportedXRelationship.acceptedAnswers.some((answer) =>
+              answer.label === "submediant / VI"
+            ) &&
+            reportedXRelationship.choices.includes("submediant") &&
+            !reportedXRelationship.choices.includes("submediant / VI") &&
             !reportedXRelationship.acceptedAnswers.some((answer) =>
               answer.label === "relative major" || answer.label === "subdominant"
             ) &&
@@ -584,6 +590,103 @@
           );
           const modulationQuestions = questions.filter((question) =>
             question.category === "modulation"
+          );
+          const relationshipFields = modulationQuestions.flatMap((question) =>
+            question.interaction.fields
+              .filter((field) => field.kind === "relationship")
+              .map((field) => ({ question, field }))
+          );
+          const isRomanRelationshipLabel = (label) =>
+            /^(?:I|II|III|IV|V|VI|VII|i|ii|iii|iv|v|vi|vii)$/.test(label) ||
+            /\/[ ]*(?:I|II|III|IV|V|VI|VII|i|ii|iii|iv|v|vi|vii)$/.test(label);
+          assert("relationshipDropdownsUseSmallFieldSpecificChoiceSets",
+            relationshipFields.length === 12 && relationshipFields.every(({ question, field }) =>
+              !question.interaction.relationshipChoices &&
+              field.choices.length >= 4 && field.choices.length <= 6 &&
+              field.choices.length < keyRelationships.relationshipChoices.length
+            )
+          );
+          assert("relationshipDropdownsContainOnePreferredAnswerAndIncorrectDistractors",
+            relationshipFields.every(({ question, field }) => {
+              const semantic = keyRelationships.relationshipBetween(
+                question.homeKey,
+                field.localKey
+              );
+              const visibleCorrect = field.choices.filter((label) =>
+                semantic.acceptedLabels.includes(label)
+              );
+              return field.choices.includes(field.modelRelationship) &&
+                visibleCorrect.length === 1 &&
+                visibleCorrect[0] === field.modelRelationship &&
+                new Set(field.choices).size === field.choices.length;
+            })
+          );
+          assert("ordinaryRelationshipDropdownsDoNotMixRomanDegreeLabels",
+            relationshipFields.every(({ field }) =>
+              field.choices.every((label) => !isRomanRelationshipLabel(label))
+            )
+          );
+          const expectedNzqaRelationshipChoices = {
+            "x-relationship": [
+              "relative major", "subdominant", "relative major of the subdominant",
+              "relative major of the dominant", "relative minor",
+            ],
+            "y-relationship": [
+              "relative major", "subdominant", "dominant minor",
+              "relative major of the dominant", "tonic minor",
+            ],
+            "z-relationship": [
+              "relative major of the dominant", "relative major", "dominant",
+              "subdominant", "relative major of the subdominant",
+            ],
+          };
+          assert("nzqaRelationshipDropdownsPreserveAuthoredSourceTerminologyAndDistractors",
+            modulationQuestion.interaction.fields
+              .filter((field) => field.kind === "relationship")
+              .every((field) =>
+                JSON.stringify(field.choices) ===
+                  JSON.stringify(expectedNzqaRelationshipChoices[field.id])
+              )
+          );
+          const originalRelationshipFields = relationshipFields.filter(({ question }) =>
+            question.sourceType === "original-practice"
+          );
+          const iframeQuestions = appWindow.CadenceLab.questions;
+          assert("originalRelationshipDistractorsAreDeterministicAcrossIndependentLoads",
+            originalRelationshipFields.every(({ question, field }) => {
+              const iframeQuestion = iframeQuestions.find((candidate) =>
+                candidate.id === question.id
+              );
+              const iframeField = iframeQuestion.interaction.fields.find((candidate) =>
+                candidate.id === field.id
+              );
+              return JSON.stringify(iframeField.choices) === JSON.stringify(field.choices);
+            })
+          );
+          assert("acceptedRelationshipAlternativesNeedNotAllBeVisible",
+            reportedXRelationship.acceptedAnswers.some((answer) =>
+              answer.label === "submediant / VI"
+            ) &&
+            !reportedXRelationship.choices.includes("submediant / VI") &&
+            reportedXRelationship.acceptedAnswers.length >
+              reportedXRelationship.choices.filter((choice) =>
+                reportedXRelationship.acceptedAnswers.some((answer) =>
+                  answer.label === choice
+                )
+              ).length
+          );
+          appWindow.CadenceLab.showQuestion("nzqa-2023-bach-key-regions");
+          const renderedRelationshipChoices = [...appDocument.querySelectorAll(
+            "[data-field-id$='-relationship']"
+          )].map((select) => [...select.options]
+            .filter((option) => option.value)
+            .map((option) => option.value));
+          assert("renderedRelationshipSelectsUseOnlyTheirFieldChoices",
+            JSON.stringify(renderedRelationshipChoices) === JSON.stringify([
+              expectedNzqaRelationshipChoices["x-relationship"],
+              expectedNzqaRelationshipChoices["y-relationship"],
+              expectedNzqaRelationshipChoices["z-relationship"],
+            ])
           );
           const normalizeKeyContext = (value) => String(value)
             .replace(/[‐‑–—-]/g, " ")
