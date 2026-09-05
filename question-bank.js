@@ -14,8 +14,10 @@ if (!keyRelationships) {
 
 const sourceTypeNames = {
   mixed: "Mixed sources",
-  "nzqa-reference": "NZQA reference",
-  "original-practice": "Original practice",
+  "nzqa-reference": "NZQA examination reference",
+  "practice-assessment-reference": "Practice assessment reference",
+  "original-practice": "Original Cadence Lab practice",
+  "generated-practice": "Generated Cadence Lab practice",
 };
 
 const categoryNames = {
@@ -105,23 +107,45 @@ const rubricByCategory = {
 
 function originalSource(focus) {
   return {
+    provider: "Cadence Lab",
     creator: "Cadence Lab",
     title: focus,
+    sourceKind: "original-practice",
     acknowledgement: "Original practice material written for Cadence Lab.",
   };
 }
 
-function nzqaSource(year, question, part, extract, creator, title, location) {
+function nzqaSource(year, question, part, extract, creator, title, location, bars = "") {
   return {
+    provider: "NZQA",
     year,
     question,
     part,
     extract,
     creator,
     title,
+    bars,
+    sourceKind: "official-exam",
     location,
     acknowledgement:
-      "Teaching transcription of the named 2021–2024 NZQA examination extract; task layout and answer evidence checked against the matching published assessment schedule.",
+      "Teaching transcription of the named NZQA examination extract; learner task checked against the question paper and model evidence checked against the matching published assessment schedule.",
+  };
+}
+
+function practiceSource(year, question, part, extract, creator, title, location, bars = "") {
+  return {
+    provider: "Learning Ideas",
+    year,
+    question,
+    part,
+    extract,
+    creator,
+    title,
+    bars,
+    sourceKind: "practice-assessment",
+    location,
+    acknowledgement:
+      "Teaching transcription of the named Learning Ideas practice-assessment extract; learner task checked against the question paper and model evidence checked against its answer schedule. This is not an official NZQA examination extract.",
   };
 }
 
@@ -351,6 +375,76 @@ function paperCompletion(completionType, completionRequirements, options = {}) {
 }
 
 const completionInteractions = {
+  "nzqa-2021-beethoven-piano": paperCompletion("piano", {
+    suppliedMeasures: [1],
+    targetMeasures: [2, 3, 4],
+    harmonicIndications: 8,
+    requiredParts: ["bass line", "two inner parts"],
+    texture: "Beethoven legato piano texture",
+    selfCheck: [
+      "Bars 10–13 retain the printed melody and all eight Roman-numeral indications.",
+      "The bass line and two inner parts continue the first chord's spacing and legato texture.",
+      "The harmonic route moves from B♭ major through F major to C major without changing the supplied melody.",
+    ],
+  }, { printOrientation: "landscape" }),
+  "nzqa-2023-novelette-piano": paperCompletion("piano", {
+    suppliedMeasures: [1],
+    targetMeasures: [2, 3, 4, 5],
+    harmonicIndications: 7,
+    requiredParts: ["bass line", "two inner parts"],
+    texture: "flowing 3/8 piano texture",
+    selfCheck: [
+      "Bars 21–24 retain the printed melody and all seven Roman-numeral indications.",
+      "The bass line and two inner parts continue the rhythmic texture established in bar 20.",
+      "The chromatic iv chord and diminished-seventh harmony resolve convincingly into the final first-inversion tonic.",
+    ],
+  }, { printOrientation: "landscape" }),
+  "nzqa-2025-bach-satb": {
+    ...paperCompletion("satb", {
+      suppliedMeasures: [1],
+      targetMeasures: [2, 3, 4],
+      suppliedVoicesByStage: { first: ["tenor"], second: ["soprano"] },
+      requiredVoicesByStage: {
+        first: ["soprano", "alto", "bass"],
+        second: ["alto", "tenor", "bass"],
+      },
+      harmonicIndications: 10,
+      requiredSuspension: true,
+      minimumPassingNotes: 2,
+      learnerChoosesHarmony: true,
+      allowedRomanChords: ["I", "ii", "V", "V7", "vi"],
+      labelChosenChords: true,
+      selfCheck: [
+        "In bars 22–23 beat 1, the supplied tenor remains unchanged; bass, soprano and alto complete the printed harmony and include the bar-22 suspension.",
+        "From bar 23 beat 2 to bar 24 beat 3, the supplied melody remains unchanged; bass, alto and tenor realise only I, ii, V, V7 or vi in root position or inversion.",
+        "The chosen second-stage chords are labelled beneath the score and the completion includes at least two passing notes.",
+      ],
+    }, { printOrientation: "landscape" }),
+  },
+  "nzqa-2025-schubert-piano": paperCompletion("piano", {
+    suppliedMeasures: [1],
+    targetMeasures: [2, 3, 4, 5, 6],
+    harmonicIndications: 8,
+    requiredParts: ["bass line", "two inner parts"],
+    texture: "Schubert two-part melodic and quaver-bass piano texture",
+    selfCheck: [
+      "Bars 20–24 retain the printed melody and all eight Roman-numeral indications.",
+      "The bass line and two inner parts continue the piano writing established in bars 19–20.",
+      "The final V7–I motion is clear and the added notes remain playable and stylistically consistent.",
+    ],
+  }, { printOrientation: "landscape" }),
+  "nzqa-2025-joel-piano": paperCompletion("piano", {
+    suppliedMeasures: [1],
+    targetMeasures: [2, 3, 4, 5, 6, 7, 8],
+    harmonicIndications: 10,
+    requiredParts: ["bass line", "two inner parts"],
+    texture: "Billy Joel piano accompaniment pattern",
+    selfCheck: [
+      "Bars 15–22 preserve the supplied melody and all ten printed chord indications.",
+      "The bass line and two inner parts continue the opening pop-piano texture.",
+      "Added sevenths, ninths and inversions are voiced cleanly without obscuring the melody.",
+    ],
+  }, { printOrientation: "landscape" }),
   "nzqa-2024-bach-satb": {
     ...paperCompletion("satb", {
       suppliedMeasures: [1],
@@ -578,6 +672,8 @@ const jazzDistractors = {
   "jazz-e-turnaround": ["E7", "C♯m7", "B7sus4"],
   "jazz-blues-secondary": ["F♯m7", "Cmaj7", "A♭7"],
   "jazz-sus-line": ["Gm7", "C7", "Amaj7"],
+  "nzqa-2025-joel-chords": ["Cmaj7", "G7", "Dm9", "B♭maj7"],
+  "practice-2024-jazz-tonality": ["F7", "E♭9", "A7sus4", "Cm7"],
 };
 
 function harmonicAnswerRole(category, event) {
@@ -623,6 +719,7 @@ function analysisInteraction(config, score) {
           }]
         : []
     ),
+    fields: config.analysisFields || [],
   };
 }
 
@@ -667,7 +764,7 @@ function modulationInteraction(config) {
     allowPaper: true,
     homeKey,
     keyChoices,
-    fields: semanticRegions.flatMap((region) => [
+    fields: [...semanticRegions.flatMap((region) => [
       {
         id: `${region.section.toLowerCase()}-key`,
         label: `${region.section} key`,
@@ -690,7 +787,7 @@ function modulationInteraction(config) {
         choices: region.visibleChoices,
         acceptedAnswers: region.acceptedLabels.map((label) => ({ label })),
       },
-    ]),
+    ]), ...(config.analysisFields || [])],
     evidencePrompt: "Optional: identify cadence, leading-note or accidental evidence.",
   };
 }
@@ -720,6 +817,8 @@ function jazzInteraction(config, score) {
       label,
     })),
     advancedBuilder: true,
+    fields: config.analysisFields || [],
+    reflectionOnly: config.reflectionOnly === true,
   };
   if (config.id === "nzqa-2021-valentine-techniques") {
     interaction.fields = [
@@ -754,7 +853,18 @@ function featureInteraction(config) {
   };
 }
 
+function contextualInteraction(config) {
+  return {
+    type: "contextual-analysis",
+    allowPaper: true,
+    reflectionOnly: true,
+    fields: config.contextualFields || [],
+    evidencePrompt: config.evidencePrompt || "Optional concluding link across your analysis points.",
+  };
+}
+
 function universalInteraction(config, score) {
+  if (config.contextualFields) return contextualInteraction(config);
   if (config.category === "analysis") return analysisInteraction(config, score);
   if (config.category === "modulation") return modulationInteraction(config);
   if (config.category === "jazz") return jazzInteraction(config, score);
@@ -764,14 +874,17 @@ function universalInteraction(config, score) {
 
 function neutralStudentCaption(config) {
   if (config.sourceType === "nzqa-reference") {
-    return `NZQA reference • ${config.source.year} ${config.source.question} ${config.source.part} • ${config.source.extract}`;
+    return `NZQA examination reference • ${config.source.year} ${config.source.question} ${config.source.part} • ${config.source.extract}`;
+  }
+  if (config.sourceType === "practice-assessment-reference") {
+    return `Practice assessment reference • ${config.source.year} ${config.source.question} ${config.source.part} • ${config.source.extract}`;
   }
   return `Original Cadence Lab practice • ${categoryNames[config.category]}`;
 }
 
 function createQuestion(config) {
   const rubric = rubricByCategory[config.category];
-  const presentation = studentPresentationById[config.id];
+  const presentation = config.presentation || studentPresentationById[config.id];
   if (!presentation) {
     throw new Error(`Missing student presentation audit for ${config.id}.`);
   }
@@ -812,13 +925,15 @@ const questionBank = [
       "Extract One",
       "J. S. Bach",
       "Nun lob’, mein’ Seel’, den Herren",
-      "bars 1–8, exam p.2; schedule p.3"
+      "bars 1–8, exam p.2; schedule p.3",
+      "1–8"
     ),
     family: "Roman numeral analysis",
     title: "Reference: two related-key pivots",
     context:
       "The first nine labels are supplied as in the paper. Analyse the ten blank positions in bars 4–8 and label both pivots in A major and F-sharp minor.",
     sourceSpec: {
+      year: 2021, provider: "NZQA", question: "Question One", part: "(a)", bars: "1–8",
       romanNumerals: ["I", "vi", "iii", "IV", "V7", "I6", "ii7", "V", "I", "I", "i6", "V6", "V7", "i", "V7", "I6", "ii7", "V", "I"],
       analysisPositions: 19,
       answerPositions: 10,
@@ -834,7 +949,7 @@ const questionBank = [
       layout: "satb",
       voiceLabels: { treble: ["S", "A"], bass: ["T", "B"] },
       labelPosition: "bottom",
-      caption: "NZQA reference • 2021 Q1(a), Extract One • bars 1–8 transcription",
+      caption: "NZQA examination reference • 2021 Q1(a), Extract One • bars 1–8 transcription",
       measures: [
         { expectedBeats: 1, voices: {
           soprano: [{ pitch: "A4", duration: "q" }],
@@ -937,13 +1052,15 @@ const questionBank = [
       "Extract One",
       "J. S. Bach",
       "Was mein Gott will, das",
-      "bars 0–5, exam p.2; schedule p.3"
+      "bars 0–5, exam p.2; schedule p.3",
+      "0–5"
     ),
     family: "Roman numeral analysis",
     title: "Reference: C major to A minor",
     context:
       "Keep the supplied C-major and closing cadence labels, analyse the blank positions, mark both cadences, and show the D-minor first-inversion pivot into A minor.",
     sourceSpec: {
+      year: 2022, provider: "NZQA", question: "Question One", part: "(a)", bars: "0–5",
       romanNumerals: ["vi", "iii", "IV", "I", "I6", "I64", "V", "I", "V", "ii", "iv6", "i", "i", "V", "i6", "V", "i"],
       analysisPositions: 17,
       answerPositions: 10,
@@ -958,7 +1075,7 @@ const questionBank = [
       layout: "satb",
       voiceLabels: { treble: ["S", "A"], bass: ["T", "B"] },
       labelPosition: "bottom",
-      caption: "NZQA reference • 2022 Q1(a), Extract One • bars 0–5 transcription",
+      caption: "NZQA examination reference • 2022 Q1(a), Extract One • bars 0–5 transcription",
       measures: [
         { expectedBeats: 1, voices: {
           soprano: [{ pitch: "E4", duration: "q" }],
@@ -1178,13 +1295,15 @@ const questionBank = [
       "Extract One",
       "J. S. Bach",
       "Herzlich lieb hab’ ich dich, o Herr",
-      "bars 1–4, exam p.2; schedule p.3"
+      "bars 1–4, exam p.2; schedule p.3",
+      "1–4"
     ),
     family: "Roman numeral analysis",
     title: "Reference: pivot and diminished seventh",
     context:
       "Analyse the 13 blank positions after the five supplied labels, show A minor as the pivot into E minor, and explain the diminished seventh chord’s cadential function.",
     sourceSpec: {
+      year: 2024, provider: "NZQA", question: "Question One", part: "(a)", bars: "1–4",
       romanNumerals: ["I", "V", "vi", "iii", "I", "IV", "IV6", "I", "vi", "iii", "IV", "V6", "I", "iv", "V7", "IV6", "vii7", "i"],
       analysisPositions: 18,
       answerPositions: 13,
@@ -1199,7 +1318,7 @@ const questionBank = [
       layout: "satb",
       voiceLabels: { treble: ["S", "A"], bass: ["T", "B"] },
       labelPosition: "bottom",
-      caption: "NZQA reference • 2024 Q1(a), Extract One • bars 1–4 transcription",
+      caption: "NZQA examination reference • 2024 Q1(a), Extract One • bars 1–4 transcription",
       measures: [
         { expectedBeats: 1, voices: {
           soprano: [{ pitch: "C5", duration: "q" }],
@@ -1402,13 +1521,15 @@ const questionBank = [
       "Extract Two",
       "J. S. Bach",
       "Durch Adams Fall ist ganz verderbt",
-      "bars 4–10, exam p.3; schedule p.4"
+      "bars 4–10, exam p.3; schedule p.4",
+      "4–10"
     ),
     family: "Keys and modulation",
     title: "Reference: three key regions from G minor",
     context:
       "Name sections X, Y and Z, cite their leading notes or cadences, and state each relationship to the G-minor tonic.",
     sourceSpec: {
+      year: 2023, provider: "NZQA", question: "Question One", part: "(b)", bars: "4–10",
       analysisPositions: 0,
       keyCentres: ["E♭ major", "C minor", "F major"],
       keyRelationships: [
@@ -1431,7 +1552,7 @@ const questionBank = [
       layout: "satb",
       voiceLabels: { treble: ["S", "A"], bass: ["T", "B"] },
       labelPosition: "bottom",
-      caption: "NZQA reference • 2023 Q1(b), Extract Two • bars 4–10 transcription",
+      caption: "NZQA examination reference • 2023 Q1(b), Extract Two • bars 4–10 transcription",
       brackets: [
         { start: { measure: 2, beat: 2 }, end: { measure: 3, beat: 3 }, label: "X", key: "E♭ major" },
         { start: { measure: 3, beat: 4 }, end: { measure: 5, beat: 3 }, label: "Y", key: "C minor", repeatLabel: false },
@@ -1667,13 +1788,15 @@ const questionBank = [
       "Extract Three",
       "J. S. Bach",
       "Herzlich lieb hab’ ich dich, o Herr",
-      "bars 18–19, exam p.3; schedule p.4"
+      "bars 17–19, exam p.3; schedule p.4",
+      "17–19"
     ),
     family: "SATB / vocal completion",
     title: "Reference: chorale-style completion",
     context:
       "Continue from the fully supplied bar 17 and create all four parts in bars 18–19. Use the printed Roman numerals, follow the supplied rhythmic pattern, and include at least two passing notes.",
     sourceSpec: {
+      year: 2024, provider: "NZQA", question: "Question One", part: "(c)", bars: "17–19",
       chordSymbols: ["C/E", "F", "F/A", "G/B", "C/E", "C", "Gsus4", "C"],
       analysisPositions: 8,
       suppliedLabels: ["F: Vb", "I", "F: Ib / C: IVb", "Vb", "Ib", "I", "V⁴–³", "I"],
@@ -1706,7 +1829,7 @@ const questionBank = [
       voiceLabels: { treble: ["S", "A"], bass: ["T", "B"] },
       completion: true,
       labelPosition: "bottom",
-      caption: "NZQA reference • 2024 Q1(c), Extract Three • bars 17–19 transcription",
+      caption: "NZQA examination reference • 2024 Q1(c), Extract Three • bars 17–19 transcription",
       measures: [
         { voices: {
           soprano: [{ pitch: "A4", duration: "8" }, { pitch: "D5", duration: "8" }, { pitch: "B4", duration: "q" }, { pitch: "C5", duration: "q" }, { pitch: "C5", duration: "q" }],
@@ -2112,13 +2235,15 @@ const questionBank = [
       "Extract Six",
       "Richard Rodgers and Lorenz Hart",
       "My Funny Valentine",
-      "bars 21–29, exam pp.8–9; schedule pp.8–9"
+      "bars 21–29, exam pp.8–9; schedule pp.8–9",
+      "21–29"
     ),
     family: "Jazz / rock notation",
     title: "Reference: minor-line harmony and tonic pedal",
     context:
       "Complete the chord boxes above bars 21–29, classify the marked X, Y and Z melody notes, and explain the two harmonic techniques operating in bars 21–25.",
     sourceSpec: {
+      year: 2021, provider: "NZQA", question: "Question Three", part: "(a)", bars: "21–29",
       chordSymbols: ["Cm", "Cm9(maj7)", "Cm7", "Cm9(add6)", "Fm/C", "Fm", "Dm7(♭5)", "G7", "Fm/A♭", "G7", "Cm"],
       analysisPositions: 11,
       suppliedLabels: ["Cm", "Fm"],
@@ -2140,7 +2265,7 @@ const questionBank = [
       sourceKeyCentres: ["C minor"],
       layout: "piano",
       labelPosition: "top",
-      caption: "NZQA reference • 2021 Q3(a), Extract Six • bars 21–29 transcription",
+      caption: "NZQA examination reference • 2021 Q3(a), Extract Six • bars 21–29 transcription",
       noteAnnotations: [
         { measure: 1, beat: 3, staff: "treble", pitch: "D5", label: "Y" },
         { measure: 2, beat: 2.5, staff: "treble", pitch: "F5", label: "X" },
@@ -2234,13 +2359,15 @@ const questionBank = [
       "Extract Six",
       "Phillip Norman",
       "Love is Commercial",
-      "bars 16–28, exam pp.8–9; schedule p.9"
+      "bars 16–28, exam pp.8–9; schedule p.9",
+      "16–28"
     ),
     family: "Jazz / rock notation",
     title: "Reference: one chord per bar over chromatic bass",
     context:
       "Analyse the eleven boxed positions in bars 19–28, including both sonorities in bar 23, then explain the descending bass and one-chord-per-bar harmonic rhythm in bars 24–28.",
     sourceSpec: {
+      year: 2024, provider: "NZQA", question: "Question Three", part: "(a)", bars: "16–28",
       chordSymbols: ["C♯m(add9)", "Dmaj7", "Bm9", "G♯dim/B", "C♯7sus4", "C♯7", "F♯m", "E♯dim7", "F♯m/E", "D♯m7(♭5)", "Dmaj7"],
       analysisPositions: 11,
       suppliedLabels: ["C♯m(add9)"],
@@ -2253,7 +2380,7 @@ const questionBank = [
       keySignature: "D",
       layout: "piano",
       labelPosition: "top",
-      caption: "NZQA reference • 2024 Q3(a), Extract Six • bars 19–28 transcription",
+      caption: "NZQA examination reference • 2024 Q3(a), Extract Six • bars 19–28 transcription",
       brackets: [{ start: 18, end: 40, label: "bars 24–28" }],
       measures: [
         { events: [
@@ -2578,13 +2705,15 @@ const questionBank = [
       "Extract Four",
       "Francis Poulenc",
       "Novelette No. 1 in C minor",
-      "bars 1–5, exam p.5; schedule p.6"
+      "bars 1–5, exam p.5; schedule p.6",
+      "1–5"
     ),
     family: "Harmonic or tonal feature",
     title: "Reference: tonic pedal with dissonance",
     context:
       "Identify the compositional device in the bass of this 3/8 opening and explain how it establishes C while creating dissonance beneath the changing melody and inner parts.",
     sourceSpec: {
+      year: 2023, provider: "NZQA", question: "Question Two", part: "(a)", bars: "1–5",
       chordSymbols: ["C", "Dm/C", "F/C", "G7/C", "C"],
       analysisPositions: 5,
       keyCentres: ["C major"],
@@ -2597,7 +2726,7 @@ const questionBank = [
       sourceKeyCentres: ["C major"],
       timeSignature: "3/8",
       layout: "piano",
-      caption: "NZQA reference • 2023 Q2(a), Extract Four • bars 1–5 transcription",
+      caption: "NZQA examination reference • 2023 Q2(a), Extract Four • bars 1–5 transcription",
       measures: [
         { events: [
           { treble: ["G4"], bass: ["C3", "E3"], duration: "16" },
@@ -2847,6 +2976,692 @@ const questionBank = [
       "Measure 1 sustains one harmony for four beats; measure 2 has two half-note harmonies; measure 3 changes on successive quarter-note beats before the tonic is repeated.",
       "The acceleration increases urgency into ii–V7–I. This claim is supported by explicit 4/4 metre, durations and barlines in the displayed score.",
     ],
+  }),
+  createQuestion({
+    id: "nzqa-2023-bach-analysis",
+    category: "analysis",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(2023, "Question One", "(a)", "Extract One", "J. S. Bach", "Durch Adams Fall ist ganz verderbt", "bars 1–4, exam p.2; schedule p.3", "1–4"),
+    family: "Roman numeral analysis",
+    title: "Reference: C minor to G minor",
+    context: "The extract begins in C minor and modulates to G minor. Analyse the 13 blank positions in bars 1–4, including the pivot chord. The opening C-minor dominant and final V4–3–I are supplied as on the paper.",
+    presentation: { title: "Reference: Roman analysis from C minor to G minor", hiddenConceptTerms: [] },
+    sourceSpec: {
+      year: 2023, provider: "NZQA", question: "Question One", part: "(a)", bars: "1–4",
+      romanNumerals: ["Cm: Vb", "i", "ib", "IV⁷b", "Vb", "i⁹–⁸", "V⁷4–3", "i", "i / Gm: iv", "i", "ivb", "iv", "ii°", "ic", "V⁷4–3", "I"],
+      suppliedLabels: ["Cm: Vb", "V⁷4–3", "I"], analysisPositions: 16, answerPositions: 13,
+      keyCentres: ["C minor", "G minor"], pivotCount: 1, measureCount: 5, independentSatb: true,
+    },
+    score: measuredScore({
+      key: "C minor → G minor", keySignature: "Cm", layout: "satb", labelPosition: "bottom", measuresPerSystem: 3,
+      voiceLabels: { treble: ["S", "A"], bass: ["T", "B"] },
+      sourceKeyCentres: ["C minor", "G minor"],
+      caption: "NZQA examination reference • 2023 Q1(a), Extract One • bars 1–4 transcription",
+      measures: [
+        { expectedBeats: 1, voices: {
+          soprano: [{ pitch: "G4", duration: "q" }], alto: [{ pitch: "D4", duration: "q" }],
+          tenor: [{ pitch: "B3", duration: "q" }], bass: [{ pitch: "B2", duration: "q" }],
+        } },
+        { voices: {
+          soprano: [{ pitch: "G4", duration: "h" }, { pitch: "G4", duration: "h" }],
+          alto: [{ pitch: "Eb4", duration: "q" }, { pitch: "D4", duration: "q" }, { pitch: "Eb4", duration: "h" }],
+          tenor: [{ pitch: "C4", duration: "q" }, { pitch: "Bb3", duration: "q" }, { pitch: "C4", duration: "q" }, { pitch: "B3", duration: "q" }],
+          bass: [{ pitch: "C3", duration: "8" }, { pitch: "D3", duration: "8" }, { pitch: "Eb3", duration: "q" }, { pitch: "F3", duration: "h" }],
+        } },
+        { voices: {
+          soprano: [{ pitch: "F4", duration: "q" }, { pitch: "Eb4", duration: "q" }, { pitch: "D4", duration: "h" }],
+          alto: [{ pitch: "D4", duration: "h" }, { pitch: "C4", duration: "q" }, { pitch: "Bb3", duration: "q" }],
+          tenor: [{ pitch: "B3", duration: "q" }, { pitch: "C4", duration: "8" }, { pitch: "Bb3", duration: "8" }, { pitch: "A3", duration: "h" }],
+          bass: [{ pitch: "G2", duration: "h" }, { pitch: "F2", duration: "q" }, { pitch: "Eb2", duration: "q" }],
+        } },
+        { voices: {
+          soprano: [{ pitch: "D4", duration: "q" }, { pitch: "Eb4", duration: "q" }, { pitch: "D4", duration: "q" }, { pitch: "C4", duration: "q" }],
+          alto: [{ pitch: "Bb3", duration: "h" }, { pitch: "A3", duration: "q" }, { pitch: "G3", duration: "q" }],
+          tenor: [{ pitch: "G3", duration: "q" }, { pitch: "F3", duration: "q" }, { pitch: "Eb3", duration: "8" }, { pitch: "D3", duration: "8" }, { pitch: "C3", duration: "q" }],
+          bass: [{ pitch: "G2", duration: "8" }, { pitch: "Ab2", duration: "8" }, { pitch: "Bb2", duration: "q" }, { pitch: "C3", duration: "q" }, { pitch: "D3", duration: "q" }],
+        } },
+        { endBarline: "final", voices: {
+          soprano: [{ pitch: "D4", duration: "h" }, { pitch: "G4", duration: "h" }],
+          alto: [{ pitch: "C4", duration: "q" }, { pitch: "Bb3", duration: "q" }, { pitch: "B3", duration: "q" }, { pitch: "Bb3", duration: "q" }],
+          tenor: [{ pitch: "A3", duration: "qd" }, { pitch: "G3", duration: "8" }, { pitch: "F#3", duration: "q" }, { pitch: "G3", duration: "q" }],
+          bass: [{ pitch: "D3", duration: "h" }, { pitch: "G2", duration: "h" }],
+        } },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, null, "Cm: Vb", { questionLabel: "Cm: Vb", romanNumeral: "Cm: Vb" }),
+        harmonicBox(2, 1, null, "i", { romanNumeral: "i" }), harmonicBox(2, 2, null, "ib", { romanNumeral: "ib" }),
+        harmonicBox(2, 3, null, "IV⁷b", { romanNumeral: "IV⁷b" }), harmonicBox(2, 4, null, "Vb", { romanNumeral: "Vb" }),
+        harmonicBox(3, 1, null, "i⁹–⁸", { romanNumeral: "i⁹–⁸" }), harmonicBox(3, 2, null, "V⁷4–3", { romanNumeral: "V⁷4–3" }),
+        harmonicBox(3, 3, null, "i", { romanNumeral: "i" }), harmonicBox(3, 4, null, "i / Gm: iv", { romanNumeral: "i / Gm: iv" }),
+        harmonicBox(4, 1, null, "i", { romanNumeral: "i" }), harmonicBox(4, 2, null, "ivb", { romanNumeral: "ivb" }),
+        harmonicBox(4, 3, null, "iv", { romanNumeral: "iv" }), harmonicBox(4, 4, null, "ii°", { romanNumeral: "ii°" }),
+        harmonicBox(5, 1, null, "ic", { romanNumeral: "ic" }),
+        harmonicBox(5, 3, null, "V⁷4–3", { questionLabel: "V⁷4–3", romanNumeral: "V⁷4–3" }),
+        harmonicBox(5, 4, null, "I", { questionLabel: "I", romanNumeral: "I" }),
+      ],
+    }),
+    answerHeading: "Published Roman-numeral route",
+    answer: ["The 13 assessed positions are i–ib–IV7b–Vb–i9–8–V7 4–3–i–i / G minor: iv–i–ivb–iv–ii°–ic, followed by the supplied V7 4–3–I close."],
+  }),
+  createQuestion({
+    id: "nzqa-2021-beethoven-piano",
+    category: "piano",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(2021, "Question Two", "(b)", "Extract Five", "Ludwig van Beethoven", "Bagatelle, Op. 119, No. 8", "bars 9–14, exam p.7; schedule p.6", "9–14"),
+    family: "Piano completion",
+    title: "Reference: continue Beethoven's piano texture",
+    context: "The passage begins in B♭ major, modulates to F major and then C major. Complete bars 10–13 by adding a bass line and two inner parts in the style of the first chord in bar 10.",
+    presentation: { title: "Reference: Beethoven piano completion", hiddenConceptTerms: [] },
+    sourceSpec: {
+      year: 2021, provider: "NZQA", question: "Question Two", part: "(b)", bars: "9–14",
+      suppliedLabels: ["B♭: Vb / F: Ib", "vi°⁷c", "ii", "viib / C: IV", "V⁷ / C: vii°⁷", "I / C: vii°⁷", "vii°⁷", "I"],
+      analysisPositions: 8, keyCentres: ["B♭ major", "F major", "C major"], measureCount: 6,
+      expectedChordCount: 8, expectedCompletionType: "piano",
+      completionContract: { targetMeasures: [2, 3, 4, 5], chordsToRealise: 8, harmonicIndications: 8 },
+    },
+    score: measuredScore({
+      key: "B♭ major → F major → C major", keySignature: "Bb", timeSignature: "3/4", layout: "piano", completion: true,
+      sourceKeyCentres: ["B♭ major", "F major", "C major"],
+      caption: "NZQA examination reference • 2021 Q2(b), Extract Five • bars 9–14 transcription",
+      measures: [
+        { events: [{ treble: ["Db5"], qTreble: ["Db5"], bass: ["Bb2"], qBass: ["Bb2"], duration: "hd" }] },
+        { events: [
+          { treble: ["F4", "Bb4", "D5"], qTreble: ["D5"], bass: ["Bb2"], qBass: [], duration: "q" },
+          { treble: ["E4", "G4", "Bb4"], qTreble: ["Eb5"], bass: ["C3"], qBass: [], duration: "q" },
+          { treble: ["F4", "A4", "C5"], qTreble: ["D5"], bass: ["F3"], qBass: [], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["F4", "A4", "C5"], qTreble: ["C5"], bass: ["A2"], qBass: [], duration: "q" },
+          { treble: ["E4", "G4", "Bb4"], qTreble: ["D5"], bass: ["C3"], qBass: [], duration: "q" },
+          { treble: ["D4", "F4", "B4"], qTreble: ["Db5"], bass: ["B2"], qBass: [], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["E4", "G4", "C5"], qTreble: ["C5"], bass: ["C3"], qBass: [], duration: "qd" },
+          { treble: ["F4", "A4", "C5"], qTreble: ["A4"], bass: ["F2"], qBass: [], duration: "8" },
+          { treble: ["F4", "Ab4", "B4", "D5"], qTreble: ["B4"], bass: ["G2"], qBass: [], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["E4", "G4", "C5"], qTreble: ["D5"], bass: ["C3"], qBass: [], duration: "h" },
+          { treble: ["F4", "Ab4", "B4"], qTreble: ["C5"], bass: ["G2"], qBass: [], duration: "q" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["Db5"], qTreble: ["Db5"], bass: ["F2"], qBass: ["F2"], duration: "q" },
+          { treble: ["C5"], qTreble: ["C5"], bass: ["F2"], qBass: ["F2"], duration: "q" },
+          { treble: ["A4"], qTreble: ["A4"], bass: ["F2"], qBass: ["F2"], duration: "q" },
+        ] },
+      ], harmonicEvents: [
+        harmonicBox(2, 1, 0, "B♭: Vb / F: Ib", { questionLabel: "B♭: Vb / F: Ib" }),
+        harmonicBox(2, 2, 1, "vi°⁷c", { questionLabel: "vi°⁷c" }),
+        harmonicBox(3, 1, 0, "ii", { questionLabel: "ii" }),
+        harmonicBox(3, 2, 1, "viib / C: IV", { questionLabel: "viib / C: IV" }),
+        harmonicBox(4, 1, 0, "V⁷ / C: vii°⁷", { questionLabel: "V⁷ / C: vii°⁷" }),
+        harmonicBox(4, 3, 2, "I / C: vii°⁷", { questionLabel: "I / C: vii°⁷" }),
+        harmonicBox(5, 1, 0, "vii°⁷", { questionLabel: "vii°⁷" }),
+        harmonicBox(5, 3, 1, "I", { questionLabel: "I" }),
+      ],
+    }),
+    answerHeading: "One possible model completion",
+    answer: ["The model preserves the printed melody and supplies eight chords through the B♭–F–C tonal route. It is one possible realisation; other stylistically appropriate bass and inner-part solutions are possible."],
+  }),
+  createQuestion({
+    id: "nzqa-2023-novelette-piano",
+    category: "piano",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(2023, "Question Two", "(c)", "Extract Six", "Robert Schumann, arranged", "Novelette No. 1 in C minor", "bars 20–24, exam p.7; schedule p.7", "20–24"),
+    family: "Piano completion",
+    title: "Reference: continue the Novelette piano texture",
+    context: "The extract is in C major. Complete bars 21–24 from the seven supplied Roman-numeral indications by adding a bass line and two inner parts in the style of bar 20.",
+    presentation: { title: "Reference: C-major piano completion", hiddenConceptTerms: [] },
+    sourceSpec: {
+      year: 2023, provider: "NZQA", question: "Question Two", part: "(c)", bars: "20–24",
+      suppliedLabels: ["Ib", "ii⁷", "V", "I", "ivᵐᵃʲ⁷(♭3)", "vii°⁷c", "Ib"],
+      analysisPositions: 7, keyCentres: ["C major"], measureCount: 5,
+      expectedChordCount: 7, expectedCompletionType: "piano",
+      completionContract: { targetMeasures: [2, 3, 4, 5], chordsToRealise: 7, harmonicIndications: 7 },
+    },
+    score: measuredScore({
+      key: "C major", keySignature: "C", timeSignature: "3/8", layout: "piano", completion: true,
+      sourceKeyCentres: ["C major"], caption: "NZQA examination reference • 2023 Q2(c), Extract Six • bars 20–24 transcription",
+      measures: [
+        { events: [
+          { treble: ["E4", "G4", "C5"], qTreble: ["C5"], bass: ["C3", "G3"], qBass: ["C3", "G3"], duration: "8" },
+          { treble: ["F4", "A4", "D5"], qTreble: ["B4"], bass: ["F3"], qBass: ["F3"], duration: "16" },
+          { treble: ["E4", "G4", "C5"], qTreble: ["A4"], bass: ["G3"], qBass: ["G3"], duration: "16" },
+          { treble: ["D4", "G4", "B4"], qTreble: ["B4"], bass: ["G2"], qBass: ["G2"], duration: "8" },
+        ] },
+        { events: [
+          { treble: ["G4", "C5", "E5"], qTreble: ["C5"], bass: ["E3"], qBass: [], duration: "8" },
+          { treble: ["F4", "A4", "C5", "D5"], qTreble: ["E5"], bass: ["D3"], qBass: [], duration: "8" },
+          { treble: ["F4", "G4", "B4", "D5"], qTreble: ["D5"], bass: ["G2"], qBass: [], duration: "8" },
+        ] },
+        { events: [{ treble: ["E4", "G4", "C5"], qTreble: ["D5"], bass: ["C3"], qBass: [], duration: "qd" }] },
+        { events: [
+          { treble: ["F4", "Ab4", "B4", "D5"], qTreble: ["F5"], bass: ["F2"], qBass: [], duration: "q" },
+          { treble: ["F4", "Ab4", "B4", "D5"], qTreble: ["D5"], bass: ["D3"], qBass: [], duration: "8" },
+        ] },
+        { endBarline: "final", events: [{ treble: ["G4", "C5", "E5"], qTreble: ["C5"], bass: ["E3"], qBass: [], duration: "qd" }] },
+      ], harmonicEvents: [
+        harmonicBox(2, 1, 0, "Ib", { questionLabel: "Ib" }), harmonicBox(2, 2, 1, "ii⁷", { questionLabel: "ii⁷" }),
+        harmonicBox(2, 3, 2, "V", { questionLabel: "V" }), harmonicBox(3, 1, 0, "I", { questionLabel: "I" }),
+        harmonicBox(4, 1, 0, "ivᵐᵃʲ⁷(♭3)", { questionLabel: "ivᵐᵃʲ⁷(♭3)" }),
+        harmonicBox(4, 3, 1, "vii°⁷c", { questionLabel: "vii°⁷c" }), harmonicBox(5, 1, 0, "Ib", { questionLabel: "Ib" }),
+      ],
+    }),
+    answerHeading: "One possible model completion",
+    answer: ["The model continues the 3/8 texture through Ib–ii7–V–I–ivmaj7(♭3)–vii°7c–Ib. It is one possible realisation; other solutions are valid when the supplied melody, harmony and style are preserved."],
+  }),
+  createQuestion({
+    id: "nzqa-2025-bach-analysis",
+    category: "analysis",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(2025, "Question One", "(a)", "Extract One", "J. S. Bach", "Komm, Heiliger Geist, Herre Gott", "bars 5–9, exam p.2; schedule p.3", "5–9"),
+    family: "Roman numeral analysis",
+    title: "Reference: G major, D major and return",
+    context: "The passage begins in G major, modulates to D major, and then returns to G major. The first three labels are supplied. Analyse the 12 indicated positions in bars 6–9 and include a pivot chord at each modulation.",
+    presentation: { title: "Reference: Roman analysis through two key changes", hiddenConceptTerms: [] },
+    sourceSpec: {
+      year: 2025, provider: "NZQA", question: "Question One", part: "(a)", bars: "5–9",
+      romanNumerals: ["G: I", "Vb", "IVb", "I", "Vb", "V / D: I", "Vb", "IVb", "IV⁽⁷⁾", "V⁽⁷⁾", "I", "I / G: V⁷d", "Ib", "vii°b", "I"],
+      analysisPositions: 15, answerPositions: 12, suppliedLabels: ["G: I", "Vb", "IVb"],
+      keyCentres: ["G major", "D major"], pivotCount: 2, measureCount: 5,
+    },
+    score: measuredScore({
+      key: "G major → D major → G major", keySignature: "G", layout: "piano", timeSignature: "4/4", measuresPerSystem: 2,
+      caption: "NZQA examination reference • 2025 Q1(a), Extract One • bars 5–9 transcription",
+      measures: [
+        { expectedBeats: 1, events: [{ treble: ["B4", "D5", "G5"], bass: ["G3"], duration: "q" }] },
+        { events: [
+          { treble: ["A4", "D5", "F#5"], bass: ["F#3"], duration: "q" },
+          { treble: ["G4", "C5", "E5"], bass: ["E3"], duration: "q" },
+          { treble: ["B4", "D5", "G5"], bass: ["G3"], duration: "q" },
+          { treble: ["A4", "D5", "F#5"], bass: ["F#3"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["B4", "D5", "G5"], bass: ["G3"], duration: "8" },
+          { treble: ["A4", "D5", "F#5"], bass: ["F#3"], duration: "8" },
+          { treble: ["B4", "D5", "G5"], bass: ["B2"], duration: "q" },
+          { treble: ["F#4", "B4", "D5", "G5"], bass: ["G2"], duration: "q" },
+          { treble: ["G4", "A4", "C#5", "E5"], bass: ["A2"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["A4", "D5", "F#5"], bass: ["D3"], duration: "h" },
+          { treble: ["A4", "C5", "D5", "F#5"], bass: ["C3"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [
+          { treble: ["B4", "D5", "G5"], bass: ["B2"], duration: "q" },
+          { treble: ["A4", "C5", "F#5"], bass: ["A2"], duration: "q" },
+          { treble: ["B4", "D5", "G5"], bass: ["G2"], duration: "h" },
+        ] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "G: I", { questionLabel: "G: I", localKey: "G major", romanNumeral: "G: I" }),
+        harmonicBox(2, 1, 0, "Vb", { questionLabel: "Vb", localKey: "G major", romanNumeral: "Vb" }),
+        harmonicBox(2, 2, 1, "IVb", { questionLabel: "IVb", localKey: "G major", romanNumeral: "IVb" }),
+        harmonicBox(2, 3, 2, "I", { localKey: "G major", romanNumeral: "I" }),
+        harmonicBox(2, 4, 3, "Vb", { localKey: "G major", romanNumeral: "Vb" }),
+        harmonicBox(3, 1, 0, "V / D: I", { localKey: "G major", romanNumeral: "V / D: I" }),
+        harmonicBox(3, 1.5, 1, "Vb", { localKey: "D major", romanNumeral: "Vb" }),
+        harmonicBox(3, 2, 2, "IVb", { localKey: "D major", romanNumeral: "IVb" }),
+        harmonicBox(3, 3, 3, "IV⁽⁷⁾", { localKey: "D major", romanNumeral: "IV⁽⁷⁾" }),
+        harmonicBox(3, 4, 4, "V⁽⁷⁾", { localKey: "D major", romanNumeral: "V⁽⁷⁾" }),
+        harmonicBox(4, 1, 0, "I", { localKey: "D major", romanNumeral: "I" }),
+        harmonicBox(4, 3, 1, "I / G: V⁷d", { localKey: "D major", romanNumeral: "I / G: V⁷d" }),
+        harmonicBox(5, 1, 0, "Ib", { localKey: "G major", romanNumeral: "Ib" }),
+        harmonicBox(5, 2, 1, "vii°b", { localKey: "G major", romanNumeral: "vii°b" }),
+        harmonicBox(5, 3, 2, "I", { localKey: "G major", romanNumeral: "I" }),
+      ],
+    }),
+    answerHeading: "Published Roman-numeral route",
+    answer: ["After the supplied G: I–Vb–IVb, the 12 assessed labels are I–Vb–V / D: I–Vb–IVb–IV(7)–V(7)–I–I / G: V7d–Ib–vii°b–I."],
+  }),
+  createQuestion({
+    id: "nzqa-2025-bach-modulation",
+    category: "modulation",
+    homeKey: "G major",
+    keyRegions: [
+      { section: "X", localKey: "E minor", modelRelationship: "relative minor", relationshipChoices: ["relative minor", "dominant", "subdominant", "tonic minor", "mediant major"] },
+      { section: "Y", localKey: "D major", modelRelationship: "dominant", relationshipChoices: ["dominant", "subdominant", "relative minor", "supertonic", "tonic major"] },
+      { section: "Z", localKey: "A minor", modelRelationship: "relative minor of the subdominant", acceptedRelationshipLabels: ["relative minor of the subdominant", "supertonic minor"], relationshipChoices: ["relative minor of the subdominant", "relative minor", "dominant minor", "subdominant", "relative major of the dominant"] },
+    ],
+    sourceType: "nzqa-reference",
+    source: nzqaSource(2025, "Question One", "(b)", "Extract Two", "J. S. Bach", "Komm, Heiliger Geist, Herre Gott", "bars 9–20, exam p.3; schedule p.4", "9–20"),
+    family: "Keys and modulation",
+    title: "Reference: three local key regions from G major",
+    context: "The extract is in G major and modulates through several keys between bars 9–20. For X, Y and Z, identify the local key, give score evidence and state its relationship to the tonic G major.",
+    presentation: { title: "Reference: identify three local key regions", hiddenConceptTerms: [] },
+    sourceSpec: {
+      year: 2025, provider: "NZQA", question: "Question One", part: "(b)", bars: "9–20",
+      sections: ["X", "Y", "Z"], keyCentres: ["E minor", "D major", "A minor"],
+      keyRelationships: [
+        { section: "X", homeKey: "G major", localKey: "E minor", acceptedLabels: [] },
+        { section: "Y", homeKey: "G major", localKey: "D major", acceptedLabels: [] },
+        { section: "Z", homeKey: "G major", localKey: "A minor", acceptedLabels: ["relative minor of the subdominant", "supertonic minor"] },
+      ], measureCount: 6,
+    },
+    score: measuredScore({
+      key: "G major", keySignature: "G", layout: "satb", voiceLabels: { treble: ["S", "A"], bass: ["T", "B"] },
+      sourceKeyCentres: ["E minor", "D major", "A minor"], caption: "NZQA examination reference • 2025 Q1(b), Extract Two • bars 9–20 selected regions",
+      brackets: [{ start: 0, end: 3, label: "X", key: "E minor" }, { start: 4, end: 7, label: "Y", key: "D major" }, { start: 8, end: 11, label: "Z", key: "A minor" }],
+      measures: [
+        { events: [{ voices: { soprano: "G4", alto: "E4", tenor: "B3", bass: "E3" }, duration: "h" }, { voices: { soprano: "F#4", alto: "D#4", tenor: "B3", bass: "B2" }, duration: "h" }] },
+        { events: [{ voices: { soprano: "E4", alto: "B3", tenor: "G3", bass: "E3" }, duration: "w" }] },
+        { events: [{ voices: { soprano: "E5", alto: "C#4", tenor: "A3", bass: "A2" }, duration: "h" }, { voices: { soprano: "D5", alto: "A4", tenor: "F#3", bass: "D3" }, duration: "h" }] },
+        { events: [{ voices: { soprano: "F#4", alto: "D4", tenor: "A3", bass: "D3" }, duration: "w" }] },
+        { events: [{ voices: { soprano: "B4", alto: "G#4", tenor: "D4", bass: "E3" }, duration: "h" }, { voices: { soprano: "A4", alto: "E4", tenor: "C4", bass: "A2" }, duration: "h" }] },
+        { endBarline: "final", events: [{ voices: { soprano: "A4", alto: "E4", tenor: "C4", bass: "A2" }, duration: "w" }] },
+      ], harmonicEvents: [],
+    }),
+    answerHeading: "Published key, evidence and relationship table",
+    answer: ["X: E minor — imperfect cadence in bars 10–11 moving to I in bar 11, with D♯ — relative minor. Y: D major — perfect cadence and C♯ — dominant. Z: A minor — perfect cadence and G♯ — relative minor of the subdominant; supertonic minor is accepted."],
+  }),
+  createQuestion({
+    id: "nzqa-2025-bach-satb",
+    category: "satb",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(2025, "Question One", "(c)", "Extract Three", "J. S. Bach", "Komm, Heiliger Geist, Herre Gott", "bars 21–24, exam p.4; schedule p.4", "21–24"),
+    family: "SATB / vocal completion",
+    title: "Reference: two-stage chorale completion",
+    context: "In G major, first complete bars 22–23 beat 1 around the supplied tenor and include the printed suspension. Then complete bar 23 beat 2 through bar 24 beat 3 around the supplied melody, choosing and labelling I, ii, V, V7 or vi in root position or inversion and including two passing notes.",
+    presentation: { title: "Reference: two-stage chorale completion", hiddenConceptTerms: [] },
+    sourceSpec: {
+      year: 2025, provider: "NZQA", question: "Question One", part: "(c)", bars: "21–24",
+      romanNumerals: ["I", "Ib", "IV⁹–⁸", "I", "Vb", "I", "vi", "iib", "V⁷", "I"],
+      analysisPositions: 10, suppliedLabels: ["I", "Ib", "IV⁹–⁸"], keyCentres: ["G major"], measureCount: 4,
+      expectedChordCount: 10, requiredPassingNotes: 2, requiredSuspension: true, expectedCompletionType: "satb",
+      completionContract: { targetMeasures: [2, 3, 4], chordsToRealise: 10, harmonicIndications: 3 },
+    },
+    score: measuredScore({
+      key: "G major", keySignature: "G", layout: "satb", voiceLabels: { treble: ["S", "A"], bass: ["T", "B"] }, completion: true,
+      sourceKeyCentres: ["G major"], caption: "NZQA examination reference • 2025 Q1(c), Extract Three • bars 21–24 transcription",
+      measures: [
+        { voices: { soprano: [{ pitch: "G4", duration: "q" }, { pitch: "A4", duration: "q" }, { pitch: "B4", duration: "q" }, { pitch: "D5", duration: "q" }], alto: [{ pitch: "D4", duration: "h" }, { pitch: "G4", duration: "h" }], tenor: [{ pitch: "B3", duration: "q" }, { pitch: "A3", duration: "q" }, { pitch: "G3", duration: "h" }], bass: [{ pitch: "G3", duration: "q" }, { pitch: "F#3", duration: "q" }, { pitch: "E3", duration: "q" }, { pitch: "G3", duration: "q" }] }, questionVoices: { soprano: [{ pitch: "G4", duration: "q" }, { pitch: "A4", duration: "q" }, { pitch: "B4", duration: "q" }, { pitch: "D5", duration: "q" }], alto: [{ pitch: "D4", duration: "h" }, { pitch: "G4", duration: "h" }], tenor: [{ pitch: "B3", duration: "q" }, { pitch: "A3", duration: "q" }, { pitch: "G3", duration: "h" }], bass: [{ pitch: "G3", duration: "q" }, { pitch: "F#3", duration: "q" }, { pitch: "E3", duration: "q" }, { pitch: "G3", duration: "q" }] } },
+        { voices: { soprano: [{ pitch: "B4", duration: "q" }, { pitch: "D5", duration: "q" }, { pitch: "C5", duration: "q" }, { pitch: "B4", duration: "q" }], alto: [{ pitch: "G4", duration: "h" }, { pitch: "A4", duration: "q" }, { pitch: "G4", duration: "q" }], tenor: [{ pitch: "D4", duration: "h" }, { pitch: "E4", duration: "q" }, { pitch: "D4", duration: "q" }], bass: [{ pitch: "G3", duration: "q" }, { pitch: "B2", duration: "q" }, { pitch: "C3", duration: "q" }, { pitch: "D3", duration: "q" }] }, questionVoices: { soprano: [{ duration: "w" }], alto: [{ duration: "w" }], tenor: [{ pitch: "D4", duration: "h" }, { pitch: "E4", duration: "q" }, { pitch: "D4", duration: "q" }], bass: [{ duration: "w" }] } },
+        { voices: { soprano: [{ pitch: "G4", duration: "q" }, { pitch: "A4", duration: "8" }, { pitch: "B4", duration: "8" }, { pitch: "C5", duration: "q" }, { pitch: "D5", duration: "q" }], alto: [{ pitch: "D4", duration: "q" }, { pitch: "F#4", duration: "q" }, { pitch: "E4", duration: "q" }, { pitch: "F#4", duration: "q" }], tenor: [{ pitch: "B3", duration: "q" }, { pitch: "A3", duration: "q" }, { pitch: "G3", duration: "q" }, { pitch: "A3", duration: "q" }], bass: [{ pitch: "G3", duration: "q" }, { pitch: "D3", duration: "q" }, { pitch: "E3", duration: "q" }, { pitch: "C3", duration: "q" }] }, questionVoices: { soprano: [{ duration: "q" }, { pitch: "A4", duration: "8" }, { pitch: "B4", duration: "8" }, { pitch: "C5", duration: "q" }, { pitch: "D5", duration: "q" }], alto: [{ duration: "w" }], tenor: [{ pitch: "B3", duration: "q" }, { duration: "hd" }], bass: [{ duration: "w" }] } },
+        { expectedBeats: 3, endBarline: "final", voices: { soprano: [{ pitch: "C5", duration: "h" }, { pitch: "B4", duration: "q" }], alto: [{ pitch: "E4", duration: "q" }, { pitch: "F#4", duration: "q" }, { pitch: "G4", duration: "q" }], tenor: [{ pitch: "A3", duration: "q" }, { pitch: "D4", duration: "q" }, { pitch: "D4", duration: "q" }], bass: [{ pitch: "A2", duration: "q" }, { pitch: "D3", duration: "q" }, { pitch: "G2", duration: "q" }] }, questionVoices: { soprano: [{ pitch: "C5", duration: "h" }, { pitch: "B4", duration: "q" }], alto: [{ duration: "hd" }], tenor: [{ duration: "hd" }], bass: [{ duration: "hd" }] } },
+      ],
+      harmonicEvents: [
+        harmonicBox(2, 1, null, "I", { questionLabel: "I", romanNumeral: "I", localKey: "G major" }),
+        harmonicBox(2, 2, null, "Ib", { questionLabel: "Ib", romanNumeral: "Ib", localKey: "G major" }),
+        harmonicBox(2, 3, null, "IV⁹–⁸", { questionLabel: "IV⁹–⁸", romanNumeral: "IV⁹–⁸", localKey: "G major" }),
+        harmonicBox(3, 1, null, "I", { romanNumeral: "I", localKey: "G major" }),
+        harmonicBox(3, 2, null, "Vb", { romanNumeral: "Vb", localKey: "G major" }),
+        harmonicBox(3, 3, null, "I", { romanNumeral: "I", localKey: "G major" }),
+        harmonicBox(3, 4, null, "vi", { romanNumeral: "vi", localKey: "G major" }),
+        harmonicBox(4, 1, null, "iib", { romanNumeral: "iib", localKey: "G major" }),
+        harmonicBox(4, 2, null, "V⁷", { romanNumeral: "V⁷", localKey: "G major" }),
+        harmonicBox(4, 3, null, "I", { romanNumeral: "I", localKey: "G major" }),
+      ],
+    }),
+    answerHeading: "One possible model completion",
+    answer: ["The schedule model realises I–Ib–IV9–8, then one valid chosen route I–Vb–I–vi–iib–V7–I. It preserves the supplied tenor in stage one, the supplied melody in stage two, the required suspension, and at least two passing notes. Other stylistically valid realisations are possible."],
+  }),
+  createQuestion({
+    id: "nzqa-2025-schubert-analysis",
+    category: "analysis",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(2025, "Question Two", "(a)", "Extract Four", "Franz Schubert", "Adagio and Rondo in E Major, D 506 Op. 145", "bars 1–6, exam p.5; schedule p.6", "1–6"),
+    family: "Roman numeral analysis",
+    title: "Reference: extended Schubert progression and pivots",
+    context: "The extract begins in E major, modulates to F♯ minor, and returns to E major. The first I is supplied. Analyse the 12 indicated positions and include the pivot at each modulation.",
+    presentation: { title: "Reference: Schubert Roman analysis", hiddenConceptTerms: [] },
+    sourceSpec: { year: 2025, provider: "NZQA", question: "Question Two", part: "(a)", bars: "1–6", romanNumerals: ["E: I", "V⁷b", "I", "ii / F♯m: i", "iib / F♯m: ib", "V⁷", "V⁷", "i / E: ii", "V⁷b", "vii°⁷", "V⁷b", "I", "V⁷c"], analysisPositions: 13, answerPositions: 12, suppliedLabels: ["E: I"], keyCentres: ["E major", "F♯ minor"], pivotCount: 2, measureCount: 6 },
+    score: measuredScore({
+      key: "E major → F♯ minor → E major", keySignature: "E", timeSignature: "3/4", layout: "piano", caption: "NZQA examination reference • 2025 Q2(a), Extract Four • bars 1–6 transcription",
+      measures: [
+        { events: [{ treble: ["G#4", "B4", "E5"], bass: ["E3"], duration: "q" }, { treble: ["A4", "D#5", "F#5"], bass: ["F#3"], duration: "q" }, { treble: ["G#4", "B4", "E5"], bass: ["E3"], duration: "q" }] },
+        { events: [{ treble: ["A4", "C#5", "E5"], bass: ["F#3"], duration: "q" }, { treble: ["A4", "C#5", "F#5"], bass: ["A3"], duration: "q" }, { treble: ["G#4", "B#4", "D5", "F#5"], bass: ["C#3"], duration: "q" }] },
+        { events: [{ treble: ["G#4", "B#4", "D5", "F#5"], bass: ["C#3"], duration: "hd" }] },
+        { events: [{ treble: ["G#4", "B#4", "D5", "F#5"], bass: ["C#3"], duration: "h" }, { treble: ["A4", "C#5", "F#5"], bass: ["F#3"], duration: "q" }] },
+        { events: [{ treble: ["A4", "D#5", "F#5"], bass: ["F#3"], duration: "q" }, { treble: ["A4", "C5", "D#5", "F#5"], bass: ["D#3"], duration: "q" }, { treble: ["A4", "D#5", "F#5"], bass: ["F#3"], duration: "q" }] },
+        { endBarline: "final", events: [{ treble: ["G#4", "B4", "E5"], bass: ["E3"], duration: "h" }, { treble: ["A4", "B4", "D#5", "F#5"], bass: ["A3"], duration: "q" }] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "E: I", { questionLabel: "E: I", localKey: "E major", romanNumeral: "E: I" }), harmonicBox(1, 2, 1, "V⁷b", { localKey: "E major", romanNumeral: "V⁷b" }), harmonicBox(1, 3, 2, "I", { localKey: "E major", romanNumeral: "I" }),
+        harmonicBox(2, 1, 0, "ii / F♯m: i", { localKey: "E major", romanNumeral: "ii / F♯m: i" }), harmonicBox(2, 2, 1, "iib / F♯m: ib", { localKey: "F♯ minor", romanNumeral: "iib / F♯m: ib" }), harmonicBox(2, 3, 2, "V⁷", { localKey: "F♯ minor", romanNumeral: "V⁷" }),
+        harmonicBox(3, 1, 0, "V⁷", { localKey: "F♯ minor", romanNumeral: "V⁷" }), harmonicBox(4, 3, 1, "i / E: ii", { localKey: "F♯ minor", romanNumeral: "i / E: ii" }),
+        harmonicBox(5, 1, 0, "V⁷b", { localKey: "E major", romanNumeral: "V⁷b" }), harmonicBox(5, 2, 1, "vii°⁷", { localKey: "E major", romanNumeral: "vii°⁷" }), harmonicBox(5, 3, 2, "V⁷b", { localKey: "E major", romanNumeral: "V⁷b" }),
+        harmonicBox(6, 1, 0, "I", { localKey: "E major", romanNumeral: "I" }), harmonicBox(6, 3, 1, "V⁷c as suspension", { localKey: "E major", romanNumeral: "V⁷c" }),
+      ],
+    }),
+    answerHeading: "Published Schubert analysis",
+    answer: ["The 12 assessed positions are V7b–I–ii / F♯m:i–iib / F♯m:ib–V7–V7–i / E:ii–V7b–vii°7–V7b–I–V7c as a suspension. The schedule accepts either adjacent ii/i pivot placement at the first modulation."],
+  }),
+  createQuestion({
+    id: "nzqa-2025-schubert-feature",
+    category: "features",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(2025, "Question Two", "(b)", "Extract Five", "Franz Schubert", "Adagio and Rondo in E Major, D 506 Op. 145", "bars 7–8, exam p.6; schedule p.6", "7–8"),
+    family: "Harmonic or tonal feature",
+    title: "Reference: feature, evidence, function and effect",
+    context: "Identify a harmonic or tonal feature in bars 7–8, locate precise score evidence, and explain its function and effect in the phrase.",
+    presentation: { title: "Reference: contextual harmonic feature", hiddenConceptTerms: ["contrary chromatic motion", "sequence"] },
+    contextualFields: [
+      { id: "feature", label: "Feature", kind: "classification", choices: ["chromatic semitone movement", "melodic repetition / imitation / sequence", "tonic pedal", "circle-of-fifths motion", "harmonic-rhythm change"], acceptedAnswers: [{ label: "chromatic semitone movement" }, { label: "melodic repetition / imitation / sequence" }] },
+      { id: "location", label: "Score evidence / location", kind: "text", prompt: "Name the bar, beat, voices and pitch direction.", acceptedAnswers: [{ label: "Bar 7 beat 3: contrary chromatic semitone motion, descending in one part and ascending in another." }] },
+      { id: "function", label: "Function", kind: "text", prompt: "Explain what the feature does harmonically or melodically.", acceptedAnswers: [{ label: "It decorates the cadence point and emphasises the imperfect cadence / dominant harmony; alternatively, repetition develops the melody and provides continuity." }] },
+      { id: "effect", label: "Effect", kind: "text", prompt: "Connect the device to the listener's sense of motion or continuity.", acceptedAnswers: [{ label: "It creates variety and interest and momentum back to the tonic; the melodic alternative provides continuity." }] },
+    ],
+    sourceSpec: { year: 2025, provider: "NZQA", question: "Question Two", part: "(b)", bars: "7–8", expectedChordCount: 0, measureCount: 2 },
+    score: measuredScore({
+      key: "E major", keySignature: "E", timeSignature: "3/4", layout: "piano", caption: "NZQA examination reference • 2025 Q2(b), Extract Five • bars 7–8 transcription",
+      measures: [
+        { events: [{ treble: ["G#4", "E5"], bass: ["E3", "B3"], duration: "q" }, { treble: ["F#4", "D#5"], bass: ["F#3"], duration: "q" }, { treble: ["G4", "C#5"], bass: ["F3"], duration: "q" }] },
+        { endBarline: "final", events: [{ treble: ["E4", "B4"], bass: ["G#2"], duration: "q" }, { treble: ["D#4", "B4"], bass: ["A3"], duration: "q" }, { treble: [], trebleRest: true, bass: ["G#3"], duration: "q" }] },
+      ], harmonicEvents: [],
+    }),
+    answerHeading: "Schedule-derived contextual evidence",
+    answer: ["One response identifies contrary chromatic semitone motion at bar 7 beat 3: one part descends while another ascends. It decorates the cadence point, emphasises the imperfect cadence/dominant and creates variety, interest and momentum back to tonic. The schedule also allows repetition, imitation or sequence in the melody when its developmental and continuity function is explained."],
+  }),
+  createQuestion({
+    id: "nzqa-2025-schubert-piano",
+    category: "piano",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(2025, "Question Two", "(c)", "Extract Six", "Franz Schubert", "Adagio and Rondo in E Major, D 506 Op. 145", "bars 19–24, exam p.7; schedule p.7", "19–24"),
+    family: "Piano completion",
+    title: "Reference: continue Schubert's piano texture",
+    context: "The Rondo extract is in E major. Continue the piano writing of bars 19–20 by adding a bass line and two inner parts in bars 20–24, using all eight supplied Roman-numeral indications.",
+    presentation: { title: "Reference: Schubert piano completion", hiddenConceptTerms: [] },
+    sourceSpec: { year: 2025, provider: "NZQA", question: "Question Two", part: "(c)", bars: "19–24", suppliedLabels: ["V", "ii", "iib", "vii°⁷", "V", "I", "V⁷", "I"], analysisPositions: 8, expectedChordCount: 8, measureCount: 6, expectedCompletionType: "piano", completionContract: { targetMeasures: [2, 3, 4, 5, 6], chordsToRealise: 8, harmonicIndications: 8 } },
+    score: measuredScore({
+      key: "E major", keySignature: "E", timeSignature: "2/4", layout: "piano", completion: true, caption: "NZQA examination reference • 2025 Q2(c), Extract Six • bars 19–24 transcription",
+      measures: [
+        { events: [{ treble: ["B4", "E5"], qTreble: ["E5"], bass: ["E3", "B3"], qBass: ["E3", "B3"], duration: "q" }, { treble: ["D#5", "F#5"], qTreble: ["F#5"], bass: ["E3", "B3"], qBass: ["E3", "B3"], duration: "q" }] },
+        { events: [{ treble: ["B4", "D#5"], qTreble: ["D#5"], bass: ["B2", "F#3"], qBass: [], duration: "h" }] },
+        { events: [{ treble: ["A4", "C#5", "E5"], qTreble: ["E5"], bass: ["F#2"], qBass: [], duration: "q" }, { treble: ["A4", "C#5", "F#5"], qTreble: ["F#5"], bass: ["A2"], qBass: [], duration: "q" }] },
+        { events: [{ treble: ["A4", "C5", "D#5", "F#5"], qTreble: ["F#5"], bass: ["D#3"], qBass: [], duration: "q" }, { treble: ["A4", "B4", "D#5"], qTreble: ["D#5"], bass: ["B2"], qBass: [], duration: "q" }] },
+        { events: [{ treble: ["G#4", "B4", "E5"], qTreble: ["E5"], bass: ["E3"], qBass: [], duration: "q" }, { treble: ["A4", "B4", "D#5", "F#5"], qTreble: ["F#5"], bass: ["B2"], qBass: [], duration: "q" }] },
+        { endBarline: "final", events: [{ treble: ["G#4", "B4", "E5"], qTreble: ["E5"], bass: ["E2"], qBass: [], duration: "h" }] },
+      ], harmonicEvents: [
+        harmonicBox(2, 1, 0, "V", { questionLabel: "V" }), harmonicBox(3, 1, 0, "ii", { questionLabel: "ii" }), harmonicBox(3, 2, 1, "iib", { questionLabel: "iib" }), harmonicBox(4, 1, 0, "vii°⁷", { questionLabel: "vii°⁷" }), harmonicBox(4, 2, 1, "V", { questionLabel: "V" }), harmonicBox(5, 1, 0, "I", { questionLabel: "I" }), harmonicBox(5, 2, 1, "V⁷", { questionLabel: "V⁷" }), harmonicBox(6, 1, 0, "I", { questionLabel: "I" }),
+      ],
+    }),
+    answerHeading: "One possible model completion",
+    answer: ["The schedule model continues the compact two-part melodic texture with a bass and two inner parts through V–ii–iib–vii°7–V–I–V7–I. Other stylistically appropriate realisations are possible."],
+  }),
+  createQuestion({
+    id: "nzqa-2025-joel-chords",
+    category: "jazz",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(2025, "Question Three", "(a)", "Extract Seven", "Billy Joel", "New York State of Mind", "bars 5–13, exam p.9; schedule p.9", "5–13"),
+    family: "Jazz / rock notation",
+    title: "Reference: extended pop-jazz chord analysis",
+    context: "C is supplied at bar 5. Analyse the 10 chord positions in bars 6–13 using jazz / rock notation. Where a bar contains one chord, use the harmony of the whole bar.",
+    presentation: { title: "Reference: identify ten jazz / rock chords", hiddenConceptTerms: [] },
+    sourceSpec: { year: 2025, provider: "NZQA", question: "Question Three", part: "(a)", bars: "5–13", chordSymbols: ["C", "E7", "Am7", "Gm(add4)", "C7", "F", "A7", "Dm7", "B♭9", "B♭7", "C"], analysisPositions: 11, answerPositions: 10, suppliedLabels: ["C"], keyCentres: ["C major"], measureCount: 9 },
+    score: measuredScore({
+      key: "C major", keySignature: "C", layout: "piano", labelPosition: "top", caption: "NZQA examination reference • 2025 Q3(a), Extract Seven • bars 5–13 transcription",
+      measures: [
+        { events: [{ treble: ["E4", "G4", "C5"], bass: ["C3"], duration: "w" }] },
+        { events: [{ treble: ["G#4", "B4", "D5"], bass: ["E3"], duration: "w" }] },
+        { events: [{ treble: ["G4", "A4", "C5", "E5"], bass: ["A2"], duration: "h" }, { treble: ["G4", "Bb4", "C5", "D5"], bass: ["G2"], duration: "h" }] },
+        { events: [{ treble: ["Bb4", "C5", "E5", "G5"], bass: ["C3"], duration: "w" }] },
+        { events: [{ treble: ["A4", "C5", "F5"], bass: ["F3"], duration: "w" }] },
+        { events: [{ treble: ["G4", "C#5", "E5"], bass: ["A2"], duration: "h" }, { treble: ["A4", "C5", "D5", "F5"], bass: ["D3"], duration: "h" }] },
+        { events: [{ treble: ["Ab4", "C5", "D5", "F5"], bass: ["Bb2"], duration: "w" }] },
+        { events: [{ treble: ["Ab4", "Bb4", "D5", "F5"], bass: ["Bb2"], duration: "h" }, { treble: ["E4", "G4", "C5"], bass: ["C3"], duration: "h" }] },
+        { endBarline: "final", events: [{ treble: ["E4", "G4", "C5"], bass: ["C3"], duration: "w" }] },
+      ], harmonicEvents: [
+        harmonicBox(1, 1, 0, "C", { chordSymbol: "C", questionLabel: "C", localKey: "C major" }), harmonicBox(2, 1, 0, "E7", { chordSymbol: "E7", localKey: "C major" }), harmonicBox(3, 1, 0, "Am7", { chordSymbol: "Am7", localKey: "C major" }), harmonicBox(3, 3, 1, "Gm(add4)", { chordSymbol: "Gm(add4)", localKey: "C major" }), harmonicBox(4, 1, 0, "C7", { chordSymbol: "C7", localKey: "C major" }), harmonicBox(5, 1, 0, "F", { chordSymbol: "F", localKey: "C major" }), harmonicBox(6, 1, 0, "A7", { chordSymbol: "A7", localKey: "C major" }), harmonicBox(6, 3, 1, "Dm7", { chordSymbol: "Dm7", localKey: "C major" }), harmonicBox(7, 1, 0, "B♭9", { chordSymbol: "B♭9", localKey: "C major" }), harmonicBox(8, 1, 0, "B♭7", { chordSymbol: "B♭7", localKey: "C major" }), harmonicBox(8, 3, 1, "C", { chordSymbol: "C", localKey: "C major" }),
+      ],
+    }),
+    answerHeading: "Published chord-symbol sequence",
+    answer: ["The 10 assessed answers are E7, Am7, Gm(add4), C7, F, A7, Dm7, B♭9, B♭7 and C."],
+  }),
+  createQuestion({
+    id: "nzqa-2025-joel-context",
+    category: "features",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(2025, "Question Three", "(b)", "Extract Eight", "Billy Joel", "New York State of Mind", "bars 24–42, exam pp.10–11; schedule p.9", "24–42"),
+    family: "Contextual harmonic and tonal analysis",
+    title: "Reference: harmonic rhythm and tonality in the bridge",
+    context: "Analyse the bridge's harmonic rhythm and tonality. Build at least two evidence points: name the feature, locate it in the score, and explain its function or effect.",
+    presentation: { title: "Reference: analyse harmonic rhythm and tonality", hiddenConceptTerms: ["1–1–2", "circle of fifths"] },
+    contextualFields: [
+      { id: "point-1-feature", label: "Point 1 · Feature", kind: "classification", choices: ["harmonic rhythm", "dominant–tonic motion", "circle-of-fifths motion", "added sevenths / major sevenths", "major chord changed to minor"], acceptedAnswers: [{ label: "harmonic rhythm" }] },
+      { id: "point-1-evidence", label: "Point 1 · Score evidence", kind: "text", prompt: "State the rate/pattern and name affected chords or bars.", acceptedAnswers: [{ label: "Chords change every one or two bars and settle into a 1–1–2 pattern that emphasises G, F, A and G." }] },
+      { id: "point-1-effect", label: "Point 1 · Function / effect", kind: "text", prompt: "Explain how that pattern shapes the bridge.", acceptedAnswers: [{ label: "The changing rate creates motion while the longer bar gives selected chords extra weight." }] },
+      { id: "point-2-feature", label: "Point 2 · Feature", kind: "classification", choices: ["movement away from C-major tonality", "dominant–tonic motion", "circle-of-fifths motion", "jazz seventh / major-seventh additions", "major chord changed to minor"], acceptedAnswers: [{ label: "movement away from C-major tonality" }, { label: "dominant–tonic motion" }, { label: "circle-of-fifths motion" }, { label: "jazz seventh / major-seventh additions" }, { label: "major chord changed to minor" }] },
+      { id: "point-2-evidence", label: "Point 2 · Score evidence", kind: "text", prompt: "Name at least two specific harmonic examples.", acceptedAnswers: [{ label: "Dominant–tonic and circle-of-fifths motion, seventh/major-seventh additions, and G–G minor or A–A minor changes move away from C major." }] },
+      { id: "point-2-effect", label: "Point 2 · Function / effect", kind: "text", prompt: "Relate the examples to local tonal movement.", acceptedAnswers: [{ label: "The chord choices create varied local centres and tonal colour before the song returns to its C-major frame." }] },
+    ],
+    sourceSpec: { year: 2025, provider: "NZQA", question: "Question Three", part: "(b)", bars: "24–42", expectedChordCount: 0, measureCount: 6 },
+    score: measuredScore({
+      key: "C major context", keySignature: "C", layout: "piano", caption: "NZQA examination reference • 2025 Q3(b), Extract Eight • representative bridge systems, bars 24–42",
+      measures: [
+        { events: [{ treble: ["F4", "A4", "C5"], bass: ["F2"], duration: "w" }] }, { events: [{ treble: ["F4", "B4", "D5"], bass: ["G2"], duration: "w" }] },
+        { events: [{ treble: ["E4", "G4", "B4", "D5"], bass: ["C3"], duration: "w" }] }, { events: [{ treble: ["D4", "G4", "Bb4"], bass: ["G2"], duration: "w" }] },
+        { events: [{ treble: ["C4", "F4", "A4"], bass: ["F2"], duration: "w" }] }, { endBarline: "final", events: [{ treble: ["C#4", "E4", "A4"], bass: ["A2"], duration: "w" }] },
+      ], harmonicEvents: [],
+    }),
+    answerHeading: "Schedule-derived bridge analysis",
+    answer: ["The schedule describes chords changing every one or two bars and settling into a 1–1–2 pattern that emphasises G, F, A and G. Tonality moves away from C major through dominant–tonic and circle-of-fifths motion, jazz seventh/major-seventh additions, and changes such as G to G minor and A to A minor."],
+  }),
+  createQuestion({
+    id: "nzqa-2025-joel-piano",
+    category: "piano",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(2025, "Question Three", "(c)", "Extract Nine", "Billy Joel", "New York State of Mind", "bars 14–22, exam p.12; schedule p.10", "14–22"),
+    family: "Piano completion",
+    title: "Reference: continue Billy Joel's piano accompaniment",
+    context: "Continue the harmony of the piano part in bars 15–22 from the printed jazz/rock chord indications, preserving the opening accompaniment style and supplied melody.",
+    presentation: { title: "Reference: pop-piano completion", hiddenConceptTerms: [] },
+    sourceSpec: { year: 2025, provider: "NZQA", question: "Question Three", part: "(c)", bars: "14–22", suppliedLabels: ["Cmaj7/G", "F", "C/E", "D9", "F9", "G9", "Am7", "D7", "Am7", "G"], analysisPositions: 10, expectedChordCount: 10, measureCount: 8, expectedCompletionType: "piano", completionContract: { targetMeasures: [2, 3, 4, 5, 6, 7, 8], chordsToRealise: 10, harmonicIndications: 10 } },
+    score: measuredScore({
+      key: "C major", keySignature: "C", layout: "piano", completion: true, caption: "NZQA examination reference • 2025 Q3(c), Extract Nine • bars 14–22 transcription",
+      measures: [
+        { events: [{ treble: ["G4", "C5", "E5"], qTreble: ["E5"], bass: ["A2", "E3"], qBass: ["A2", "E3"], duration: "h" }, { treble: ["G4", "B4", "E5"], qTreble: ["E5"], bass: ["G2"], qBass: ["G2"], duration: "h" }] },
+        { events: [{ treble: ["G4", "B4", "C5", "E5"], qTreble: ["E5"], bass: ["G2"], qBass: [], duration: "h" }, { treble: ["A4", "C5", "F5"], qTreble: ["F5"], bass: ["F2"], qBass: [], duration: "h" }] },
+        { events: [{ treble: ["G4", "C5", "E5"], qTreble: ["E5"], bass: ["E2"], qBass: [], duration: "h" }, { treble: ["C5", "E5", "F#5"], qTreble: ["F#5"], bass: ["D2"], qBass: [], duration: "h" }] },
+        { events: [{ treble: ["Eb4", "A4", "C5", "G5"], qTreble: ["G5"], bass: ["F2"], qBass: [], duration: "h" }, { treble: ["F4", "A4", "B4", "D5"], qTreble: ["D5"], bass: ["G2"], qBass: [], duration: "h" }] },
+        { events: [{ treble: ["G4", "A4", "C5", "E5"], qTreble: ["E5"], bass: ["A2"], qBass: [], duration: "h" }, { treble: ["F#4", "A4", "C5", "D5"], qTreble: ["D5"], bass: ["D2"], qBass: [], duration: "h" }] },
+        { events: [{ treble: ["G4", "A4", "C5", "E5"], qTreble: ["E5"], bass: ["A2"], qBass: [], duration: "w" }] },
+        { events: [{ treble: ["G4", "B4", "D5"], qTreble: ["D5"], bass: ["G2"], qBass: [], duration: "w" }] },
+        { endBarline: "final", events: [{ treble: ["G4", "B4", "D5"], qTreble: ["D5"], bass: ["G2"], qBass: [], duration: "w" }] },
+      ], harmonicEvents: [
+        harmonicBox(2, 1, 0, "Cmaj7/G", { questionLabel: "Cmaj7/G" }), harmonicBox(2, 3, 1, "F", { questionLabel: "F" }), harmonicBox(3, 1, 0, "C/E", { questionLabel: "C/E" }), harmonicBox(3, 3, 1, "D9", { questionLabel: "D9" }), harmonicBox(4, 1, 0, "F9", { questionLabel: "F9" }), harmonicBox(4, 3, 1, "G9", { questionLabel: "G9" }), harmonicBox(5, 1, 0, "Am7", { questionLabel: "Am7" }), harmonicBox(5, 3, 1, "D7", { questionLabel: "D7" }), harmonicBox(6, 1, 0, "Am7", { questionLabel: "Am7" }), harmonicBox(7, 1, 0, "G", { questionLabel: "G" }),
+      ],
+    }),
+    answerHeading: "One possible model completion",
+    answer: ["The schedule model realises the 10 printed chord moments Cmaj7/G–F–C/E–D9–F9–G9–Am7–D7–Am7–G while preserving the vocal melody and continuing the piano texture. Other stylistically appropriate realisations are possible."],
+  }),
+  createQuestion({
+    id: "practice-2022-asharp-function",
+    category: "modulation",
+    homeKey: "A major",
+    keyRegions: [
+      { section: "1", localKey: "B minor", modelRelationship: "supertonic", relationshipChoices: ["supertonic", "relative minor", "dominant minor", "subdominant", "mediant minor"] },
+      { section: "2", localKey: "D major", modelRelationship: "subdominant", relationshipChoices: ["subdominant", "dominant", "relative major", "supertonic", "tonic major"] },
+      { section: "3", localKey: "E major", modelRelationship: "dominant", relationshipChoices: ["dominant", "subdominant", "relative minor", "mediant major", "tonic major"] },
+    ],
+    analysisFields: [
+      { id: "altered-note", label: "Altered note", kind: "classification", choices: ["A♯", "A♮", "G♯", "B♭", "E♯"], acceptedAnswers: [{ label: "A♯" }] },
+      { id: "chord-membership", label: "Chord membership / function", kind: "text", prompt: "Name the chord and the altered note's chord member.", acceptedAnswers: [{ label: "A♯ is the third of F♯7, the dominant chord in B minor." }] },
+      { id: "key-implication", label: "Key implication", kind: "text", prompt: "Explain the altered note in the local key.", acceptedAnswers: [{ label: "A♯ is the raised leading note of B minor." }] },
+      { id: "cadence-effect", label: "Cadence / modulation effect", kind: "text", prompt: "Connect the pitch to voice leading and the modulation.", acceptedAnswers: [{ label: "It supplies strong leading-note motion in F♯7–B minor and helps establish the modulated key with a perfect cadence." }] },
+    ],
+    sourceType: "practice-assessment-reference",
+    source: practiceSource(2022, "Question One", "(b)", "Extract Two", "Composer not credited", "Practice modulation and altered-note function", "questions p.3; answers p.4", "2–3"),
+    family: "Keys, evidence and contextual pitch function",
+    title: "Practice reference: A♯ in a modulation",
+    context: "The passage begins in A major and passes through three marked local keys. Identify each key, cite evidence and state its relationship to A major; then explain the function of A♯ in bars 2–3.",
+    presentation: { title: "Practice reference: keys and an altered-note function", hiddenConceptTerms: ["leading note of B minor", "third of F♯7"] },
+    sourceSpec: { year: 2022, provider: "Learning Ideas", question: "Question One", part: "(b)", bars: "2–3", sections: ["1", "2", "3"], keyCentres: ["B minor", "D major", "E major"], keyRelationships: [{ section: "1", homeKey: "A major", localKey: "B minor", acceptedLabels: [] }, { section: "2", homeKey: "A major", localKey: "D major", acceptedLabels: [] }, { section: "3", homeKey: "A major", localKey: "E major", acceptedLabels: [] }], requiredPitchSpellings: ["A#4"], measureCount: 3 },
+    score: measuredScore({
+      key: "A major", keySignature: "A", layout: "piano", sourceKeyCentres: ["B minor", "D major", "E major"], caption: "Practice assessment reference • 2022 Q1(b), Extract Two • selected key regions",
+      brackets: [{ start: 0, end: 1, label: "1", key: "B minor" }, { start: 2, end: 3, label: "2", key: "D major" }, { start: 4, end: 5, label: "3", key: "E major" }],
+      measures: [
+        { events: [{ treble: ["F#4", "A#4", "C#5", "E5"], bass: ["F#3"], duration: "h" }, { treble: ["F#4", "B4", "D5"], bass: ["B2"], duration: "h" }] },
+        { events: [{ treble: ["A4", "D5", "F#5"], bass: ["D3"], duration: "h" }, { treble: ["G4", "C#5", "E5"], bass: ["A2"], duration: "h" }] },
+        { endBarline: "final", events: [{ treble: ["F#4", "A4", "D#5"], bass: ["B2"], duration: "h" }, { treble: ["G#4", "B4", "E5"], bass: ["E3"], duration: "h" }] },
+      ], harmonicEvents: [],
+    }),
+    answerHeading: "Practice-schedule evidence",
+    answer: ["1 is B minor: A♯ and a perfect cadence support the supertonic region. 2 is D major: G♮ and a perfect cadence support the subdominant. 3 is E major: four sharps and B–E support the dominant. A♯ is B minor's leading note and the third of F♯7, producing strong voice leading through the perfect cadence into the modulated key."],
+  }),
+  createQuestion({
+    id: "practice-2022-integrated-analysis",
+    category: "features",
+    sourceType: "practice-assessment-reference",
+    source: practiceSource(2022, "Question Two", "(a)", "Extract Four", "Composer not credited", "Integrated Roman, modulation and non-harmonic-note analysis", "questions pp.5–6; answers p.6", "1–8"),
+    family: "Integrated harmonic and tonal analysis",
+    title: "Practice reference: progression, keys and non-harmonic notes",
+    context: "The extract begins in D minor. Analyse the Roman progression, explain the moves to F major and A major with evidence, and classify the marked non-harmonic notes as parts of one connected response.",
+    presentation: { title: "Practice reference: integrated classical analysis", hiddenConceptTerms: ["relative major", "dominant major", "accented passing"] },
+    contextualFields: [
+      { id: "roman-route", label: "Roman progression", kind: "text", prompt: "Record the eight indicated Roman-numeral answers in order.", acceptedAnswers: [{ label: "Use the eight Roman labels printed in the practice answer schedule, relative to the active local keys." }] },
+      { id: "f-region", label: "F-major modulation", kind: "text", prompt: "State relationship, location and evidence.", acceptedAnswers: [{ label: "F major is the relative major, established in bars 4–5 by E♭ and a perfect cadence." }] },
+      { id: "a-region", label: "A-major modulation", kind: "text", prompt: "State relationship, location and evidence.", acceptedAnswers: [{ label: "A major is the dominant major, established in bars 6–8 by G♯/B♮ and a perfect cadence." }] },
+      { id: "nht-1", label: "NHT marker 1", kind: "classification", choices: ["passing note", "auxiliary / neighbour note", "accented passing note", "suspension", "appoggiatura"], acceptedAnswers: [{ label: "passing note" }] },
+      { id: "nht-2", label: "NHT marker 2", kind: "classification", choices: ["passing note", "auxiliary / neighbour note", "accented passing note", "suspension", "appoggiatura"], acceptedAnswers: [{ label: "auxiliary / neighbour note" }] },
+      { id: "nht-3", label: "NHT marker 3", kind: "classification", choices: ["passing note", "auxiliary / neighbour note", "accented passing note", "suspension", "appoggiatura"], acceptedAnswers: [{ label: "accented passing note" }] },
+    ],
+    sourceSpec: { year: 2022, provider: "Learning Ideas", question: "Question Two", part: "(a)", bars: "1–8", keyCentres: ["D minor", "F major", "A major"], nonHarmonicMarkers: ["passing note", "auxiliary / neighbour note", "accented passing note"], expectedChordCount: 8, measureCount: 4 },
+    score: measuredScore({
+      key: "D minor → F major → A major", keySignature: "Dm", layout: "piano", sourceKeyCentres: ["D minor", "F major", "A major"], caption: "Practice assessment reference • 2022 Q2(a), Extract Four • integrated analysis",
+      measures: [
+        { events: [{ treble: ["F4", "A4", "D5"], bass: ["D3"], duration: "h" }, { treble: ["E4", "G4", "C#5"], bass: ["A2"], duration: "h" }] },
+        { events: [{ treble: ["F4", "A4", "C5"], bass: ["F3"], duration: "h" }, { treble: ["E4", "G4", "C5"], bass: ["C3"], duration: "h" }] },
+        { events: [{ treble: ["E4", "G#4", "B4", "D5"], bass: ["E3"], duration: "h" }, { treble: ["E4", "A4", "C#5"], bass: ["A2"], duration: "h" }] },
+        { endBarline: "final", events: [{ treble: ["D4", "F4", "B4"], bass: ["G#2"], duration: "h" }, { treble: ["E4", "A4", "C#5"], bass: ["A2"], duration: "h" }] },
+      ], harmonicEvents: [],
+    }),
+    answerHeading: "Practice-schedule integrated evidence",
+    answer: ["The answer schedule combines the eight Roman answers with two evidence-based modulations: F major, the relative major, in bars 4–5; and A major, the dominant major, in bars 6–8. Its marked NHT evidence includes passing notes, auxiliary notes and accented passing notes."],
+  }),
+  createQuestion({
+    id: "practice-2023-tonality-harmony",
+    category: "features",
+    sourceType: "practice-assessment-reference",
+    source: practiceSource(2023, "Question Three", "(a)", "Extract Six", "Composer not credited", "Tonality and harmony analysis", "questions pp.7–8; answers p.9", "1–18"),
+    family: "Contextual harmonic and tonal analysis",
+    title: "Practice reference: tonality through ii–V–I motion",
+    context: "Analyse the tonality and harmony across the whole extract. Use several connected points to explain the overall key, opening ambiguity, temporary centres and the final return.",
+    presentation: { title: "Practice reference: analyse tonality and harmony", hiddenConceptTerms: ["E♭ major", "ii–V–I", "diminished ii"] },
+    contextualFields: [
+      { id: "overall-key", label: "Overall key and first confirmation", kind: "text", prompt: "Name the home key and the cadence/bar evidence.", acceptedAnswers: [{ label: "E♭ major, first established by B♭7–E♭ in bars 7–8." }] },
+      { id: "opening", label: "Opening tonal ambiguity", kind: "text", prompt: "Explain the opening IV to iv motion.", acceptedAnswers: [{ label: "The piece starts on IV and moves to iv minor, delaying a clear tonic and creating tonal ambiguity." }] },
+      { id: "temporary-centres", label: "Temporary centres", kind: "text", prompt: "Trace the minor ii–V7–i progressions.", acceptedAnswers: [{ label: "After vi in bar 13, minor ii–V7–i progressions tonicise G minor in bars 14–15 and F minor in bars 16–17." }] },
+      { id: "final-return", label: "Return and unusual chord", kind: "text", prompt: "Explain the final cadence and altered ii quality.", acceptedAnswers: [{ label: "A final perfect cadence returns to E♭; its ii–V–I unusually uses a diminished ii instead of the expected minor ii." }] },
+    ],
+    sourceSpec: { year: 2023, provider: "Learning Ideas", question: "Question Three", part: "(a)", bars: "1–18", keyCentres: ["E♭ major", "G minor", "F minor"], expectedChordCount: 0, measureCount: 5 },
+    score: measuredScore({
+      key: "E♭ major with temporary minor centres", keySignature: "Eb", layout: "piano", sourceKeyCentres: ["E♭ major", "G minor", "F minor"], caption: "Practice assessment reference • 2023 Q3(a), Extract Six • tonal route",
+      measures: [
+        { events: [{ treble: ["F4", "Ab4", "C5"], bass: ["F3"], duration: "h" }, { treble: ["F4", "Ab4", "B4", "D5"], bass: ["Bb2"], duration: "h" }] },
+        { events: [{ treble: ["G4", "Bb4", "Eb5"], bass: ["Eb3"], duration: "w" }] },
+        { events: [{ treble: ["A4", "C5", "Eb5"], bass: ["A2"], duration: "h" }, { treble: ["F#4", "A4", "C5", "D5"], bass: ["D3"], duration: "h" }] },
+        { events: [{ treble: ["G4", "Bb4", "D5"], bass: ["G2"], duration: "h" }, { treble: ["F4", "Ab4", "C5"], bass: ["F2"], duration: "h" }] },
+        { endBarline: "final", events: [{ treble: ["F4", "Ab4", "Cb5"], bass: ["F2"], duration: "h" }, { treble: ["G4", "Bb4", "Eb5"], bass: ["Eb3"], duration: "h" }] },
+      ], harmonicEvents: [],
+    }),
+    answerHeading: "Practice-schedule tonal analysis",
+    answer: ["The overall key is E♭ major, confirmed by B♭7–E♭ in bars 7–8 after an ambiguous IV–iv opening. Bar 13 moves to vi; minor ii–V7–i progressions briefly establish G minor and then F minor before a final perfect cadence returns to E♭. The last ii–V–I unusually uses diminished ii."],
+  }),
+  createQuestion({
+    id: "practice-2024-two-devices",
+    category: "features",
+    sourceType: "practice-assessment-reference",
+    source: practiceSource(2024, "Question Two", "(a)", "Extract Four", "Composer not credited", "Two compositional devices and their functions", "questions p.5; answers p.6", "1–3"),
+    family: "Contextual harmonic and tonal analysis",
+    title: "Practice reference: two devices and their functions",
+    context: "Identify two compositional devices in the extract. For each, give a location and explain its musical function or effect.",
+    presentation: { title: "Practice reference: analyse two compositional devices", hiddenConceptTerms: ["tonic pedal", "melodic sequence", "diminution"] },
+    contextualFields: [
+      { id: "device-1", label: "Point 1 · Device", kind: "classification", choices: ["tonic pedal", "melodic sequence", "diminution", "dominant pedal", "augmentation"], acceptedAnswers: [{ label: "tonic pedal" }, { label: "melodic sequence" }, { label: "diminution" }] },
+      { id: "location-1", label: "Point 1 · Location / evidence", kind: "text", prompt: "Name the voice, bars or rhythmic change.", acceptedAnswers: [{ label: "Tonic pedal in the bass, sequence in the melody in bars 1–3, or halved motif rhythm in bar 3." }] },
+      { id: "function-1", label: "Point 1 · Function / effect", kind: "text", prompt: "Explain what the device contributes.", acceptedAnswers: [{ label: "The pedal establishes D major and creates dissonant interest; sequence makes the theme memorable; diminution creates brisk urgency." }] },
+      { id: "device-2", label: "Point 2 · Device", kind: "classification", choices: ["tonic pedal", "melodic sequence", "diminution", "dominant pedal", "augmentation"], acceptedAnswers: [{ label: "tonic pedal" }, { label: "melodic sequence" }, { label: "diminution" }] },
+      { id: "location-2", label: "Point 2 · Location / evidence", kind: "text", prompt: "Choose different evidence from point 1.", acceptedAnswers: [{ label: "Tonic pedal in the bass, sequence in the melody in bars 1–3, or halved motif rhythm in bar 3." }] },
+      { id: "function-2", label: "Point 2 · Function / effect", kind: "text", prompt: "Explain the second device's contribution.", acceptedAnswers: [{ label: "The pedal establishes D major and creates dissonant interest; sequence creates repetition with variation; diminution increases urgency." }] },
+    ],
+    sourceSpec: { year: 2024, provider: "Learning Ideas", question: "Question Two", part: "(a)", bars: "1–3", expectedChordCount: 0, measureCount: 3 },
+    score: measuredScore({
+      key: "D major", keySignature: "D", layout: "piano", caption: "Practice assessment reference • 2024 Q2(a), Extract Four • bars 1–3 transcription",
+      measures: [
+        { events: [{ treble: ["F#4", "A4", "D5"], bass: ["D2"], duration: "h" }, { treble: ["G4", "B4", "E5"], bass: ["D2"], duration: "h" }] },
+        { events: [{ treble: ["A4", "C#5", "F#5"], bass: ["D2"], duration: "h" }, { treble: ["B4", "D5", "G5"], bass: ["D2"], duration: "h" }] },
+        { endBarline: "final", events: [{ treble: ["A4", "D5", "F#5"], bass: ["D2"], duration: "q" }, { treble: ["B4", "E5", "G5"], bass: ["D2"], duration: "q" }, { treble: ["A4", "C#5", "F#5"], bass: ["D2"], duration: "q" }, { treble: ["F#4", "A4", "D5"], bass: ["D2"], duration: "q" }] },
+      ], harmonicEvents: [],
+    }),
+    answerHeading: "Practice-schedule device evidence",
+    answer: ["Valid schedule examples include a tonic pedal in the bass, which establishes D major while generating dissonant interest; melodic sequence in bars 1–3, which makes the theme memorable through repetition with variation; and diminution in bar 3, where the motif rhythm is halved to create a brisk, urgent effect. The response must explain two separate devices."],
+  }),
+  createQuestion({
+    id: "practice-2024-jazz-tonality",
+    category: "jazz",
+    sourceType: "practice-assessment-reference",
+    source: practiceSource(2024, "Question Three", "(a)", "Extract Seven", "George and Ira Gershwin", "Our Love Is Here to Stay", "questions pp.8–9; answers p.9", "4–14"),
+    family: "Jazz / rock notation and contextual tonality",
+    title: "Practice reference: jazz symbols, key and tonal movement",
+    context: "Analyse the 14 blank chord positions in bars 4–8 and 12–14 using jazz / rock notation. Then identify the key and explain the tonal changes with specific chord and cadence evidence.",
+    presentation: { title: "Practice reference: jazz chords and tonality", hiddenConceptTerms: ["F major", "D minor", "secondary dominant"] },
+    reflectionOnly: true,
+    analysisFields: [
+      { id: "key", label: "Overall key", kind: "classification", choices: ["F major", "D minor", "B♭ major", "C major", "G minor"], acceptedAnswers: [{ label: "F major" }] },
+      { id: "tonal-evidence", label: "Key and cadence evidence", kind: "text", prompt: "Use the key signature and specific bar/cadence evidence.", acceptedAnswers: [{ label: "F major is supported by the B♭ key signature and perfect cadences in bars 3–4 and 11–12." }] },
+      { id: "modulation", label: "Modulation", kind: "text", prompt: "Name the local key, bars and progression.", acceptedAnswers: [{ label: "Bars 13–14 move to D minor through a minor ii–V7–i progression." }] },
+      { id: "secondary-dominants", label: "Secondary-dominant evidence", kind: "text", prompt: "Name the extended dominants and where they occur.", acceptedAnswers: [{ label: "G9 and G13 act as secondary dominants in bars 2, 7 and 15." }] },
+    ],
+    sourceSpec: { year: 2024, provider: "Learning Ideas", question: "Question Three", part: "(a)", bars: "4–14", chordSymbols: ["Gm7", "C7", "F6", "Gm11", "C9", "G13", "Gm7", "C7", "D9", "Fmaj7", "B♭maj9", "Eø7", "A7", "Dm"], analysisPositions: 14, answerPositions: 14, keyCentres: ["F major", "D minor"], measureCount: 10 },
+    score: measuredScore({
+      key: "F major with a D-minor region", keySignature: "F", layout: "piano", labelPosition: "top", sourceKeyCentres: ["F major", "D minor"], caption: "Practice assessment reference • 2024 Q3(a), Extract Seven • assessed chord positions",
+      measures: [
+        { events: [{ treble: ["G4", "Bb4", "D5", "F5"], bass: ["G2"], duration: "h" }, { treble: ["G4", "Bb4", "C5", "E5"], bass: ["C3"], duration: "h" }] },
+        { events: [{ treble: ["A4", "C5", "D5", "F5"], bass: ["F3"], duration: "w" }] },
+        { events: [{ treble: ["A4", "Bb4", "C5", "D5", "F5"], bass: ["G2"], duration: "w" }] },
+        { events: [{ treble: ["Bb4", "C5", "D5", "E5", "G5"], bass: ["C3"], duration: "h" }, { treble: ["A4", "B4", "D5", "E5", "F5", "G5"], bass: ["G2"], duration: "h" }] },
+        { events: [{ treble: ["G4", "Bb4", "D5", "F5"], bass: ["G2"], duration: "h" }, { treble: ["G4", "Bb4", "C5", "E5"], bass: ["C3"], duration: "h" }] },
+        { events: [{ treble: ["A4", "C5", "D5", "E5", "F#5"], bass: ["D3"], duration: "w" }] },
+        { events: [{ treble: ["A4", "C5", "E5", "F5"], bass: ["F3"], duration: "w" }] },
+        { events: [{ treble: ["A4", "Bb4", "C5", "D5", "F5"], bass: ["Bb2"], duration: "w" }] },
+        { events: [{ treble: ["G4", "Bb4", "D5"], bass: ["E3"], duration: "h" }, { treble: ["G4", "C#5", "E5"], bass: ["A2"], duration: "h" }] },
+        { endBarline: "final", events: [{ treble: ["F4", "A4", "D5"], bass: ["D3"], duration: "w" }] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "Gm7", { chordSymbol: "Gm7" }), harmonicBox(1, 3, 1, "C7", { chordSymbol: "C7" }), harmonicBox(2, 1, 0, "F6", { chordSymbol: "F6" }), harmonicBox(3, 1, 0, "Gm11", { chordSymbol: "Gm11" }), harmonicBox(4, 1, 0, "C9", { chordSymbol: "C9" }), harmonicBox(4, 3, 1, "G13", { chordSymbol: "G13" }), harmonicBox(5, 1, 0, "Gm7", { chordSymbol: "Gm7" }), harmonicBox(5, 3, 1, "C7", { chordSymbol: "C7" }), harmonicBox(6, 1, 0, "D9", { chordSymbol: "D9" }), harmonicBox(7, 1, 0, "Fmaj7", { chordSymbol: "Fmaj7" }), harmonicBox(8, 1, 0, "B♭maj9", { chordSymbol: "B♭maj9" }), harmonicBox(9, 1, 0, "Eø7", { chordSymbol: "Eø7" }), harmonicBox(9, 3, 1, "A7", { chordSymbol: "A7" }), harmonicBox(10, 1, 0, "Dm", { chordSymbol: "Dm" }),
+      ],
+    }),
+    answerHeading: "Practice-schedule chord and tonal evidence",
+    answer: ["The 14 assessed symbols are Gm7, C7, F6, Gm11, C9, G13, Gm7, C7, D9, Fmaj7, B♭maj9, Eø7, A7 and Dm. The overall key is F major, supported by the one-flat signature and perfect cadences in bars 3–4 and 11–12. Bars 13–14 tonicise D minor through a minor ii–V7–i, while G9 and G13 act as secondary dominants."],
+  }),
+  createQuestion({
+    id: "practice-2025-integrated-tonality",
+    category: "features",
+    sourceType: "practice-assessment-reference",
+    source: practiceSource(2025, "Question Two", "(a)(ii)", "Extract Four", "Composer not credited", "Integrated tonality, modulation and non-harmonic-note analysis", "questions pp.5–6; answers p.7", "1–25"),
+    family: "Integrated contextual harmonic and tonal analysis",
+    title: "Practice reference: tonal route and non-harmonic notes",
+    context: "Analyse the tonality and harmonic features of the entire extract. Trace the modulations and their relationships to the tonic, explain how the changes occur, and discuss several non-harmonic notes with precise musical evidence.",
+    presentation: { title: "Practice reference: integrated tonality and note analysis", hiddenConceptTerms: ["A major", "B major", "melodic sequence", "direct modulation"] },
+    contextualFields: [
+      { id: "tonal-route", label: "Tonal route", kind: "text", prompt: "Name the tonic and the local keys in order.", acceptedAnswers: [{ label: "The passage moves from E minor to A major, then B major, and returns to E minor." }] },
+      { id: "relationships", label: "Key relationships and evidence", kind: "text", prompt: "Relate each local key to E minor and cite cadence or accidental evidence.", acceptedAnswers: [{ label: "A major is the major subdominant region and B major is the dominant; the return to E minor is confirmed by its leading note and cadence." }] },
+      { id: "modulation-method", label: "How the modulations occur", kind: "text", prompt: "Distinguish direct changes, sequence and the return pivot.", acceptedAnswers: [{ label: "The A-major to B-major changes are direct and follow a melodic sequence whose motif rises by step; the return to E minor uses a pivot chord." }] },
+      { id: "nht-type-1", label: "Non-harmonic note 1", kind: "classification", choices: ["passing note", "accented passing note", "grace note", "mordent", "suspension", "appoggiatura"], acceptedAnswers: [{ label: "passing note" }, { label: "accented passing note" }, { label: "grace note" }, { label: "mordent" }, { label: "suspension" }, { label: "appoggiatura" }] },
+      { id: "nht-evidence-1", label: "Note 1 · score evidence", kind: "text", prompt: "Give its bar/voice, approach and resolution.", acceptedAnswers: [{ label: "Identify the exact note and show from its approach and departure how it fits the chosen classification." }] },
+      { id: "nht-type-2", label: "Non-harmonic note 2", kind: "classification", choices: ["passing note", "accented passing note", "grace note", "mordent", "suspension", "appoggiatura"], acceptedAnswers: [{ label: "passing note" }, { label: "accented passing note" }, { label: "grace note" }, { label: "mordent" }, { label: "suspension" }, { label: "appoggiatura" }] },
+      { id: "nht-evidence-2", label: "Note 2 · score evidence and effect", kind: "text", prompt: "Choose a contrasting type and explain its melodic or harmonic contribution.", acceptedAnswers: [{ label: "A second located example should use a different non-harmonic-note type and explain how it adds melodic interest, tension or decoration." }] },
+    ],
+    sourceSpec: {
+      year: 2025, provider: "Learning Ideas", question: "Question Two", part: "(a)(ii)", bars: "1–25",
+      keyCentres: ["E minor", "A major", "B major"],
+      nonHarmonicMarkers: ["passing note", "accented passing note", "grace note", "mordent", "suspension", "appoggiatura"],
+      expectedChordCount: 0, measureCount: 5,
+    },
+    score: measuredScore({
+      key: "E minor with related major regions", keySignature: "Em", layout: "piano",
+      sourceKeyCentres: ["E minor", "A major", "B major"],
+      caption: "Practice assessment reference • 2025 Q2(a)(ii), Extract Four • representative tonal route",
+      measures: [
+        { events: [{ treble: ["G4", "B4", "E5"], bass: ["E3"], duration: "h" }, { treble: ["F#4", "A4", "D#5"], bass: ["B2"], duration: "h" }] },
+        { events: [{ treble: ["A4", "C#5", "E5"], bass: ["A2"], duration: "h" }, { treble: ["G#4", "B4", "E5"], bass: ["E3"], duration: "h" }] },
+        { events: [{ treble: ["A#4", "C#5", "F#5"], bass: ["F#2"], duration: "h" }, { treble: ["F#4", "B4", "D#5"], bass: ["B2"], duration: "h" }] },
+        { events: [{ treble: ["G#4", "B4", "E5"], bass: ["E3"], duration: "q" }, { treble: ["A4", "C#5", "F#5"], bass: ["F#3"], duration: "q" }, { treble: ["B4", "D#5", "G5"], bass: ["G3"], duration: "q" }, { treble: ["A#4", "C#5", "F#5"], bass: ["F#3"], duration: "q" }] },
+        { endBarline: "final", events: [{ treble: ["F#4", "A4", "D#5"], bass: ["B2"], duration: "h" }, { treble: ["G4", "B4", "E5"], bass: ["E3"], duration: "h" }] },
+      ], harmonicEvents: [],
+    }),
+    answerHeading: "Practice-schedule contextual evidence",
+    answer: ["The schedule traces E minor to A major, then B major, and back to E minor through a pivot chord. The A-major and B-major changes are direct modulations linked by a melodic sequence whose motif rises by step. Supported non-harmonic-note evidence may include passing notes, accented passing notes, grace notes, mordents, suspensions and appoggiaturas. A strong response locates and explains several examples rather than merely listing terms."],
   }),
 ];
 

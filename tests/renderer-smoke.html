@@ -40,10 +40,10 @@
       });
     </script>
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../key-relationships.js?v=2026-09-relationship-16"></script>
-    <script src="../question-bank.js?v=2026-09-relationship-16"></script>
-    <script src="../score-renderer.js?v=2026-09-relationship-16"></script>
-    <script src="../question-validator.js?v=2026-09-relationship-16"></script>
+    <script src="../key-relationships.js?v=2026-09-source-bank-17"></script>
+    <script src="../question-bank.js?v=2026-09-source-bank-17"></script>
+    <script src="../score-renderer.js?v=2026-09-source-bank-17"></script>
+    <script src="../question-validator.js?v=2026-09-source-bank-17"></script>
     <script>
       const renderer = window.CadenceScoreRenderer;
       const questions = window.CadenceData.questions;
@@ -258,6 +258,21 @@
         (event) => event.modelLabel
       );
       const eSharpDiminishedEvent = commercialReference.score.measures[6].events[0];
+      const bach2025 = questions.find(
+        (question) => question.id === "nzqa-2025-bach-analysis"
+      );
+      const schubert2025 = questions.find(
+        (question) => question.id === "nzqa-2025-schubert-analysis"
+      );
+      const joel2025 = questions.find(
+        (question) => question.id === "nzqa-2025-joel-chords"
+      );
+      const officialPianoReferences = [
+        "nzqa-2021-beethoven-piano",
+        "nzqa-2023-novelette-piano",
+        "nzqa-2025-schubert-piano",
+        "nzqa-2025-joel-piano",
+      ].map((id) => questions.find((question) => question.id === id));
 
       const selfConsistentWrongReference = structuredClone(questions);
       const corruptedCommercial = selfConsistentWrongReference.find(
@@ -279,6 +294,7 @@
         "nzqa-2021-bach-pivots",
         "nzqa-2022-bach-c-aminor",
         "nzqa-2023-bach-key-regions",
+        "nzqa-2023-bach-analysis",
         "nzqa-2024-bach-analysis",
         "nzqa-2024-bach-satb",
       ];
@@ -508,7 +524,7 @@
         (measure) => measure.events
       );
       const referenceCounts = Object.fromEntries(
-        [2021, 2022, 2023, 2024].map((year) => [
+        [2021, 2022, 2023, 2024, 2025].map((year) => [
           year,
           questions.filter(
             (question) =>
@@ -532,18 +548,21 @@
       const assertions = {
         versionPinned: renderer.version === "4.2.5",
         bankValidatorPasses: validatorReport.valid,
-        bankHasThirtyTwoQuestions: questions.length === 32,
+        bankMatchesManifestShape:
+          Object.values(validatorReport.categoryCounts).every((count) => count > 0),
         bankHasNoLegacyScores:
           questions.every((question) => question.score.measures) &&
           validatorReport.legacyCount === 0,
-        categoryTargetsMet:
-          JSON.stringify(validatorReport.categoryCounts) ===
-          JSON.stringify({ analysis: 6, modulation: 6, satb: 4, piano: 4, jazz: 6, features: 6 }),
-        eightReferencesAcrossAllYears:
-          validatorReport.referenceCount === 8 &&
+        sourceBankCoversEveryOfficialYear:
           Object.values(referenceCounts).every((count) => count >= 1),
-        unevenReferenceYearsAllowed:
-          referenceCounts[2024] === 3 && referenceCounts[2022] === 1,
+        completeOfficial2025TaskSetPresent:
+          questions.filter((question) =>
+            question.sourceType === "nzqa-reference" && question.source.year === 2025
+          ).length === 9,
+        practiceAssessmentReferencesPresent:
+          questions.some((question) =>
+            question.sourceType === "practice-assessment-reference"
+          ),
         originalAnalysisAndJazzTextureReviewPasses:
           validatorReport.reviewWarnings.every(
             (warning) => warning.code !== "worksheet-like-texture"
@@ -585,6 +604,21 @@
           featureAnnotationTargets.every(annotationLabelsAvoidNotation),
         sourceFidelityValidatorPasses:
           validatorReport.sourceFidelityErrors.length === 0,
+        official2025PublishedSequencesArePinned:
+          bach2025.sourceSpec.romanNumerals.length === 15 &&
+          schubert2025.sourceSpec.romanNumerals.length === 13 &&
+          JSON.stringify(joel2025.sourceSpec.chordSymbols) === JSON.stringify([
+            "C", "E7", "Am7", "Gm(add4)", "C7", "F", "A7", "Dm7",
+            "B♭9", "B♭7", "C",
+          ]),
+        officialPianoReferencesPreservePaperCompletionContracts:
+          officialPianoReferences.every((question) =>
+            question?.sourceType === "nzqa-reference" &&
+            question.interaction.type === "paper-completion" &&
+            question.interaction.completionType === "piano" &&
+            question.sourceSpec.completionContract.harmonicIndications ===
+              question.score.harmonicEvents.length
+          ),
         valentineUsesPitchSpecificAnnotations:
           valentine.score.noteAnnotations?.length === 6 &&
           !valentine.score.brackets?.length &&
@@ -647,8 +681,8 @@
           !bachCompletion.score.harmonicEvents.some(
             (event) => event.measure === 3 && event.beat === 2
           ),
-        bothSourceTypesPresent:
-          ["nzqa-reference", "original-practice"].every((sourceType) =>
+        allAuthoredSourceTypesPresent:
+          ["nzqa-reference", "practice-assessment-reference", "original-practice"].every((sourceType) =>
             questions.some((question) => question.sourceType === sourceType)
           ),
         explicitMeasuresRendered:

@@ -1,8 +1,8 @@
-# AS 91421 task map, 2021–2024
+# AS 91421 official task map, 2021–2025
 
-This map records the published examination tasks and the matching assessment-schedule evidence used to design Cadence Lab. It is a source map, not a reproduction of either document. The PDFs remain external reference material and are not committed to the repository.
+This concise map records the published examination tasks and matching assessment-schedule evidence used to design Cadence Lab. It is a source map, not a reproduction of either document. The PDFs remain external reference material and are not committed to the repository. The exhaustive official 2021–2025 and Learning Ideas practice 2022–2025 subquestion inventory is in [`source-audit-2021-2025.md`](source-audit-2021-2025.md).
 
-## Rubric pattern across the four schedules
+## Rubric pattern across the schedules
 
 | Level | Recurring evidence pattern |
 | --- | --- |
@@ -57,16 +57,21 @@ The in-app checklists use these observable progressions. They deliberately avoid
 | Q1(c) chorale realisation | Bach continuation, bars 18–19; exam p.3 | Eight chords including two passing notes; schedule p.4 | Reference SATB completion, preceded by the supplied bar 17 texture. |
 | Q2(a) piano analysis and features | Rimsky-Korsakov, *Two Piano Pieces*, bars 1–25; exam pp.4–5 | 13 chords; direct move from F-sharp minor to A major without pivot; pedal and varied non-harmonic notes; schedule pp.6–7 | Reference piano-tonality template and explicit NCT validation. |
 | Q2(b) piano completion | Rimsky-Korsakov continuation, bars 92–96; exam p.6 | Eight-chord sample realisation; schedule p.7 | Piano-completion family. |
-| Q3(a) jazz analysis and harmonic device | Phillip Norman, *Love is Commercial*, bars 16–28; exam pp.8–9 | Published sequence: C♯m(add9), Dmaj7, Bm9, G♯dim/B, C♯7sus4, C♯7, F♯m, E♯dim7, F♯m/E, D♯m7(♭5), Dmaj7; descending chromatic bass and one chord per bar in bars 24–28 create contrast and forward direction; schedule p.9 | Reference chromatic-bass template with exact E♯dim7 spelling and source-sequence validation. |
+| Q3(a) jazz analysis and harmonic device | Phillip Norman, *Love is Commercial*, bars 16–28; exam pp.8–9 | Published sequence: C♯m(add9), Dmaj7, Bm9, G♯dim/B, C♯7sus4, C♯7, F♯m, E♯dim7, F♯m/E, D♯m7(♭5), Dmaj7; frequent harmonic changes and descending chromatic bass create momentum; schedule p.9 | Reference chromatic-bass template with exact E♯dim7 spelling and source-sequence validation. |
 | Q3(b) jazz completion | Song continuation, bars 33–39; exam p.10 | Nine-chord sample realisation; schedule p.10 | Jazz-completion family. |
 
-## Selected reference set in the bank
+## 2025
 
-Cadence Lab includes eight reference transcriptions:
+All nine official 2025 subquestions are implemented. The full manifest records their paper and schedule locations, supplied material, answer evidence and Excellence-oriented response contract. In summary: Q1 covers Bach Roman analysis, three key regions and two-stage SATB completion; Q2 covers Schubert Roman analysis, contextual feature/evidence/function/effect and piano completion; Q3 covers Billy Joel jazz symbols, contextual harmonic-rhythm/tonality analysis and piano completion.
 
-- 2021: Bach Q1(a) and Rodgers/Hart Q3(a)
+## Reference set in the bank
+
+Cadence Lab currently includes 20 official reference transcriptions:
+
+- 2021: Bach Q1(a), Beethoven Q2(b), and Rodgers/Hart Q3(a)
 - 2022: Bach Q1(a)
-- 2023: Bach Q1(b) and Poulenc Q2(a)
+- 2023: Bach Q1(a), Bach Q1(b), Poulenc Q2(a), and the Q2(c) piano completion
 - 2024: Bach Q1(a), Bach Q1(c), and Norman Q3(a)
+- 2025: all nine Q1–Q3 subquestions
 
-Each is labelled `nzqa-reference` with year, question, part, extract and acknowledgement metadata. The uneven distribution deliberately keeps both requested 2024 Bach structures while retaining coverage of every year. Each major task family also has original or adapted practice. Every reference has a separate expected-source specification for its published symbols, key centres, supplied labels, answer locations and relevant section structure. The Bach references use independent soprano, alto, tenor and bass rhythmic streams. The reference data reproduces the assessed span, rhythmic texture, analysis/completion locations and published evidence as far as practical in the static renderer; it does not embed the source PDFs or claim official NZQA status.
+Each is labelled `nzqa-reference` with provider, year, question, part, extract, bars, source-page location and acknowledgement metadata. Every reference has a separate expected-source specification for its published symbols, key centres, supplied labels, answer locations and relevant section structure. Bach references use independent soprano, alto, tenor and bass rhythmic streams where the source requires them. The reference data reproduces the assessed span, rhythmic texture, analysis/completion locations and published evidence as far as practical in the static renderer; it does not embed the source PDFs or claim official NZQA status.
