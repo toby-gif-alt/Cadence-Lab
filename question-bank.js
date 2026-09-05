@@ -7,6 +7,11 @@
  * explicitly authored in the question data.
  */
 
+const keyRelationships = window.CadenceKeyRelationships;
+if (!keyRelationships) {
+  throw new Error("Cadence Lab key-relationship semantics must load before the question bank.");
+}
+
 const sourceTypeNames = {
   mixed: "Mixed sources",
   "nzqa-reference": "NZQA reference",
@@ -177,7 +182,7 @@ const studentPresentationById = {
   "modulation-d-g-f": {
     title: "Original: identify two related key regions",
     context:
-      "Identify the temporary region X and the final region Y. Give cadence evidence and explain each relationship to the opening tonic.",
+      "The passage begins in D minor. Identify the temporary region X and the final region Y, give cadence evidence, and explain each relationship to D minor.",
     hiddenConceptTerms: ["G minor", "F major"],
   },
   "nzqa-2023-bach-key-regions": {
@@ -187,25 +192,25 @@ const studentPresentationById = {
   "modulation-c-g-e": {
     title: "Original: identify two temporary key regions",
     context:
-      "Identify X and Y, give exact cadence evidence, and state each relationship to the opening tonic.",
+      "The passage begins in C major. Identify X and Y, give exact cadence evidence, and state each relationship to C major.",
     hiddenConceptTerms: ["G major", "E minor"],
   },
   "modulation-a-fsharp": {
     title: "Original: identify the closing key",
     context:
-      "Identify the final key and explain the harmonic function of the altered note in the approach to the cadence.",
+      "The passage begins in A major. Identify the final key, state its relationship to A major, and explain the harmonic function of the altered note in the approach to the cadence.",
     hiddenConceptTerms: ["F-sharp minor", "F♯ minor", "raised leading note"],
   },
   "modulation-gminor-eb-f": {
     title: "Original: identify two related key regions",
     context:
-      "Sections X and Y cadence in two related major keys. Identify them, give evidence and relate each to the opening tonic.",
+      "The passage begins in G minor and moves through two related key regions. Identify X and Y, give musical evidence for each key, and describe each relationship to G minor.",
     hiddenConceptTerms: ["E-flat major", "E♭ major", "F major", "relative of dominant"],
   },
   "modulation-e-b-csharp": {
     title: "Original: identify two local key centres",
     context:
-      "Identify X and Y and explain how the altered notes clarify the two local keys.",
+      "The passage begins in E major. Identify X and Y, describe each relationship to E major, and explain how the altered notes clarify the two local keys.",
     hiddenConceptTerms: ["B major", "C-sharp minor", "C♯ minor"],
   },
   "nzqa-2024-bach-satb": {
@@ -381,33 +386,6 @@ const keyChoices = [
   "B♭ minor", "E♭ minor",
 ];
 
-const modulationResponses = {
-  "modulation-d-g-f": [
-    ["X", "G minor", "subdominant"],
-    ["Y", "F major", "relative major"],
-  ],
-  "nzqa-2023-bach-key-regions": [
-    ["X", "E♭ major", "relative major of the subdominant"],
-    ["Y", "C minor", "subdominant"],
-    ["Z", "F major", "relative major of the dominant"],
-  ],
-  "modulation-c-g-e": [
-    ["X", "G major", "dominant"],
-    ["Y", "E minor", "mediant minor"],
-  ],
-  "modulation-a-fsharp": [
-    ["X", "F♯ minor", "relative minor"],
-  ],
-  "modulation-gminor-eb-f": [
-    ["X", "E♭ major", "relative major"],
-    ["Y", "F major", "relative major of the dominant"],
-  ],
-  "modulation-e-b-csharp": [
-    ["X", "B major", "dominant"],
-    ["Y", "C♯ minor", "relative minor"],
-  ],
-};
-
 const nonHarmonicToneChoices = [
   "passing note",
   "accented passing note",
@@ -535,28 +513,59 @@ function analysisInteraction(config, score) {
 }
 
 function modulationInteraction(config) {
-  const regions = modulationResponses[config.id] || [];
+  const homeKey = keyRelationships.formatKey(config.homeKey);
+  const regions = config.keyRegions || [];
+  const semanticRegions = regions.map((region) => {
+    const localKey = keyRelationships.formatKey(region.localKey);
+    const relationship = keyRelationships.relationshipBetween(homeKey, localKey);
+    const acceptedLabels = region.acceptedRelationshipLabels ||
+      relationship.acceptedLabels;
+    if (!relationship.acceptedLabels.includes(region.modelRelationship) ||
+        acceptedLabels.some((label) => !relationship.acceptedLabels.includes(label))) {
+      throw new Error(
+        `${config.id}: ${homeKey} → ${localKey} has invalid relationship metadata.`
+      );
+    }
+    return {
+      ...region,
+      localKey,
+      relationship,
+      acceptedLabels: [
+        ...new Set([region.modelRelationship, ...acceptedLabels]),
+      ],
+    };
+  });
   return {
     type: "key-modulation",
     allowPaper: true,
+    homeKey,
     keyChoices,
     relationshipChoices: [
-      "tonic", "dominant", "subdominant", "relative major", "relative minor",
-      "mediant minor", "relative major of the dominant",
-      "relative major of the subdominant",
+      ...new Set([
+        ...keyRelationships.relationshipChoices,
+        ...semanticRegions.flatMap((region) => region.acceptedLabels),
+      ]),
     ],
-    fields: regions.flatMap(([section, key, relationship]) => [
+    fields: semanticRegions.flatMap((region) => [
       {
-        id: `${section.toLowerCase()}-key`,
-        label: `${section} key`,
+        id: `${region.section.toLowerCase()}-key`,
+        label: `${region.section} key`,
         kind: "key",
-        acceptedAnswers: [{ label: key }],
+        homeKey,
+        localKey: region.localKey,
+        acceptedAnswers: [{ label: region.localKey }],
       },
       {
-        id: `${section.toLowerCase()}-relationship`,
-        label: `${section} relationship`,
+        id: `${region.section.toLowerCase()}-relationship`,
+        label: `${region.section} relationship`,
         kind: "relationship",
-        acceptedAnswers: [{ label: relationship }],
+        homeKey,
+        localKey: region.localKey,
+        semanticRelationship: {
+          canonical: region.relationship.canonical,
+          degree: region.relationship.degree,
+        },
+        acceptedAnswers: region.acceptedLabels.map((label) => ({ label })),
       },
     ]),
     evidencePrompt: "Optional: identify cadence, leading-note or accidental evidence.",
@@ -1158,6 +1167,11 @@ const questionBank = [
   createQuestion({
     id: "modulation-d-g-f",
     category: "modulation",
+    homeKey: "D minor",
+    keyRegions: [
+      { section: "X", localKey: "G minor", modelRelationship: "subdominant" },
+      { section: "Y", localKey: "F major", modelRelationship: "relative major" },
+    ],
     sourceType: "original-practice",
     source: {
       creator: "Cadence Lab",
@@ -1215,6 +1229,27 @@ const questionBank = [
   createQuestion({
     id: "nzqa-2023-bach-key-regions",
     category: "modulation",
+    homeKey: "G minor",
+    keyRegions: [
+      {
+        section: "X",
+        localKey: "E♭ major",
+        modelRelationship: "relative major of the subdominant",
+        acceptedRelationshipLabels: ["relative major of the subdominant"],
+      },
+      {
+        section: "Y",
+        localKey: "C minor",
+        modelRelationship: "subdominant",
+        acceptedRelationshipLabels: ["subdominant"],
+      },
+      {
+        section: "Z",
+        localKey: "F major",
+        modelRelationship: "relative major of the dominant",
+        acceptedRelationshipLabels: ["relative major of the dominant"],
+      },
+    ],
     sourceType: "nzqa-reference",
     source: nzqaSource(
       2023,
@@ -1232,6 +1267,11 @@ const questionBank = [
     sourceSpec: {
       analysisPositions: 0,
       keyCentres: ["E♭ major", "C minor", "F major"],
+      keyRelationships: [
+        { section: "X", homeKey: "G minor", localKey: "E♭ major", acceptedLabels: ["relative major of the subdominant"] },
+        { section: "Y", homeKey: "G minor", localKey: "C minor", acceptedLabels: ["subdominant"] },
+        { section: "Z", homeKey: "G minor", localKey: "F major", acceptedLabels: ["relative major of the dominant"] },
+      ],
       sections: ["X", "Y", "Z"],
       sectionRanges: [
         { label: "X", key: "E♭ major", start: { measure: 2, beat: 2 }, end: { measure: 3, beat: 3 } },
@@ -1308,6 +1348,11 @@ const questionBank = [
   createQuestion({
     id: "modulation-c-g-e",
     category: "modulation",
+    homeKey: "C major",
+    keyRegions: [
+      { section: "X", localKey: "G major", modelRelationship: "dominant" },
+      { section: "Y", localKey: "E minor", modelRelationship: "mediant minor" },
+    ],
     sourceType: "original-practice",
     source: originalSource("Two temporary key centres from C major"),
     family: "Keys and modulation",
@@ -1347,6 +1392,10 @@ const questionBank = [
   createQuestion({
     id: "modulation-a-fsharp",
     category: "modulation",
+    homeKey: "A major",
+    keyRegions: [
+      { section: "X", localKey: "F♯ minor", modelRelationship: "relative minor" },
+    ],
     sourceType: "original-practice",
     source: originalSource("A major moving to its relative minor"),
     family: "Keys and modulation",
@@ -1381,10 +1430,15 @@ const questionBank = [
   createQuestion({
     id: "modulation-gminor-eb-f",
     category: "modulation",
+    homeKey: "G minor",
+    keyRegions: [
+      { section: "X", localKey: "E♭ major", modelRelationship: "submediant / VI" },
+      { section: "Y", localKey: "F major", modelRelationship: "relative major of the dominant" },
+    ],
     sourceType: "original-practice",
     source: originalSource("Related key regions from G minor"),
     family: "Keys and modulation",
-    title: "Original: relative major and relative of dominant",
+    title: "Original: submediant and relative of dominant",
     context:
       "Sections X and Y cadence in two related major keys. Identify them, give evidence and relate each to G minor.",
     score: measuredScore({
@@ -1412,12 +1466,17 @@ const questionBank = [
     }),
     answerHeading: "Related-key evidence",
     answer: [
-      "X is E♭ major, supported by B♭7–E♭; it is G minor’s relative major. Y is F major, supported by E-natural and C7–F; it is the relative major of the dominant key, D minor.",
+      "X is E♭ major, supported by B♭7–E♭; relative to G minor it is VI, the submediant key (also describable as the relative major of the subdominant). Y is F major, supported by E-natural and C7–F; it is the relative major of the dominant key, D minor.",
     ],
   }),
   createQuestion({
     id: "modulation-e-b-csharp",
     category: "modulation",
+    homeKey: "E major",
+    keyRegions: [
+      { section: "X", localKey: "B major", modelRelationship: "dominant" },
+      { section: "Y", localKey: "C♯ minor", modelRelationship: "relative minor" },
+    ],
     sourceType: "original-practice",
     source: originalSource("Dominant and relative-minor regions from E major"),
     family: "Keys and modulation",

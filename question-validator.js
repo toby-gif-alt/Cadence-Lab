@@ -2,6 +2,7 @@
   "use strict";
 
   const renderer = window.CadenceScoreRenderer;
+  const keyRelationships = window.CadenceKeyRelationships;
   const SATB_NAMES = ["soprano", "alto", "tenor", "bass"];
   const EXPECTED_COUNTS = {
     analysis: 6,
@@ -204,6 +205,100 @@
     if (JSON.stringify(eventSlotIds) !== JSON.stringify(interactionSlotIds)) {
       errors.push(`${question.id}: editable harmonic events and response slots are not one-to-one`);
     }
+  }
+
+  function normalizeKeyContextText(value) {
+    return String(value || "")
+      .replaceAll("#", "♯")
+      .replace(/[‐‑–—-]/g, " ")
+      .replaceAll(/\s+/g, " ")
+      .trim()
+      .toLocaleLowerCase("en-NZ");
+  }
+
+  function validateKeySemantics(question, harmonicEvents, errors) {
+    const authoredKeyLabels = [
+      question.homeKey,
+      ...(question.keyRegions || []).map((region) => region.localKey),
+      ...(question.sourceSpec?.keyCentres || []),
+      ...harmonicEvents.map((event) => event.localKey),
+    ].filter(Boolean);
+    authoredKeyLabels.forEach((label) => {
+      try {
+        const formatted = keyRelationships.formatKey(label);
+        if (formatted !== label) {
+          errors.push(`${question.id}: key spelling ${label} must be stored semantically as ${formatted}`);
+        }
+      } catch (error) {
+        errors.push(`${question.id}: ${error.message}`);
+      }
+    });
+
+    if (question.category !== "modulation") return;
+    if (!question.homeKey || !Array.isArray(question.keyRegions) ||
+        !question.keyRegions.length) {
+      errors.push(`${question.id}: modulation task lacks semantic homeKey/keyRegions data`);
+      return;
+    }
+    const homeKey = keyRelationships.formatKey(question.homeKey);
+    const promptNamesHome = normalizeKeyContextText(question.studentContext)
+      .includes(normalizeKeyContextText(homeKey));
+    const homeKeyIsAsked = (question.interaction.fields || []).some(
+      (field) => field.kind === "home-key"
+    );
+    if (!promptNamesHome && !homeKeyIsAsked) {
+      errors.push(
+        `${question.id}: relationship task marks against ${homeKey} without supplying or asking for that home key`
+      );
+    }
+    if (question.interaction.homeKey !== homeKey) {
+      errors.push(`${question.id}: interaction home key does not match ${homeKey}`);
+    }
+
+    question.keyRegions.forEach((region) => {
+      const localKey = keyRelationships.formatKey(region.localKey);
+      const relationship = keyRelationships.relationshipBetween(homeKey, localKey);
+      if (!relationship.acceptedLabels.length) {
+        errors.push(`${question.id}: ${homeKey} → ${localKey} is not a supported diatonic key relationship`);
+        return;
+      }
+      if (!relationship.acceptedLabels.includes(region.modelRelationship)) {
+        errors.push(
+          `${question.id}: ${region.modelRelationship} is invalid for ${homeKey} → ${localKey}`
+        );
+      }
+      const keyField = question.interaction.fields.find(
+        (field) => field.id === `${region.section.toLowerCase()}-key`
+      );
+      const relationshipField = question.interaction.fields.find(
+        (field) => field.id === `${region.section.toLowerCase()}-relationship`
+      );
+      if (!keyField || !relationshipField) {
+        errors.push(`${question.id}: region ${region.section} lacks key/relationship response fields`);
+        return;
+      }
+      if (JSON.stringify(keyField.acceptedAnswers.map((answer) => answer.label)) !==
+          JSON.stringify([localKey])) {
+        errors.push(`${question.id}: region ${region.section} key answer must preserve ${localKey}`);
+      }
+      const acceptedLabels = relationshipField.acceptedAnswers.map(
+        (answer) => answer.label
+      );
+      if (acceptedLabels.some((label) => !relationship.acceptedLabels.includes(label))) {
+        errors.push(`${question.id}: region ${region.section} accepts an invalid relationship to ${homeKey}`);
+      }
+      if (acceptedLabels.some((label) =>
+        !question.interaction.relationshipChoices.includes(label)
+      )) {
+        errors.push(`${question.id}: region ${region.section} has an accepted relationship unavailable in the UI`);
+      }
+      if (relationshipField.homeKey !== homeKey ||
+          relationshipField.localKey !== localKey ||
+          relationshipField.semanticRelationship?.canonical !== relationship.canonical ||
+          relationshipField.semanticRelationship?.degree !== relationship.degree) {
+        errors.push(`${question.id}: region ${region.section} semantic relationship metadata is inconsistent`);
+      }
+    });
   }
 
   function validateMeasureDurations(question, errors) {
@@ -774,6 +869,15 @@
           ? bracketKeyCentres
           : question.score.sourceKeyCentres || []
     );
+    compareList(
+      "keyRelationships",
+      (question.keyRegions || []).map((region) => ({
+        section: region.section,
+        homeKey: question.homeKey,
+        localKey: region.localKey,
+        acceptedLabels: region.acceptedRelationshipLabels || [],
+      }))
+    );
 
     if (
       Number.isInteger(spec.analysisPositions) &&
@@ -995,6 +1099,7 @@
       }
       validateChordEvents(question, normalized, harmonicEvents, errors);
       validateRomanRoots(question, harmonicEvents, errors);
+      validateKeySemantics(question, harmonicEvents, errors);
       validateNonHarmonicNotes(question, normalized, errors, reviewWarnings);
       validateSatb(question, normalized, errors);
       validateSourceFidelity(
