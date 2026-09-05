@@ -249,8 +249,10 @@
     "major-seventh", "minor-seventh", "dominant-ninth", "major-ninth",
     "minor-ninth", "dominant-eleventh", "dominant-thirteenth",
     "dominant-flat-nine", "dominant-sharp-nine", "dominant-sharp-eleven",
-    "thirteenth-flat-nine", "add-nine", "six-add-nine", "suspended-two",
-    "suspended-four", "diminished", "diminished-seventh", "half-diminished",
+    "thirteenth-flat-nine", "add-nine", "minor-add-nine", "six-add-nine",
+    "minor-ninth-major-seventh", "minor-nine-add-six", "dominant-seven-sus-four",
+    "suspended-two", "suspended-four", "diminished", "diminished-seventh",
+    "half-diminished",
   ]);
 
   const JAZZ_FORMULA_PARTS = Object.freeze({
@@ -271,7 +273,11 @@
     "dominant-sharp-eleven": { quality: "dominant", extension: "7", alteration: "#11", addition: "" },
     "thirteenth-flat-nine": { quality: "dominant", extension: "13", alteration: "b9", addition: "" },
     "add-nine": { quality: "major", extension: "triad", alteration: "", addition: "add9" },
+    "minor-add-nine": { quality: "minor", extension: "triad", alteration: "", addition: "add9" },
     "six-add-nine": { quality: "major", extension: "6", alteration: "", addition: "6(add9)" },
+    "minor-ninth-major-seventh": { quality: "minor", extension: "9", alteration: "", addition: "maj7" },
+    "minor-nine-add-six": { quality: "minor", extension: "9", alteration: "", addition: "add6" },
+    "dominant-seven-sus-four": { quality: "dominant", extension: "7", alteration: "", addition: "", suspension: "sus4" },
     "suspended-two": { quality: "suspended", extension: "sus2", alteration: "", addition: "" },
     "suspended-four": { quality: "suspended", extension: "sus4", alteration: "", addition: "" },
     diminished: { quality: "diminished", extension: "triad", alteration: "", addition: "" },
@@ -284,13 +290,18 @@
     const extension = String(value.extension || "triad");
     const alteration = String(value.alteration || "");
     const addition = String(value.addition || "");
+    const suspension = String(value.suspension || "");
     if (quality === "half-diminished") return "half-diminished";
     if (quality === "diminished") return extension === "7" ? "diminished-seventh" : "diminished";
     if (quality === "suspended") return extension === "sus2" ? "suspended-two" : "suspended-four";
     if (quality === "minor") {
+      if (extension === "9" && addition === "maj7") return "minor-ninth-major-seventh";
+      if (extension === "9" && addition === "add6") return "minor-nine-add-six";
+      if (extension === "triad" && addition === "add9") return "minor-add-nine";
       return { "6": "minor-sixth", "7": "minor-seventh", "9": "minor-ninth" }[extension] || "minor";
     }
     if (quality === "dominant") {
+      if (extension === "7" && suspension === "sus4") return "dominant-seven-sus-four";
       if (extension === "13" && alteration === "b9") return "thirteenth-flat-nine";
       if (alteration === "b9") return "dominant-flat-nine";
       if (alteration === "#9") return "dominant-sharp-nine";
@@ -302,9 +313,17 @@
     return { 6: "sixth", maj7: "major-seventh", maj9: "major-ninth" }[extension] || "major";
   }
 
-  function semanticJazzChord(root, formula, bass = "") {
+  function semanticJazzChord(root, formula, bass = "", metadata = {}) {
     const safeFormula = JAZZ_FORMULAS.includes(formula) ? formula : "major";
-    return { root, ...copy(JAZZ_FORMULA_PARTS[safeFormula]), bass, formula: safeFormula };
+    const chord = {
+      root,
+      suspension: "",
+      ...copy(JAZZ_FORMULA_PARTS[safeFormula]),
+      bass,
+      formula: safeFormula,
+    };
+    if (metadata.displayStyle) chord.displayStyle = metadata.displayStyle;
+    return chord;
   }
 
   function sanitizeJazzChord(value) {
@@ -314,7 +333,7 @@
     const formula = JAZZ_FORMULAS.includes(next.formula)
       ? next.formula
       : jazzFormulaFromParts(next);
-    return semanticJazzChord(next.root, formula, next.bass);
+    return semanticJazzChord(next.root, formula, next.bass, next);
   }
 
   function formatJazzChord(value) {
@@ -338,14 +357,63 @@
       "dominant-sharp-eleven": "7♯11",
       "thirteenth-flat-nine": "13♭9",
       "add-nine": "add9",
+      "minor-add-nine": "m(add9)",
       "six-add-nine": "6(add9)",
+      "minor-ninth-major-seventh": "m9(maj7)",
+      "minor-nine-add-six": "m9(add6)",
+      "dominant-seven-sus-four": "7sus4",
       "suspended-two": "sus2",
       "suspended-four": "sus4",
       diminished: "dim",
       "diminished-seventh": "dim7",
-      "half-diminished": "m7♭5",
+      "half-diminished": chord.displayStyle === "parenthetical-flat-five" ? "m7(♭5)" : "m7♭5",
     }[chord.formula];
     return `${chord.root}${suffix}${chord.bass ? `/${chord.bass}` : ""}`;
+  }
+
+  function parseJazzChordSymbol(value) {
+    const symbol = String(value || "")
+      .trim()
+      .replaceAll("#", "♯")
+      .replaceAll("b", "♭");
+    const [main, bass = ""] = symbol.split("/");
+    const rootMatch = main.match(/^([A-G](?:♯|♭)?)(.*)$/);
+    if (!rootMatch || !/^([A-G](?:♯|♭)?)?$/.test(bass)) return null;
+    const [, root, suffix] = rootMatch;
+    const formula = {
+      "": "major",
+      m: "minor",
+      6: "sixth",
+      m6: "minor-sixth",
+      7: "dominant-seventh",
+      maj7: "major-seventh",
+      m7: "minor-seventh",
+      9: "dominant-ninth",
+      maj9: "major-ninth",
+      m9: "minor-ninth",
+      11: "dominant-eleventh",
+      13: "dominant-thirteenth",
+      "7♭9": "dominant-flat-nine",
+      "7♯9": "dominant-sharp-nine",
+      "7♯11": "dominant-sharp-eleven",
+      "13♭9": "thirteenth-flat-nine",
+      add9: "add-nine",
+      "m(add9)": "minor-add-nine",
+      "6(add9)": "six-add-nine",
+      "m9(maj7)": "minor-ninth-major-seventh",
+      "m9(add6)": "minor-nine-add-six",
+      "7sus4": "dominant-seven-sus-four",
+      sus2: "suspended-two",
+      sus4: "suspended-four",
+      dim: "diminished",
+      dim7: "diminished-seventh",
+      "m7♭5": "half-diminished",
+      "m7(♭5)": "half-diminished",
+    }[suffix];
+    if (!formula) return null;
+    return semanticJazzChord(root, formula, bass, {
+      displayStyle: suffix === "m7(♭5)" ? "parenthetical-flat-five" : "",
+    });
   }
 
   function formatValue(value, type) {
@@ -399,7 +467,7 @@
         id: field.id,
         label: field.label,
         response: formatValue(state?.fields?.[field.id], interaction.type),
-        model: acceptedLabels(field)[0] || "",
+        model: acceptedLabels(field).join(" or "),
         status: compareItem(field, state?.fields?.[field.id], interaction.type),
       }));
     const groupedFields = (interaction.unorderedFieldGroups || []).map((group) => {
@@ -427,7 +495,7 @@
         id: slot.id,
         label: slot.label,
         response: formatValue(state?.slots?.[slot.id], interaction.type),
-        model: acceptedLabels(slot)[0] || "",
+        model: acceptedLabels(slot).join(" or "),
         status: compareItem(slot, state?.slots?.[slot.id], interaction.type),
       })),
       fields: [...ordinaryFields, ...groupedFields],
@@ -474,6 +542,7 @@
     sanitizeJazzChord,
     semanticJazzChord,
     formatJazzChord,
+    parseJazzChordSymbol,
     JAZZ_FORMULAS,
     sanitizeRomanValue,
     formatValue,

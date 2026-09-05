@@ -13,17 +13,17 @@
   <body data-status="running">
     <h1>Cadence Lab interaction smoke test</h1>
     <div id="render-fixture" aria-hidden="true"></div>
-    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-interaction-11"></iframe>
+    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-interaction-12"></iframe>
     <pre id="results">Running…</pre>
 
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../question-bank.js?v=2026-09-interaction-11"></script>
-    <script src="../score-renderer.js?v=2026-09-interaction-11"></script>
-    <script src="../question-validator.js?v=2026-09-interaction-11"></script>
-    <script src="../student-answer.js?v=2026-09-interaction-11"></script>
-    <script src="../structured-answer.js?v=2026-09-interaction-11"></script>
-    <script src="../chord-generator.js?v=2026-09-interaction-11"></script>
-    <script src="../playback-engine.js?v=2026-09-interaction-11"></script>
+    <script src="../question-bank.js?v=2026-09-interaction-12"></script>
+    <script src="../score-renderer.js?v=2026-09-interaction-12"></script>
+    <script src="../question-validator.js?v=2026-09-interaction-12"></script>
+    <script src="../student-answer.js?v=2026-09-interaction-12"></script>
+    <script src="../structured-answer.js?v=2026-09-interaction-12"></script>
+    <script src="../chord-generator.js?v=2026-09-interaction-12"></script>
+    <script src="../playback-engine.js?v=2026-09-interaction-12"></script>
     <script>
       const results = document.querySelector("#results");
       const assertions = {};
@@ -665,6 +665,10 @@
           const semanticJazzExamples = [
             [{ root: "C", formula: "major" }, "C"],
             [{ root: "C", formula: "minor-ninth" }, "Cm9"],
+            [{ root: "C", formula: "minor-add-nine" }, "Cm(add9)"],
+            [{ root: "C", formula: "minor-ninth-major-seventh" }, "Cm9(maj7)"],
+            [{ root: "C", formula: "minor-nine-add-six" }, "Cm9(add6)"],
+            [{ root: "C♯", formula: "dominant-seven-sus-four" }, "C♯7sus4"],
             [{ root: "C", formula: "six-add-nine", bass: "E" }, "C6(add9)/E"],
             [{ root: "D", formula: "dominant-thirteenth", bass: "F♯" }, "D13/F♯"],
             [{ root: "E", formula: "dominant-sharp-nine", bass: "G♯" }, "E7♯9/G♯"],
@@ -673,7 +677,68 @@
           assert("semanticJazzFormatterAvoidsInvalidConcatenation",
             semanticJazzExamples.every(([value, expected]) =>
               structured.formatJazzChord(value) === expected
-            ) && structured.JAZZ_FORMULAS.length >= 23
+            ) && structured.JAZZ_FORMULAS.length >= 27
+          );
+          const authoredJazzQuestions = questions.filter((question) =>
+            question.interaction.type === "jazz-chord-placement"
+          );
+          const authoredJazzAnswers = authoredJazzQuestions.flatMap((question) =>
+            question.interaction.slots.flatMap((slot) =>
+              slot.acceptedAnswers.map((answer) => ({
+                questionId: question.id,
+                slotId: slot.id,
+                label: typeof answer === "string" ? answer : answer.label,
+              }))
+            )
+          );
+          const unrepresentableJazzAnswers = authoredJazzAnswers.filter(({ label }) => {
+            const parsed = structured.parseJazzChordSymbol(label);
+            return !parsed || structured.formatJazzChord(parsed) !== label;
+          });
+          assert("everyAuthoredJazzAnswerHasAnExactSemanticRepresentation",
+            unrepresentableJazzAnswers.length === 0,
+            unrepresentableJazzAnswers
+          );
+          assert("nzqa2021And2024ReferenceSymbolsAreExplicitSemanticAcceptanceCases",
+            ["nzqa-2021-valentine-techniques", "nzqa-2024-commercial-chromatic-bass"]
+              .flatMap((questionId) => questions.find((question) =>
+                question.id === questionId
+              ).sourceSpec.chordSymbols)
+              .every((label) => {
+                const parsed = structured.parseJazzChordSymbol(label);
+                return parsed && structured.formatJazzChord(parsed) === label;
+              }) &&
+            ["Cm9(maj7)", "Cm9(add6)", "C♯m(add9)", "C♯7sus4", "Dm7(♭5)"]
+              .every((label) => ["nzqa-2021-valentine-techniques", "nzqa-2024-commercial-chromatic-bass"]
+                .flatMap((questionId) => questions.find((question) =>
+                  question.id === questionId
+                ).sourceSpec.chordSymbols)
+                .includes(label))
+          );
+
+          const minorSixthEquivalents = chordGenerator.acceptedAnalysesForChord(
+            { root: "D", formula: "minor-sixth", tones: ["D", "F", "A", "B"] },
+            { ...structured.semanticJazzChord("D", "minor-sixth"), bassPitch: "D" }
+          );
+          const minorSeventhEquivalents = chordGenerator.acceptedAnalysesForChord(
+            { root: "D", formula: "minor-seventh", tones: ["D", "F", "A", "C"] },
+            { ...structured.semanticJazzChord("D", "minor-seventh", "F"), bassPitch: "F" }
+          );
+          const sixthEquivalents = chordGenerator.acceptedAnalysesForChord(
+            { root: "F", formula: "sixth", tones: ["F", "A", "C", "D"] },
+            { ...structured.semanticJazzChord("F", "sixth"), bassPitch: "F" }
+          );
+          const halfDiminishedEquivalents = chordGenerator.acceptedAnalysesForChord(
+            { root: "B", formula: "half-diminished", tones: ["B", "D", "F", "A"] },
+            { ...structured.semanticJazzChord("B", "half-diminished", "D"), bassPitch: "D" }
+          );
+          assert("generatedSixthAndMinorSeventhEquivalencesAreDeclared",
+            JSON.stringify(minorSeventhEquivalents) === JSON.stringify(["Dm7/F", "F6"]) &&
+            JSON.stringify(sixthEquivalents) === JSON.stringify(["F6", "Dm7/F"])
+          );
+          assert("generatedMinorSixthAndHalfDiminishedEquivalencesAreDeclared",
+            JSON.stringify(minorSixthEquivalents) === JSON.stringify(["Dm6", "Bm7♭5/D"]) &&
+            JSON.stringify(halfDiminishedEquivalents) === JSON.stringify(["Bm7♭5/D", "Dm6"])
           );
 
           const generatedVariants = Array.from({ length: 500 }, (_, index) =>
@@ -696,6 +761,38 @@
               question.variantId.startsWith("CID-") &&
               !/NZQA reference/i.test(question.source.acknowledgement)
             )
+          );
+          const roundTripOriginal = chordGenerator.create("visible-variant-round-trip");
+          const roundTripRestored = chordGenerator.createFromVariantId(roundTripOriginal.variantId);
+          assert("visibleVariantIdRecreatesIdenticalQuestionData",
+            JSON.stringify(roundTripOriginal) === JSON.stringify(roundTripRestored)
+          );
+          const ambiguousVariant = generatedVariants.find((question) =>
+            question.interaction.slots.some((slot) => slot.acceptedAnswers.length > 1)
+          );
+          const incompleteAmbiguityVariant = structuredClone(ambiguousVariant);
+          const ambiguousIndex = incompleteAmbiguityVariant.interaction.slots.findIndex(
+            (slot) => slot.acceptedAnswers.length > 1
+          );
+          incompleteAmbiguityVariant.interaction.slots[ambiguousIndex].acceptedAnswers =
+            incompleteAmbiguityVariant.interaction.slots[ambiguousIndex].acceptedAnswers.slice(0, 1);
+          incompleteAmbiguityVariant.score.measures[ambiguousIndex].events[0].acceptableChordSymbols =
+            incompleteAmbiguityVariant.score.measures[ambiguousIndex].events[0].acceptableChordSymbols.slice(0, 1);
+          assert("generatorRejectsUndeclaredStraightforwardAmbiguity",
+            Boolean(ambiguousVariant) && !chordGenerator.validateVariant(incompleteAmbiguityVariant)
+          );
+          const ambiguousSlot = ambiguousVariant.interaction.slots.find(
+            (slot) => slot.acceptedAnswers.length > 1
+          );
+          let alternativeState = structured.create(ambiguousVariant);
+          alternativeState = structured.setSlot(alternativeState, ambiguousSlot.id, {
+            label: ambiguousSlot.acceptedAnswers[1].label,
+            source: "builder",
+          });
+          assert("generatedComparisonAcceptsEveryDeclaredAnalysis",
+            structured.comparison(ambiguousVariant, alternativeState).slots.find(
+              (slot) => slot.id === ambiguousSlot.id
+            ).status === "matches"
           );
           assert("generatedVocabularyIncludesAdvancedRequiredChords",
             ["D13", "G7♭9", "C6", "C6(add9)", "Fmaj9", "Bm7♭5", "E7♯9"]
@@ -1157,6 +1254,79 @@
             !appDocument.querySelector('[data-playback-mode="question"]').hidden
           );
 
+          const authoredBuilderFailures = [];
+          const chooseBuilderValue = (selector, value, context) => {
+            const select = appDocument.querySelector(selector);
+            if (!select || ![...select.options].some((option) => option.value === value)) {
+              authoredBuilderFailures.push(`${context}: ${selector} cannot select ${value}`);
+              return false;
+            }
+            select.value = value;
+            select.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
+            return true;
+          };
+          authoredJazzQuestions.forEach((question) => {
+            appWindow.CadenceLab.showQuestion(question.id);
+            question.interaction.slots.forEach((slot) => {
+              slot.acceptedAnswers.forEach((answer) => {
+                const label = typeof answer === "string" ? answer : answer.label;
+                const chord = structured.parseJazzChordSymbol(label);
+                const context = `${question.id}/${slot.id}/${label}`;
+                const slotButton = appDocument.querySelector(`[data-slot-id="${slot.id}"]`);
+                if (!slotButton || !chord) {
+                  authoredBuilderFailures.push(`${context}: slot or semantic chord unavailable`);
+                  return;
+                }
+                slotButton.click();
+                const rootMatch = /^([A-G])([♯♭]?)$/.exec(chord.root);
+                if (!rootMatch ||
+                    !chooseBuilderValue("[data-chord-root]", rootMatch[1], context) ||
+                    !chooseBuilderValue("[data-chord-root-accidental]", rootMatch[2], context) ||
+                    !chooseBuilderValue("[data-chord-quality]", chord.quality, context) ||
+                    !chooseBuilderValue("[data-chord-extension]", chord.extension, context)) return;
+                if (chord.alteration && chord.quality === "dominant") {
+                  if (!chooseBuilderValue("[data-chord-alteration]", chord.alteration, context)) return;
+                }
+                if (chord.addition) {
+                  if (!chooseBuilderValue("[data-chord-addition]", chord.addition, context)) return;
+                }
+                if (chord.suspension) {
+                  if (!chooseBuilderValue("[data-chord-suspension]", chord.suspension, context)) return;
+                }
+                if (!chooseBuilderValue("[data-chord-bass]", chord.bass, context)) return;
+                const preview = appDocument.querySelector("[data-jazz-preview]").textContent;
+                if (preview !== label) {
+                  authoredBuilderFailures.push(`${context}: preview formatted ${preview}`);
+                  return;
+                }
+                appDocument.querySelector("[data-place-built]").click();
+                const state = appWindow.CadenceLab.getStructuredAnswer();
+                const placed = structured.formatValue(
+                  state.slots[slot.id], question.interaction.type
+                );
+                const status = structured.comparison(question, state).slots.find(
+                  (candidate) => candidate.id === slot.id
+                )?.status;
+                if (placed !== label || status !== "matches") {
+                  authoredBuilderFailures.push(`${context}: placed ${placed}, status ${status}`);
+                }
+              });
+            });
+          });
+          assert("standardBuilderProducesEveryAuthoredAcceptedJazzAnswer",
+            authoredBuilderFailures.length === 0,
+            authoredBuilderFailures
+          );
+          appWindow.CadenceLab.showQuestion("nzqa-2024-commercial-chromatic-bass");
+          chooseBuilderValue("[data-chord-root]", "C", "C♯m(add9)");
+          chooseBuilderValue("[data-chord-root-accidental]", "♯", "C♯m(add9)");
+          chooseBuilderValue("[data-chord-quality]", "minor", "C♯m(add9)");
+          chooseBuilderValue("[data-chord-extension]", "triad", "C♯m(add9)");
+          chooseBuilderValue("[data-chord-addition]", "add9", "C♯m(add9)");
+          assert("standardBuilderAlsoConstructsTheSupplied2024MinorAddNine",
+            appDocument.querySelector("[data-jazz-preview]").textContent === "C♯m(add9)"
+          );
+
           appWindow.CadenceLab.showGeneratedQuestion("ui-generated-smoke");
           assert("generatedPracticeHasFourIndependentChordBoxesAndVariantId",
             appDocument.querySelector("#category").value === "chord-identification" &&
@@ -1168,6 +1338,7 @@
             appDocument.querySelector("[data-chord-quality]") &&
             appDocument.querySelector("[data-chord-extension]") &&
             appDocument.querySelector("[data-chord-alteration]") &&
+            appDocument.querySelector("[data-chord-suspension]") &&
             !appDocument.querySelector(".hint-bank").open &&
             appDocument.querySelector(".hint-bank summary").textContent.includes("Need a hint")
           );
@@ -1201,6 +1372,17 @@
           assert("openingJazzHintBankDoesNotResetAnswers",
             JSON.stringify(appWindow.CadenceLab.getStructuredAnswer().slots) === generatedStateBeforeHint
           );
+          const generatedQuestionForComparison = appWindow.CadenceLab.getCurrentQuestion();
+          const acceptedFirstLabel = generatedQuestionForComparison.interaction.slots[0].acceptedAnswers[0].label;
+          appDocument.querySelector('[data-slot-id="generated-chord-1"]').click();
+          [...appDocument.querySelectorAll("[data-token-id]")].find(
+            (button) => button.textContent === acceptedFirstLabel && !button.disabled
+          )?.click();
+          appWindow.CadenceLab.submit({ skipConfirmation: true, noScroll: true });
+          assert("generatedComparisonUsesAcceptedAnalysisLanguage",
+            appDocument.querySelector("#student-comparison").textContent.includes("matches accepted analysis") &&
+            appDocument.querySelector("#student-comparison").textContent.includes("Accepted analyses")
+          );
 
           appWindow.CadenceLab.showQuestion("satb-f-c");
           const studentModeButton = appDocument.querySelector('[data-playback-mode="student"]');
@@ -1220,6 +1402,7 @@
             !appDocument.querySelector('[data-playback-mode="student"]').hidden &&
             !appDocument.querySelector('[data-playback-mode="context"]').hidden &&
             !appDocument.querySelector('[data-playback-mode="model"]').hidden &&
+            appDocument.querySelector('[data-playback-mode="model"]').textContent.trim() === "Play model answer" &&
             appDocument.querySelector("#model-playback-cursor")
           );
 

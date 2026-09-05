@@ -57,7 +57,11 @@
     "dominant-sharp-eleven": [[0, 0], [2, 4], [3, 6], [4, 7], [6, 10]],
     "thirteenth-flat-nine": [[0, 0], [1, 1], [2, 4], [4, 7], [5, 9], [6, 10]],
     "add-nine": [[0, 0], [1, 2], [2, 4], [4, 7]],
+    "minor-add-nine": [[0, 0], [1, 2], [2, 3], [4, 7]],
     "six-add-nine": [[0, 0], [1, 2], [2, 4], [4, 7], [5, 9]],
+    "minor-ninth-major-seventh": [[0, 0], [1, 2], [2, 3], [4, 7], [6, 11]],
+    "minor-nine-add-six": [[0, 0], [1, 2], [2, 3], [4, 7], [5, 9], [6, 10]],
+    "dominant-seven-sus-four": [[0, 0], [3, 5], [4, 7], [6, 10]],
     "suspended-two": [[0, 0], [1, 2], [4, 7]],
     "suspended-four": [[0, 0], [3, 5], [4, 7]],
     diminished: [[0, 0], [2, 3], [4, 6]],
@@ -72,14 +76,18 @@
     );
   }
 
-  function randomFromSeed(seedText) {
-    let state = seedNumber(seedText) || 1;
+  function randomFromState(seedState) {
+    let state = Number(seedState) >>> 0 || 1;
     return function () {
       state ^= state << 13;
       state ^= state >>> 17;
       state ^= state << 5;
       return (state >>> 0) / 4294967296;
     };
+  }
+
+  function randomFromSeed(seedText) {
+    return randomFromState(seedNumber(seedText));
   }
 
   function displayPitch(value) {
@@ -112,14 +120,35 @@
     };
   }
 
-  function chordEvent(entry, chord) {
-    const symbol = window.CadenceStructuredAnswer.formatJazzChord(chord);
+  function acceptedAnalysesForChord(entry, chord) {
+    const structured = window.CadenceStructuredAnswer;
+    const bass = displayPitch(chord.bassPitch);
+    const analysis = (root, formula) => structured.formatJazzChord(
+      structured.semanticJazzChord(
+        displayPitch(root),
+        formula,
+        bass === displayPitch(root) ? "" : bass
+      )
+    );
+    const symbols = [structured.formatJazzChord(chord)];
+    const equivalent = {
+      sixth: [entry.tones[3], "minor-seventh"],
+      "minor-seventh": [entry.tones[1], "sixth"],
+      "minor-sixth": [entry.tones[3], "half-diminished"],
+      "half-diminished": [entry.tones[1], "minor-sixth"],
+    }[entry.formula];
+    if (equivalent) symbols.push(analysis(...equivalent));
+    return [...new Set(symbols)];
+  }
+
+  function chordEvent(entry, chord, acceptableChordSymbols) {
+    const symbol = acceptableChordSymbols[0];
     return {
       treble: entry.tones.map((pitch, index) => pitchWithOctave(pitch, index > 3 ? 5 : 4)),
       bass: [pitchWithOctave(chord.bassPitch, 2)],
       duration: "w",
       expectedChordSymbol: symbol,
-      acceptableChordSymbols: [symbol],
+      acceptableChordSymbols: [...acceptableChordSymbols],
       generatedSemanticChord: {
         root: chord.root,
         quality: chord.quality,
@@ -164,19 +193,36 @@
     );
   }
 
-  function makeVariantId(seedText) {
-    return `CID-${seedNumber(seedText).toString(36).toUpperCase().padStart(7, "0").slice(-7)}`;
+  function variantIdFromState(seedState) {
+    return `CID-${(Number(seedState) >>> 0).toString(36).toUpperCase().padStart(7, "0")}`;
   }
 
-  function create(seedText) {
-    const seed = String(seedText || "cadence-lab-default");
-    const random = randomFromSeed(seed);
+  function stateFromVariantId(variantId) {
+    const match = /^CID-([0-9A-Z]{7})$/i.exec(String(variantId || "").trim());
+    if (!match) throw new Error("Variant ID must use the form CID-XXXXXXX.");
+    const state = Number.parseInt(match[1], 36);
+    if (!Number.isSafeInteger(state) || state < 0 || state > 0xFFFFFFFF) {
+      throw new Error("Variant ID contains an invalid generator state.");
+    }
+    return state >>> 0;
+  }
+
+  function makeVariantId(seedText) {
+    return variantIdFromState(seedNumber(seedText));
+  }
+
+  function createFromState(seedState) {
+    const variantId = variantIdFromState(seedState);
+    const random = randomFromState(seedState);
     const entries = chooseEntries(random, 4);
     const chords = entries.map((entry) => semanticChord(entry, random));
-    const symbols = chords.map((chord) => window.CadenceStructuredAnswer.formatJazzChord(chord));
+    const acceptedSymbols = chords.map((chord, index) =>
+      acceptedAnalysesForChord(entries[index], chord)
+    );
+    const symbols = acceptedSymbols.map((answers) => answers[0]);
     const measures = entries.map((entry, index) => ({
       keySignature: entry.keySignature,
-      events: [chordEvent(entry, chords[index])],
+      events: [chordEvent(entry, chords[index], acceptedSymbols[index])],
       endBarline: index === entries.length - 1 ? "final" : undefined,
     }));
     const distractors = catalog
@@ -184,19 +230,20 @@
         const chord = semanticChord(entry, () => (index % entry.tones.length) / entry.tones.length);
         return window.CadenceStructuredAnswer.formatJazzChord(chord);
       })
-      .filter((label, index, all) => !symbols.includes(label) && all.indexOf(label) === index)
+      .filter((label, index, all) =>
+        !acceptedSymbols.flat().includes(label) && all.indexOf(label) === index
+      )
       .slice(0, 6);
-    const variantId = makeVariantId(seed);
     const slots = symbols.map((symbol, index) => ({
       id: `generated-chord-${index + 1}`,
       harmonicIndex: index,
       label: `Chord ${index + 1}`,
-      acceptedAnswers: [{ label: symbol }],
+      acceptedAnswers: acceptedSymbols[index].map((label) => ({ label })),
     }));
     return {
       id: `generated-${variantId.toLowerCase()}`,
       variantId,
-      generatorSeed: seed,
+      generatorSeed: variantId,
       category: "chord-identification",
       sourceType: "generated-practice",
       source: {
@@ -232,9 +279,9 @@
       interaction: {
         type: "jazz-chord-placement",
         allowPaper: true,
-        seed: `${seed}-hint-bank`,
+        seed: `${variantId}-hint-bank`,
         slots,
-        bank: [...symbols, ...distractors].map((label, index) => ({
+        bank: [...acceptedSymbols.flat(), ...distractors].map((label, index) => ({
           id: `${variantId}-token-${index + 1}`,
           label,
         })),
@@ -253,37 +300,59 @@
       },
       answerHeading: "Generated chord-identification model",
       answer: [
-        `Accepted symbols: ${symbols.join(" · ")}.`,
-        "Each answer is derived from the same semantic chord object that generated its displayed pitches and bass note.",
+        `Accepted analyses: ${acceptedSymbols.map((answers, index) => `Chord ${index + 1}: ${answers.join(" or ")}`).join(" · ")}.`,
+        "Each accepted analysis is validated against the displayed pitches, bass note and exact spelling.",
       ],
     };
+  }
+
+  function create(seedText) {
+    return createFromState(seedNumber(String(seedText || "cadence-lab-default")));
+  }
+
+  function createFromVariantId(variantId) {
+    return createFromState(stateFromVariantId(variantId));
   }
 
   function validateVariant(question) {
     const normalized = window.CadenceScoreRenderer.normalizeMeasures(question.score);
     return normalized.measures.every((measure, index) => {
       const event = measure.events[0];
-      const expected = question.interaction.slots[index].acceptedAnswers[0].label;
+      const accepted = question.interaction.slots[index].acceptedAnswers.map((answer) => answer.label);
+      const expected = accepted[0];
       const sourceSpec = event.generatedSourceSpec;
       const semantic = event.generatedSemanticChord;
       const trebleSpellings = event.treble.map(pitchName);
       const bassSpelling = pitchName(event.bass[0]);
+      const declaredAmbiguity = acceptedAnalysesForChord(sourceSpec, {
+        ...semantic,
+        bassPitch: sourceSpec.bass,
+      });
       return event.expectedChordSymbol === expected &&
+        JSON.stringify(event.acceptableChordSymbols) === JSON.stringify(accepted) &&
+        JSON.stringify(declaredAmbiguity) === JSON.stringify(accepted) &&
         JSON.stringify(trebleSpellings) === JSON.stringify(sourceSpec.tones) &&
         bassSpelling === sourceSpec.bass &&
         validateCatalogEntry(sourceSpec) &&
         semantic.formula === sourceSpec.formula &&
         semantic.root === displayPitch(sourceSpec.root) &&
         (semantic.bass || semantic.root) === displayPitch(sourceSpec.bass) &&
-        window.CadenceScoreRenderer.validateChordIdentification(event, expected).valid;
+        accepted.every((symbol) =>
+          window.CadenceScoreRenderer.validateChordIdentification({
+            ...event,
+            acceptableChordSymbols: [symbol],
+          }, symbol).valid
+        );
     });
   }
 
   window.CadenceChordGenerator = Object.freeze({
     catalog,
     create,
+    createFromVariantId,
     makeVariantId,
     randomFromSeed,
+    acceptedAnalysesForChord,
     validateCatalogEntry,
     validateVariant,
   });

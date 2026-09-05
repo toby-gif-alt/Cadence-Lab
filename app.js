@@ -520,6 +520,7 @@
         <label>Extension<select data-chord-extension>${optionMarkup(extensionChoices.major, "triad", "Extension")}</select></label>
         <label>Alteration<select data-chord-alteration>${optionMarkup([], "", "None")}</select></label>
         <label>Addition<select data-chord-addition>${optionMarkup(["add9"], "", "None")}</select></label>
+        <label>Suspension<select data-chord-suspension>${optionMarkup([], "", "None")}</select></label>
         <label>Slash bass<select data-chord-bass>${optionMarkup(roots, "", "Root position")}</select></label>
         <button type="button" class="button button-primary" data-place-built>Place chord</button>
       </div>`;
@@ -571,6 +572,14 @@
       if (submitted) return;
       structuredAnswer = structuredModel.setHintBankVisible(structuredAnswer, event.currentTarget.open);
     });
+    const activeSlotDisplayStyle = () => {
+      const activeSlot = interaction.slots.find((candidate) =>
+        candidate.id === structuredAnswer.activeSlotId
+      );
+      return (activeSlot?.acceptedAnswers || []).some((answer) =>
+        /m7\(♭5\)/.test(typeof answer === "string" ? answer : answer.label)
+      ) ? "parenthetical-flat-five" : "";
+    };
     const updateJazzPreview = () => {
       const rootLetter = structuredBuilder.querySelector("[data-chord-root]").value;
       const chord = {
@@ -581,7 +590,9 @@
         extension: structuredBuilder.querySelector("[data-chord-extension]").value,
         alteration: structuredBuilder.querySelector("[data-chord-alteration]").value,
         addition: structuredBuilder.querySelector("[data-chord-addition]").value,
+        suspension: structuredBuilder.querySelector("[data-chord-suspension]").value,
         bass: structuredBuilder.querySelector("[data-chord-bass]").value,
+        displayStyle: activeSlotDisplayStyle(),
       };
       structuredBuilder.querySelector("[data-jazz-preview]").textContent =
         structuredModel.formatJazzChord(chord) || "Build the chord symbol";
@@ -591,12 +602,19 @@
       const extensionSelect = structuredBuilder.querySelector("[data-chord-extension]");
       const alterationSelect = structuredBuilder.querySelector("[data-chord-alteration]");
       const additionSelect = structuredBuilder.querySelector("[data-chord-addition]");
+      const suspensionSelect = structuredBuilder.querySelector("[data-chord-suspension]");
       const choices = extensionChoices[quality] || ["triad"];
       const extension = choices.includes(extensionSelect.value)
         ? extensionSelect.value
         : choices[0];
       extensionSelect.innerHTML = optionMarkup(choices, extension, "Extension");
-      const alterationChoices = quality !== "dominant"
+      const suspensionChoices = quality === "dominant" && extension === "7" ? ["sus4"] : [];
+      const suspension = suspensionChoices.includes(suspensionSelect.value)
+        ? suspensionSelect.value
+        : "";
+      suspensionSelect.innerHTML = optionMarkup(suspensionChoices, suspension, "None");
+      suspensionSelect.disabled = suspensionChoices.length === 0;
+      const alterationChoices = quality !== "dominant" || suspension
         ? []
         : extension === "7"
           ? ["b9", "#9", "#11"]
@@ -606,9 +624,11 @@
         : "";
       alterationSelect.innerHTML = optionMarkup(alterationChoices, alteration, "None");
       alterationSelect.disabled = alterationChoices.length === 0;
-      const additionChoices = quality !== "major"
-        ? []
-        : extension === "triad" ? ["add9"] : extension === "6" ? ["6(add9)"] : [];
+      const additionChoices = quality === "major"
+        ? extension === "triad" ? ["add9"] : extension === "6" ? ["6(add9)"] : []
+        : quality === "minor"
+          ? extension === "triad" ? ["add9"] : extension === "9" ? ["maj7", "add6"] : []
+          : [];
       const addition = additionChoices.includes(additionSelect.value)
         ? additionSelect.value
         : "";
@@ -616,14 +636,23 @@
       additionSelect.disabled = additionChoices.length === 0;
       updateJazzPreview();
     };
-    structuredBuilder.querySelectorAll("select").forEach((select) =>
-      select.addEventListener(
-        "change",
-        select.hasAttribute("data-chord-quality") || select.hasAttribute("data-chord-extension")
-          ? syncJazzParts
-          : updateJazzPreview
-      )
-    );
+    structuredBuilder.querySelectorAll("select").forEach((select) => {
+      select.addEventListener("change", () => {
+        if (select.hasAttribute("data-chord-alteration") && select.value) {
+          structuredBuilder.querySelector("[data-chord-suspension]").value = "";
+        }
+        if (select.hasAttribute("data-chord-suspension") && select.value) {
+          structuredBuilder.querySelector("[data-chord-alteration]").value = "";
+        }
+        if (select.hasAttribute("data-chord-quality") ||
+            select.hasAttribute("data-chord-extension") ||
+            select.hasAttribute("data-chord-suspension")) {
+          syncJazzParts();
+        } else {
+          updateJazzPreview();
+        }
+      });
+    });
     syncJazzParts();
     structuredBuilder.querySelector("[data-place-built]").addEventListener("click", () => {
       const root = structuredBuilder.querySelector("[data-chord-root]").value;
@@ -634,7 +663,9 @@
         extension: structuredBuilder.querySelector("[data-chord-extension]").value,
         alteration: structuredBuilder.querySelector("[data-chord-alteration]").value,
         addition: structuredBuilder.querySelector("[data-chord-addition]").value,
+        suspension: structuredBuilder.querySelector("[data-chord-suspension]").value,
         bass: structuredBuilder.querySelector("[data-chord-bass]").value,
+        displayStyle: activeSlotDisplayStyle(),
       });
       const placed = structuredModel.setSlot(
         structuredAnswer,
@@ -1310,15 +1341,16 @@
     }
     const comparison = structuredModel.comparison(currentQuestion, submissionSnapshot);
     const items = [...comparison.slots, ...comparison.fields];
+    const generated = currentQuestion.sourceType === "generated-practice";
     panel.hidden = false;
     panel.innerHTML = `
       <h4>Your response beside the model</h4>
-      <p>These labels only compare your structured entry with the authored accepted answer; they are not automated NCEA grading.</p>
+      <p>${generated ? "These labels compare your entry with the declared musically accepted analyses for this isolated sonority." : "These labels only compare your structured entry with the authored accepted answer; they are not automated NCEA grading."}</p>
       <div class="comparison-grid">
         ${items.map((item) => `<div class="comparison-item" data-status="${item.status}">
-          <small>${escapeText(item.label)} · ${item.status === "matches" ? "matches model" : item.status === "different" ? "different from model" : "unanswered"}</small>
+          <small>${escapeText(item.label)} · ${item.status === "matches" ? (generated ? "matches accepted analysis" : "matches model") : item.status === "different" ? (generated ? "not among accepted analyses" : "different from model") : "unanswered"}</small>
           <strong>${escapeText(item.response || "—")}</strong>
-          <span>Model: ${escapeText(item.model || "—")}</span>
+          <span>${generated ? "Accepted analyses" : "Model"}: ${escapeText(item.model || "—")}</span>
         </div>`).join("")}
       </div>
       ${comparison.evidence ? `<div class="comparison-item"><small>Your written evidence</small><strong>${escapeText(comparison.evidence)}</strong></div>` : ""}`;
@@ -1336,6 +1368,12 @@
     categorySelect.value = "chord-identification";
     sourceSelect.value = "generated-practice";
     renderQuestion(chordGenerator.create(seed));
+  }
+
+  function showGeneratedVariant(variantId) {
+    categorySelect.value = "chord-identification";
+    sourceSelect.value = "generated-practice";
+    renderQuestion(chordGenerator.createFromVariantId(variantId));
   }
 
   document.querySelector("#new-question").addEventListener("click", () => renderQuestion());
@@ -1504,6 +1542,7 @@
     validationReport: window.CadenceQuestionValidator.report,
     showQuestion: showQuestionById,
     showGeneratedQuestion,
+    showGeneratedVariant,
     submit: submitAndReveal,
     stopPlayback,
     getCurrentQuestion: () => currentQuestion,
@@ -1515,11 +1554,23 @@
     isSubmitted: () => submitted,
   });
 
-  const requestedQuestionId = new URLSearchParams(window.location.search).get("question");
+  const requestedParameters = new URLSearchParams(window.location.search);
+  const requestedVariantId = requestedParameters.get("variant");
+  const requestedQuestionId = requestedParameters.get("question");
   const requestedQuestion = questionBank.find((question) => question.id === requestedQuestionId);
-  if (requestedQuestion) {
+  if (requestedVariantId) {
+    categorySelect.value = "chord-identification";
+    sourceSelect.value = "generated-practice";
+  } else if (requestedQuestion) {
     categorySelect.value = requestedQuestion.category;
     sourceSelect.value = requestedQuestion.sourceType;
   }
-  renderQuestion(requestedQuestion || undefined);
+  try {
+    renderQuestion(requestedVariantId
+      ? chordGenerator.createFromVariantId(requestedVariantId)
+      : requestedQuestion || undefined);
+  } catch (error) {
+    console.warn(error);
+    renderQuestion(requestedQuestion || undefined);
+  }
 })();
