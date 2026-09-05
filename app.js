@@ -11,32 +11,14 @@
     "generated-practice": "Generated practice",
   };
   const scoreRenderer = window.CadenceScoreRenderer;
-  const answerModel = window.CadenceStudentAnswer;
   const structuredModel = window.CadenceStructuredAnswer;
   const chordGenerator = window.CadenceChordGenerator;
   const PlaybackEngine = window.CadencePlayback.PlaybackEngine;
-  const voiceLabels = {
-    soprano: "Soprano",
-    alto: "Alto",
-    tenor: "Tenor",
-    bass: "Bass",
-    treble: "Treble",
-  };
 
   let currentQuestion = null;
-  let studentAnswer = null;
   let structuredAnswer = null;
-  let answerHistory = null;
   let submissionSnapshot = null;
   let submitted = false;
-  let selectedVoice = null;
-  let selectedDuration = "q";
-  let dotted = false;
-  let restMode = false;
-  let selectedAccidental = "";
-  let addChordToneArmed = false;
-  let pointerPreview = null;
-  let pointerGesture = null;
   let selectedPlaybackMode = null;
   let activePlaybackScore = null;
   let activePlaybackMode = null;
@@ -51,11 +33,10 @@
   const revealButton = document.querySelector("#reveal-answer");
   const scoreElement = document.querySelector("#score");
   const modelScoreElement = document.querySelector("#model-score");
-  const editorPanel = document.querySelector("#editor-panel");
+  const paperCompletionPanel = document.querySelector("#paper-completion-panel");
   const structuredPanel = document.querySelector("#structured-response-panel");
   const structuredControls = document.querySelector("#structured-controls");
   const structuredBuilder = document.querySelector("#structured-builder");
-  const editorStatus = document.querySelector("#editor-status");
   const questionPlaybackCursor = document.querySelector("#playback-cursor");
   const modelPlaybackCursor = document.querySelector("#model-playback-cursor");
   const playbackStatus = document.querySelector("#playback-status");
@@ -128,16 +109,8 @@
     return "grand";
   }
 
-  function answerHasNotes() {
-    return Boolean(
-      studentAnswer?.measures.some((measure) =>
-        Object.values(measure.voices).some((stream) => stream.length)
-      )
-    );
-  }
-
-  function isNotationInteraction(question = currentQuestion) {
-    return question?.interaction?.type === "notation-completion";
+  function isPaperCompletion(question = currentQuestion) {
+    return question?.interaction?.type === "paper-completion";
   }
 
   function isStructuredInteraction(question = currentQuestion) {
@@ -147,10 +120,7 @@
     );
   }
 
-  function currentStudentScore() {
-    if (isNotationInteraction()) {
-      return answerModel.composeScore(currentQuestion, studentAnswer);
-    }
+  function currentQuestionScore() {
     if (isStructuredInteraction()) {
       return structuredModel.scoreWithResponses(currentQuestion, structuredAnswer);
     }
@@ -168,19 +138,18 @@
   function renderScores(force = false, options = {}) {
     if (!currentQuestion) return;
     if (options.stopAudio !== false) stopPlayback();
-    const measuredWidth =
+    const measuredWidth = options.width ||
       scoreElement.getBoundingClientRect().width ||
       document.querySelector(".score-frame").getBoundingClientRect().width ||
       900;
     if (!force && Math.abs(measuredWidth - renderedWidth) < 36) return;
 
     const layout = scoreLayout(currentQuestion);
-    const result = scoreRenderer.render(scoreElement, currentStudentScore(), {
+    const result = scoreRenderer.render(scoreElement, currentQuestionScore(), {
       layout,
       showAnswer: false,
       width: measuredWidth,
     });
-    scoreElement.classList.toggle("is-editable-score", Boolean(isNotationInteraction() && !submitted));
     if (submitted) {
       scoreRenderer.render(modelScoreElement, currentQuestion.score, {
         layout,
@@ -193,8 +162,6 @@
       modelScoreElement.classList.remove("notation-score");
     }
     renderedWidth = result.width;
-    markSelectedNote();
-    updateEditableHighlights();
   }
 
   function resetQuestionState(question) {
@@ -203,20 +170,8 @@
     lastQuestionId = question.id;
     submitted = false;
     submissionSnapshot = null;
-    studentAnswer = isNotationInteraction(question) ? answerModel.create(question) : null;
     structuredAnswer = isStructuredInteraction(question) ? structuredModel.create(question) : null;
-    answerHistory = studentAnswer ? new answerModel.History(studentAnswer) : null;
-    selectedVoice = isNotationInteraction(question)
-      ? question.interaction.editableRegions[0].voices[0]
-      : null;
-    selectedDuration = "q";
-    dotted = false;
-    restMode = false;
-    selectedAccidental = "";
-    addChordToneArmed = false;
-    pointerPreview = null;
-    pointerGesture = null;
-    selectedPlaybackMode = isNotationInteraction(question) ? "student" : null;
+    selectedPlaybackMode = isPaperCompletion(question) ? "question" : null;
     activePlaybackScore = null;
     activePlaybackMode = null;
     renderedWidth = 0;
@@ -248,9 +203,12 @@
 
     answerPanel.hidden = true;
     document.querySelector("#model-score-wrap").hidden = true;
+    document.querySelector("#print-model").hidden = true;
     revealButton.disabled = false;
-    revealButton.innerHTML = '<span aria-hidden="true">◉</span> Submit &amp; reveal';
-    buildEditor(question);
+    revealButton.innerHTML = isPaperCompletion(question)
+      ? '<span aria-hidden="true">◉</span> I’ve finished — show model'
+      : '<span aria-hidden="true">◉</span> Submit &amp; reveal';
+    buildPaperCompletion(question);
     buildStructuredResponse(question);
     renderScores(true);
     updatePlaybackPermissions();
@@ -258,6 +216,25 @@
 
   function buildCriteria(question) {
     const grid = document.querySelector("#criteria-grid");
+    if (isPaperCompletion(question)) {
+      document.querySelector(".self-assess .eyebrow").textContent = "Paper self-check";
+      document.querySelector(".self-assess h3").textContent =
+        "Compare your written completion with the model";
+      grid.innerHTML = question.interaction.selfCheck.map((text, criterionIndex) => `
+        <label class="criterion paper-criterion">
+          <input type="checkbox" data-criterion="${criterionIndex}" />
+          <span>${escapeText(text)}</span>
+        </label>
+      `).join("");
+      grid.querySelectorAll("input").forEach((input) =>
+        input.addEventListener("change", updateResult)
+      );
+      updateResult();
+      return;
+    }
+    document.querySelector(".self-assess .eyebrow").textContent = "Assessment guide";
+    document.querySelector(".self-assess h3").textContent =
+      "Which evidence is present in your answer?";
     const rows = [];
     ["A", "M", "E"].forEach((level) => {
       question.criteria[level].forEach((text, criterionIndex) => {
@@ -279,6 +256,15 @@
 
   function updateResult() {
     const inputs = [...document.querySelectorAll("#criteria-grid input")];
+    if (isPaperCompletion()) {
+      const checked = inputs.filter((input) => input.checked).length;
+      const badge = document.querySelector("#result-badge");
+      badge.textContent = `${checked} of ${inputs.length} checked`;
+      badge.className = "result-badge";
+      document.querySelector("#judgement-note").textContent =
+        "Use this checklist while comparing your written work with the model. Cadence Lab is not grading the notation on your paper.";
+      return;
+    }
     const present = new Set(inputs.map((input) => input.dataset.level));
     const complete = (level) => {
       const group = inputs.filter((input) => input.dataset.level === level);
@@ -745,472 +731,79 @@
     });
   }
 
-  function buildEditor(question) {
-    const interactive = isNotationInteraction(question);
-    editorPanel.hidden = !interactive;
-    editorStatus.textContent = "";
-    if (!interactive) return;
-    const voices = [...new Set(
-      question.interaction.editableRegions.flatMap((region) => region.voices)
-    )];
-    document.querySelector("#voice-controls").innerHTML = voices
-      .map((voice) =>
-        `<button type="button" data-voice="${voice}" aria-pressed="${voice === selectedVoice}">${voiceLabels[voice]}</button>`
-      )
-      .join("");
-    document.querySelectorAll("#voice-controls [data-voice]").forEach((button) => {
-      button.addEventListener("click", () => {
-        selectedVoice = button.dataset.voice;
-        showNotationPreview(null);
-        updateEditorControls();
-      });
-    });
-    updateEditorControls();
-  }
-
-  function currentDuration() {
-    return dotted && ["h", "q", "8"].includes(selectedDuration)
-      ? `${selectedDuration}d`
-      : selectedDuration;
-  }
-
-  function updateEditorControls() {
-    if (!isNotationInteraction()) return;
-    document.querySelectorAll("#editor-panel button, #editor-panel input").forEach((control) => {
-      control.disabled = submitted;
-    });
-    document.querySelectorAll("#voice-controls [data-voice]").forEach((button) => {
-      const active = button.dataset.voice === selectedVoice;
-      button.classList.toggle("is-active", active);
-      button.setAttribute("aria-pressed", String(active));
-      button.disabled = submitted;
-    });
-    document.querySelectorAll("#duration-controls [data-duration]").forEach((button) => {
-      button.classList.toggle("is-active", button.dataset.duration === selectedDuration);
-      button.disabled = submitted;
-    });
-    document.querySelectorAll(".accidental-tool").forEach((button) => {
-      button.classList.toggle("is-active", button.dataset.accidental === selectedAccidental);
-      button.disabled = submitted;
-    });
-    const dotButton = document.querySelector("#dot-toggle");
-    dotButton.classList.toggle("is-active", dotted);
-    dotButton.setAttribute("aria-pressed", String(dotted));
-    dotButton.disabled = submitted || !["h", "q", "8"].includes(selectedDuration);
-    const restButton = document.querySelector("#rest-toggle");
-    restButton.classList.toggle("is-active", restMode);
-    restButton.setAttribute("aria-pressed", String(restMode));
-    document.querySelector("#undo-edit").disabled = submitted || !answerHistory?.past.length;
-    document.querySelector("#redo-edit").disabled = submitted || !answerHistory?.future.length;
-    const chordButton = document.querySelector("#add-to-chord");
-    chordButton.classList.toggle("is-active", addChordToneArmed);
-    chordButton.setAttribute("aria-pressed", String(addChordToneArmed));
-    const cursor = studentAnswer?.cursors[selectedVoice];
-    document.querySelector("#editor-position").textContent = cursor
-      ? `${voiceLabels[selectedVoice]} • bar ${cursor.measure}, beat ${formatBeat(cursor.beat)}`
-      : "Select a voice and tap the stave.";
-    const selected = studentAnswer?.selectedId
-      ? answerModel.locate(studentAnswer, studentAnswer.selectedId)
-      : null;
-    const tonePanel = document.querySelector("#selected-chord-tones");
-    const tones = selected?.event?.pitches || [];
-    tonePanel.hidden = tones.length < 2;
-    tonePanel.innerHTML = tones.length >= 2
-      ? `<strong>Chord tones:</strong>${tones.map((pitch) => `<button type="button" class="tone-chip" data-remove-pitch="${escapeText(pitch)}" aria-label="Remove ${escapeText(pitch)} from chord">${escapeText(pitch)} ×</button>`).join("")}`
-      : "";
-    tonePanel.querySelectorAll("[data-remove-pitch]").forEach((button) => {
-      button.disabled = submitted;
-      button.addEventListener("click", () => {
-        try {
-          commitAnswer(
-            answerModel.removePitchFromSelected(studentAnswer, currentQuestion, button.dataset.removePitch),
-            `${button.dataset.removePitch} removed from the chord.`
-          );
-        } catch (error) {
-          handleAnswerError(error);
-        }
-      });
-    });
-    updateEditableHighlights();
-  }
-
-  function formatBeat(value) {
-    return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
-  }
-
-  function setEditorStatus(message, isError = false) {
-    editorStatus.textContent = message;
-    editorStatus.classList.toggle("is-error", isError);
-  }
-
-  function commitAnswer(next, message) {
-    studentAnswer = answerHistory.commit(next);
-    setEditorStatus(message || "Your notation has been updated.");
-    renderedWidth = 0;
-    renderScores(true);
-    updateEditorControls();
-    updatePlaybackPermissions();
-  }
-
-  function handleAnswerError(error) {
-    setEditorStatus(error.message || String(error), true);
-  }
-
-  function activeMeasureGeometry(svgPoint) {
-    const map = scoreElement._cadenceHitMap;
-    if (!map) return null;
-    const containing = map.measures.filter(
-      (measure) => svgPoint.x >= measure.x - 8 && svgPoint.x <= measure.endX + 8
-    );
-    if (!containing.length) return null;
-    const staff = ["soprano", "alto", "treble"].includes(selectedVoice)
-      ? "treble"
-      : "bass";
-    return containing
-      .map((measure) => {
-        const y = staff === "treble" ? measure.topY : measure.bottomY;
-        return { measure, staff, distance: y == null ? Infinity : Math.abs(svgPoint.y - (y + 20)) };
-      })
-      .sort((a, b) => a.distance - b.distance)[0];
-  }
-
-  function svgPointFromEvent(event) {
-    const svg = scoreElement.querySelector("svg");
-    if (!svg) return null;
-    const point = svg.createSVGPoint();
-    point.x = event.clientX;
-    point.y = event.clientY;
-    return point.matrixTransform(svg.getScreenCTM().inverse());
+  function buildPaperCompletion(question) {
+    const active = isPaperCompletion(question);
+    paperCompletionPanel.hidden = !active;
+    if (!active) {
+      document.querySelector("#paper-completion-instruction").textContent = "";
+      return;
+    }
+    document.querySelector("#paper-completion-instruction").textContent =
+      question.interaction.completionType === "satb"
+        ? "Complete this harmony on paper or on a printed copy of the score."
+        : "Complete this piano part on paper or on a printed copy of the score.";
   }
 
   function handleStructuredScoreActivation(event) {
-    if (!currentQuestion?.interaction || submitted) return;
-    if (isStructuredInteraction()) {
-      const answerBox = event.target.closest?.(".analysis-box-group.analysis-box-editable");
-      if (answerBox?.dataset.answerSlotId) {
-        structuredAnswer = structuredModel.setActiveSlot(
-          structuredAnswer,
-          answerBox.dataset.answerSlotId
-        );
-        buildStructuredResponse(currentQuestion);
-        structuredPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }
-    }
-  }
-
-  function keySignatureAccidental(keySignature, letter) {
-    const counts = {
-      C: 0, G: 1, D: 2, A: 3, E: 4, B: 5, "F#": 6, "C#": 7,
-      F: -1, Bb: -2, Eb: -3, Ab: -4, Db: -5, Gb: -6, Cb: -7,
-      Am: 0, Em: 1, Bm: 2, "F#m": 3, "C#m": 4,
-      Dm: -1, Gm: -2, Cm: -3, Fm: -4,
-    };
-    const normalized = String(keySignature || "C")
-      .replaceAll("♯", "#").replaceAll("♭", "b").replaceAll(/\s+/g, "");
-    const count = counts[normalized] || 0;
-    if (count > 0 && ["F", "C", "G", "D", "A", "E", "B"].slice(0, count).includes(letter)) return "#";
-    if (count < 0 && ["B", "E", "A", "D", "G", "C", "F"].slice(0, -count).includes(letter)) return "b";
-    return "";
-  }
-
-  function displayAccidentalForPreview(pitch, keySignature, priorEvents) {
-    const match = /^([A-G])((?:##|bb|#|b|n)?)(-?\d+)$/.exec(String(pitch));
-    if (!match) return "";
-    const [, letter, writtenAccidental, octave] = match;
-    const desired = writtenAccidental === "n" ? "" : writtenAccidental;
-    const previous = [...(priorEvents || [])]
-      .flatMap((item) => (item.pitches || []).map((candidate) => ({ beat: item.beat, candidate })))
-      .map((item) => ({ ...item, match: /^([A-G])((?:##|bb|#|b|n)?)(-?\d+)$/.exec(String(item.candidate)) }))
-      .filter((item) => item.match?.[1] === letter && item.match?.[3] === octave)
-      .sort((first, second) => Number(first.beat) - Number(second.beat))
-      .at(-1);
-    const active = previous
-      ? previous.match[2] === "n" ? "" : previous.match[2]
-      : keySignatureAccidental(keySignature, letter);
-    if (active === desired) return "";
-    return desired === "#" ? "♯" : desired === "b" ? "♭" : "♮";
-  }
-
-  function studentEventAt(intent) {
-    const stream = studentAnswer?.measures[intent.measure - 1]?.voices?.[intent.voice] || [];
-    return stream.find((event) => {
-      if (Math.abs(Number(event.beat || 1) - intent.beat) > 0.001) return false;
-      if (event.rest) return intent.rest;
-      return event.pitches?.includes(intent.pitch);
-    }) || null;
-  }
-
-  function resolveNotationIntent(event) {
-    if (!isNotationInteraction() || submitted) return null;
-    const point = svgPointFromEvent(event);
-    const hit = point && activeMeasureGeometry(point);
-    if (!hit || hit.distance > 46) {
-      return null;
-    }
-    if (!answerModel.isEditable(currentQuestion, hit.measure.measure, selectedVoice)) {
-      return { locked: true, measure: hit.measure.measure };
-    }
-    const duration = currentDuration();
-    const denominator = Number(String(hit.measure.timeSignature || "4/4").split("/")[1]);
-    let tappedBeat;
-    try {
-      tappedBeat = answerModel.snapBeatAtX({
-        x: point.x,
-        startX: hit.measure.x,
-        endX: hit.measure.endX,
-        capacity: hit.measure.expectedBeats,
-        duration,
-        denominator,
-      });
-    } catch (error) {
-      handleAnswerError(error);
-      return null;
-    }
-    const spacing = hit.staff === "treble" ? hit.measure.topSpacing : hit.measure.bottomSpacing;
-    const topY = hit.staff === "treble" ? hit.measure.topY : hit.measure.bottomY;
-    const stepsFromTopLine = Math.round((point.y - topY) / (spacing / 2));
-    const spellingMeasure = hit.measure.measure;
-    const spellingBeat = tappedBeat;
-    const priorEvents = answerModel.visibleAccidentalContext(currentQuestion, studentAnswer, {
-      measure: spellingMeasure,
-      beat: spellingBeat,
-      staff: hit.staff,
-    });
-    const pitch = answerModel.spellPitchAtStaffPosition({
-      staff: hit.staff,
-      stepsFromTopLine,
-      accidental: selectedAccidental,
-      keySignature: hit.measure.keySignature,
-      insertionBeat: spellingBeat,
-      priorEvents,
-    });
-    const x = hit.measure.x +
-      ((tappedBeat - 1) / hit.measure.expectedBeats) * (hit.measure.endX - hit.measure.x);
-    const existingOnset = (studentAnswer?.measures[spellingMeasure - 1]?.voices?.[selectedVoice] || [])
-      .some((candidate) => Math.abs(Number(candidate.beat || 1) - tappedBeat) < 0.001 && !candidate.rest);
-    return {
-      measure: spellingMeasure,
-      beat: tappedBeat,
-      voice: selectedVoice,
-      staff: hit.staff,
-      pitch,
-      duration,
-      rest: restMode,
-      x,
-      y: topY + stepsFromTopLine * (spacing / 2),
-      stemDirection: ["alto", "bass"].includes(selectedVoice) ? "down" : "up",
-      displayAccidental: restMode ? "" : displayAccidentalForPreview(
-        pitch,
-        hit.measure.keySignature,
-        priorEvents
-      ),
-      receivingChord: addChordToneArmed && existingOnset,
-    };
-  }
-
-  function showNotationPreview(intent) {
-    pointerPreview = intent && !intent.locked ? intent : null;
-    scoreRenderer.renderEditorPreview(scoreElement, pointerPreview);
-    scoreElement.querySelectorAll(".student-note").forEach((node) => {
-      node.classList.toggle(
-        "is-chord-target",
-        Boolean(pointerPreview?.receivingChord) &&
-        [pointerPreview.voice, `student-${pointerPreview.voice}`].includes(node.dataset.editorVoice) &&
-        Number(node.dataset.editorMeasure) === pointerPreview.measure &&
-        Math.abs(Number(node.dataset.editorBeat) - pointerPreview.beat) < 0.001
+    if (!currentQuestion?.interaction || submitted || !isStructuredInteraction()) return;
+    const answerBox = event.target.closest?.(".analysis-box-group.analysis-box-editable");
+    if (answerBox?.dataset.answerSlotId) {
+      structuredAnswer = structuredModel.setActiveSlot(
+        structuredAnswer,
+        answerBox.dataset.answerSlotId
       );
-    });
-  }
-
-  function handleScorePointerDown(event) {
-    if (!currentQuestion?.interaction || submitted) return;
-    if (isStructuredInteraction()) {
-      handleStructuredScoreActivation(event);
-      return;
-    }
-    const intent = resolveNotationIntent(event);
-    if (!intent) return;
-    if (intent.locked) {
-      setEditorStatus(`Bar ${intent.measure} is supplied and locked for ${voiceLabels[selectedVoice]}.`, true);
-      return;
-    }
-    event.preventDefault();
-    const existing = studentEventAt(intent);
-    pointerGesture = {
-      pointerId: event.pointerId,
-      start: intent,
-      existingId: existing?.id || null,
-      wasSelected: existing?.id === studentAnswer.selectedId,
-    };
-    try {
-      scoreElement.setPointerCapture?.(event.pointerId);
-    } catch (_error) {
-      // Synthetic regression events have no active platform pointer to capture.
-    }
-    showNotationPreview(intent);
-  }
-
-  function handleScorePointerMove(event) {
-    if (!isNotationInteraction() || submitted) return;
-    if (event.pointerType === "touch" && !pointerGesture) return;
-    const intent = resolveNotationIntent(event);
-    showNotationPreview(intent);
-  }
-
-  function handleScorePointerLeave(event) {
-    if (!pointerGesture && event.pointerType !== "touch") showNotationPreview(null);
-  }
-
-  function handleScorePointerUp(event) {
-    if (!pointerGesture || pointerGesture.pointerId !== event.pointerId) return;
-    event.preventDefault();
-    const gesture = pointerGesture;
-    const intent = pointerPreview || gesture.start;
-    pointerGesture = null;
-    try {
-      scoreElement.releasePointerCapture?.(event.pointerId);
-    } catch (_error) {
-      // The platform may already have released a cancelled/synthetic pointer.
-    }
-    showNotationPreview(null);
-    if (!intent || intent.locked) return;
-    try {
-      if (gesture.existingId) {
-        if (!gesture.wasSelected) {
-          studentAnswer = answerModel.select(studentAnswer, gesture.existingId);
-          answerHistory.present = copy(studentAnswer);
-          setEditorStatus("Selected your note. Tap it again to delete, drag it to move, or use the toolbar.");
-          markSelectedNote();
-          updateEditorControls();
-          return;
-        }
-        const unchanged = gesture.start.measure === intent.measure &&
-          Math.abs(gesture.start.beat - intent.beat) < 0.001 &&
-          gesture.start.pitch === intent.pitch;
-        if (unchanged) {
-          commitAnswer(
-            answerModel.deleteSelected(studentAnswer, currentQuestion),
-            "Selected note deleted. Use Undo to restore it."
-          );
-          return;
-        }
-        commitAnswer(
-          answerModel.moveSelected(studentAnswer, currentQuestion, {
-            voice: intent.voice,
-            measure: intent.measure,
-            beat: intent.beat,
-            pitches: intent.rest ? undefined : [intent.pitch],
-          }),
-          `Selected note moved to bar ${intent.measure}, beat ${formatBeat(intent.beat)}.`
-        );
-        return;
-      }
-      const next = answerModel.insert(studentAnswer, currentQuestion, {
-        voice: intent.voice,
-        measure: intent.measure,
-        beat: intent.beat,
-        pitches: intent.rest ? [] : [intent.pitch],
-        duration: intent.duration,
-        rest: intent.rest,
-        addToChord: addChordToneArmed,
-      });
-      addChordToneArmed = false;
-      commitAnswer(
-        next,
-        `${intent.rest ? "Rest" : intent.pitch} entered at bar ${intent.measure}, beat ${formatBeat(intent.beat)}.`
-      );
-      if (!intent.rest && document.querySelector("#audition-entry").checked) {
-        playback.auditionPitch(intent.pitch);
-      }
-    } catch (error) {
-      handleAnswerError(error);
-    }
-  }
-
-  function markSelectedNote() {
-    scoreElement.querySelectorAll(".student-note").forEach((note) => {
-      note.classList.toggle(
-        "is-selected",
-        note.dataset.editorNoteId === studentAnswer?.selectedId
-      );
-    });
-  }
-
-  function updateEditableHighlights() {
-    const currentStaff = ["soprano", "alto", "treble"].includes(selectedVoice)
-      ? "treble"
-      : "bass";
-    scoreElement.querySelectorAll(".editor-hit-target").forEach((target) => {
-      const measure = Number(target.dataset.measure);
-      const active = isNotationInteraction() && !submitted &&
-        target.dataset.staff === currentStaff &&
-        answerModel.isEditable(currentQuestion, measure, selectedVoice);
-      target.classList.toggle("is-current-editable", active);
-    });
-  }
-
-  function editSelected(changes, message) {
-    try {
-      commitAnswer(
-        answerModel.updateSelected(studentAnswer, currentQuestion, changes),
-        message
-      );
-    } catch (error) {
-      handleAnswerError(error);
+      buildStructuredResponse(currentQuestion);
+      structuredPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   }
 
   function playbackPermissions() {
-    const notation = isNotationInteraction();
+    const paper = isPaperCompletion();
     return {
-      student: notation,
-      question: Boolean(submitted && !notation),
-      context: Boolean(submitted && notation),
-      model: Boolean(submitted && notation),
+      student: false,
+      question: paper || submitted,
+      context: false,
+      model: paper && submitted,
     };
   }
 
   function updatePlaybackPermissions() {
     const permissions = playbackPermissions();
     document.querySelectorAll("[data-playback-mode]").forEach((button) => {
+      if (button.dataset.playbackMode === "question") {
+        button.textContent = isPaperCompletion() ? "Hear supplied passage" : "Play the score";
+      }
       const allowed = permissions[button.dataset.playbackMode];
       button.disabled = !allowed;
-      button.hidden = submitted
-        ? notationPlaybackButtonHidden(button.dataset.playbackMode)
-        : button.dataset.playbackMode !== "student";
+      button.hidden = isPaperCompletion()
+        ? !["question", "model"].includes(button.dataset.playbackMode) ||
+          (button.dataset.playbackMode === "model" && !submitted)
+        : button.dataset.playbackMode !== "question" || !submitted;
       button.classList.toggle("is-active", button.dataset.playbackMode === selectedPlaybackMode && allowed);
       button.setAttribute("aria-pressed", String(button.dataset.playbackMode === selectedPlaybackMode && allowed));
     });
     if (!permissions[selectedPlaybackMode]) {
-      selectedPlaybackMode = submitted
-        ? isNotationInteraction() ? (answerHasNotes() ? "context" : "model") : "question"
-        : permissions.student ? "student" : null;
+      selectedPlaybackMode = permissions.question ? "question" : null;
     }
     document.querySelectorAll("[data-playback-mode]").forEach((button) => {
       button.classList.toggle("is-active", button.dataset.playbackMode === selectedPlaybackMode);
       button.setAttribute("aria-pressed", String(button.dataset.playbackMode === selectedPlaybackMode));
     });
-    const canPlay = Boolean(
-      selectedPlaybackMode &&
-      permissions[selectedPlaybackMode] &&
-      (selectedPlaybackMode !== "student" || answerHasNotes())
-    );
+    const canPlay = Boolean(selectedPlaybackMode && permissions[selectedPlaybackMode]);
     playPauseButton.disabled = !canPlay;
     document.querySelector("#stop-playback").disabled = !canPlay;
     document.querySelector("#playback-lock-message").textContent = submitted
-      ? isNotationInteraction()
-        ? "Student, context and model playback are unlocked."
+      ? isPaperCompletion()
+        ? "Compare the supplied passage with the separate model answer."
         : "Score playback is unlocked."
-      : "Available after you submit your answer.";
-    if (!isNotationInteraction() && !submitted) {
+      : isPaperCompletion()
+        ? "Only the notes printed in the question will sound."
+        : "Available after you submit your answer.";
+    if (!isPaperCompletion() && !submitted) {
       playbackStatus.textContent = "Printed-score playback is locked until submission.";
-    } else if (isNotationInteraction() && !answerHasNotes() && !submitted) {
-      playbackStatus.textContent = "Enter a note to enable Play just my notes.";
+    } else if (isPaperCompletion() && !submitted) {
+      playbackStatus.textContent = "Ready to hear the visibly supplied passage.";
     }
-  }
-
-  function notationPlaybackButtonHidden(mode) {
-    return isNotationInteraction() ? mode === "question" : mode !== "question";
   }
 
   function tempoValue() {
@@ -1221,8 +814,8 @@
   }
 
   function playbackScore(mode) {
-    if (isNotationInteraction()) {
-      return answerModel.scoreForPlayback(currentQuestion, submissionSnapshot || studentAnswer, mode);
+    if (isPaperCompletion() && mode === "question") {
+      return window.CadencePlayback.questionOnlyScore(currentQuestion.score);
     }
     return copy(currentQuestion.score);
   }
@@ -1237,7 +830,7 @@
       startMeasure,
     });
     playbackStatus.textContent = timeline.notes.length
-      ? `Playing ${selectedPlaybackMode === "student" ? "just your notes" : selectedPlaybackMode} from bar 1.`
+      ? `${selectedPlaybackMode === "model" ? "Playing model answer" : isPaperCompletion() ? "Playing supplied passage" : "Playing score"} from bar 1.`
       : "There are no notes in this playback selection.";
     if (!timeline.notes.length) stopPlayback();
   }
@@ -1293,16 +886,13 @@
   function submitAndReveal(options = {}) {
     if (submitted || !currentQuestion) return false;
     const confirmed = options.skipConfirmation || window.confirm(
-      "Submit your answer and unlock the model and score playback?"
+      isPaperCompletion()
+        ? "Finished your paper completion? Show one possible model answer?"
+        : "Submit your answer and unlock the model and score playback?"
     );
     if (!confirmed) return false;
     stopPlayback();
-    submissionSnapshot = copy(studentAnswer || structuredAnswer);
-    if (studentAnswer) {
-      studentAnswer = answerModel.setSubmitted(studentAnswer);
-      submissionSnapshot = copy(studentAnswer);
-      answerHistory.present = copy(studentAnswer);
-    }
+    submissionSnapshot = copy(structuredAnswer);
     if (structuredAnswer) {
       structuredAnswer = structuredModel.setSubmitted(structuredAnswer);
       submissionSnapshot = copy(structuredAnswer);
@@ -1316,15 +906,15 @@
     answerPanel.hidden = false;
     buildStudentComparison();
     document.querySelector("#model-score-wrap").hidden = false;
+    document.querySelector("#print-model").hidden = !isPaperCompletion();
     revealButton.disabled = true;
-    revealButton.innerHTML = '<span aria-hidden="true">✓</span> Answer submitted';
+    revealButton.innerHTML = isPaperCompletion()
+      ? '<span aria-hidden="true">✓</span> Model shown'
+      : '<span aria-hidden="true">✓</span> Answer submitted';
     renderedWidth = 0;
     renderScores(true);
-    updateEditorControls();
     buildStructuredResponse(currentQuestion);
-    selectedPlaybackMode = isNotationInteraction() && answerHasNotes()
-      ? "context"
-      : "question";
+    selectedPlaybackMode = isPaperCompletion() ? "model" : "question";
     updatePlaybackPermissions();
     if (!options.noScroll) {
       answerPanel.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1354,6 +944,31 @@
         </div>`).join("")}
       </div>
       ${comparison.evidence ? `<div class="comparison-item"><small>Your written evidence</small><strong>${escapeText(comparison.evidence)}</strong></div>` : ""}`;
+  }
+
+  function printCurrent(mode) {
+    if (!currentQuestion || (mode === "model" && (!submitted || !isPaperCompletion()))) {
+      return false;
+    }
+    const orientation = isPaperCompletion()
+      ? currentQuestion.interaction.printOrientation
+      : "portrait";
+    document.body.dataset.printMode = mode;
+    document.body.dataset.printOrientation = orientation;
+    try {
+      renderedWidth = 0;
+      renderScores(true, {
+        stopAudio: false,
+        width: orientation === "landscape" ? 1040 : 720,
+      });
+      window.print();
+    } finally {
+      delete document.body.dataset.printMode;
+      delete document.body.dataset.printOrientation;
+      renderedWidth = 0;
+      renderScores(true, { stopAudio: false });
+    }
+    return true;
   }
 
   function showQuestionById(questionId) {
@@ -1388,118 +1003,14 @@
     renderQuestion();
   });
   revealButton.addEventListener("click", () => submitAndReveal());
-  document.querySelector("#print-question").addEventListener("click", () => window.print());
-  scoreElement.addEventListener("pointerdown", handleScorePointerDown);
-  scoreElement.addEventListener("pointermove", handleScorePointerMove);
-  scoreElement.addEventListener("pointerup", handleScorePointerUp);
-  scoreElement.addEventListener("pointercancel", () => {
-    pointerGesture = null;
-    showNotationPreview(null);
-  });
-  scoreElement.addEventListener("pointerleave", handleScorePointerLeave);
+  document.querySelector("#print-question").addEventListener("click", () => printCurrent("question"));
+  document.querySelector("#print-model").addEventListener("click", () => printCurrent("model"));
+  scoreElement.addEventListener("click", handleStructuredScoreActivation);
   scoreElement.addEventListener("keydown", (event) => {
     if (!["Enter", " "].includes(event.key)) return;
     if (!event.target.closest?.(".analysis-box-group.analysis-box-editable")) return;
     event.preventDefault();
     handleStructuredScoreActivation(event);
-  });
-
-  document.querySelectorAll("#duration-controls [data-duration]").forEach((button) => {
-    button.addEventListener("click", () => {
-      selectedDuration = button.dataset.duration;
-      if (!["h", "q", "8"].includes(selectedDuration)) dotted = false;
-      if (studentAnswer?.selectedId) {
-        editSelected({ duration: currentDuration() }, "Duration updated.");
-      }
-      updateEditorControls();
-    });
-  });
-  document.querySelector("#dot-toggle").addEventListener("click", () => {
-    dotted = !dotted;
-    if (studentAnswer?.selectedId) {
-      editSelected({ duration: currentDuration() }, "Dot updated.");
-    }
-    updateEditorControls();
-  });
-  document.querySelector("#rest-toggle").addEventListener("click", () => {
-    restMode = !restMode;
-    if (studentAnswer?.selectedId) {
-      editSelected({ rest: restMode }, restMode ? "Converted to a rest." : "Converted to a note.");
-    }
-    updateEditorControls();
-  });
-  document.querySelector("#add-to-chord").addEventListener("click", () => {
-    addChordToneArmed = !addChordToneArmed;
-    setEditorStatus(addChordToneArmed
-      ? "Add chord tone is armed for the next stave tap. An empty onset will receive a normal note."
-      : "Add chord tone cancelled.");
-    updateEditorControls();
-  });
-  document.querySelectorAll(".accidental-tool").forEach((button) => {
-    button.addEventListener("click", () => {
-      selectedAccidental = button.dataset.accidental;
-      if (studentAnswer?.selectedId) {
-        try {
-          commitAnswer(
-            answerModel.applyAccidental(studentAnswer, currentQuestion, selectedAccidental),
-            "Accidental updated."
-          );
-        } catch (error) {
-          handleAnswerError(error);
-        }
-      }
-      updateEditorControls();
-    });
-  });
-  document.querySelector("#tie-note").addEventListener("click", () => {
-    try {
-      commitAnswer(answerModel.toggleTie(studentAnswer, currentQuestion), "Tie updated.");
-    } catch (error) {
-      handleAnswerError(error);
-    }
-  });
-  document.querySelector("#delete-note").addEventListener("click", () => {
-    try {
-      commitAnswer(answerModel.deleteSelected(studentAnswer, currentQuestion), "Selected note deleted. Use Undo to restore it.");
-    } catch (error) {
-      handleAnswerError(error);
-    }
-  });
-  document.querySelector("#undo-edit").addEventListener("click", () => {
-    studentAnswer = answerHistory.undo();
-    setEditorStatus("Undid the last notation change.");
-    renderedWidth = 0;
-    renderScores(true);
-    updateEditorControls();
-    updatePlaybackPermissions();
-  });
-  document.querySelector("#redo-edit").addEventListener("click", () => {
-    studentAnswer = answerHistory.redo();
-    setEditorStatus("Redid the notation change.");
-    renderedWidth = 0;
-    renderScores(true);
-    updateEditorControls();
-    updatePlaybackPermissions();
-  });
-  document.addEventListener("keydown", (event) => {
-    if (!isNotationInteraction() || submitted) return;
-    if (["Delete", "Backspace"].includes(event.key) && studentAnswer?.selectedId &&
-        !["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName)) {
-      event.preventDefault();
-      try {
-        commitAnswer(answerModel.deleteSelected(studentAnswer, currentQuestion), "Selected note deleted. Use Undo to restore it.");
-      } catch (error) {
-        handleAnswerError(error);
-      }
-      return;
-    }
-    if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "z") return;
-    event.preventDefault();
-    studentAnswer = event.shiftKey ? answerHistory.redo() : answerHistory.undo();
-    renderedWidth = 0;
-    renderScores(true);
-    updateEditorControls();
-    updatePlaybackPermissions();
   });
 
   document.querySelectorAll("[data-playback-mode]").forEach((button) => {
@@ -1544,13 +1055,12 @@
     showGeneratedQuestion,
     showGeneratedVariant,
     submit: submitAndReveal,
+    print: printCurrent,
     stopPlayback,
     getCurrentQuestion: () => currentQuestion,
-    getStudentAnswer: () => copy(studentAnswer || structuredAnswer),
     getStructuredAnswer: () => copy(structuredAnswer),
     getSubmissionSnapshot: () => copy(submissionSnapshot),
     getPlaybackPermissions: () => copy(playbackPermissions()),
-    getPointerPreview: () => copy(pointerPreview),
     isSubmitted: () => submitted,
   });
 

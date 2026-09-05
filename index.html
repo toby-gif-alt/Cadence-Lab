@@ -10,7 +10,7 @@
     />
     <title>Cadence Lab | AS 91421 Practice</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=2026-09-interaction-14" />
+    <link rel="stylesheet" href="./styles.css?v=2026-09-paper-15" />
   </head>
   <body>
     <header class="topbar">
@@ -29,7 +29,7 @@
         <div>
           <p class="eyebrow">Practice setup</p>
           <h1>Build a question</h1>
-          <p class="panel-intro">Choose a focus, answer on paper or use the notation editor where available, then submit to compare your work.</p>
+          <p class="panel-intro">Choose a focus, complete notation tasks on paper, or use the browser tools for analysis, then compare your response with the model.</p>
         </div>
 
         <label class="field-label" for="category">Question type</label>
@@ -99,57 +99,18 @@
             </div>
             <div id="structured-builder" class="structured-builder" hidden></div>
             <div id="structured-controls"></div>
-            <p id="structured-status" class="editor-status" role="status" aria-live="polite"></p>
+            <p id="structured-status" class="structured-status" role="status" aria-live="polite"></p>
           </section>
 
-          <section class="editor-panel" id="editor-panel" hidden aria-labelledby="editor-heading">
+          <section class="paper-completion-panel" id="paper-completion-panel" hidden aria-labelledby="paper-completion-heading">
             <div class="tool-panel-heading">
               <div>
-                <p class="eyebrow">Notation entry</p>
-                <h3 id="editor-heading">Enter your completion</h3>
-              </div>
-              <p class="editor-position" id="editor-position">Select a voice and tap the stave.</p>
-            </div>
-
-            <div class="editor-group">
-              <span class="field-label">Voice or staff</span>
-              <div class="segmented-control" id="voice-controls" role="group" aria-label="Current voice or staff"></div>
-            </div>
-
-            <div class="editor-toolbar" aria-label="Notation tools">
-              <div class="tool-cluster" id="duration-controls" role="group" aria-label="Note duration">
-                <button type="button" class="notation-tool" data-duration="w" aria-label="Semibreve" title="Semibreve"><svg viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="16" rx="7" ry="4.4" fill="none" stroke="currentColor" stroke-width="2.2" transform="rotate(-12 14 16)"/></svg></button>
-                <button type="button" class="notation-tool" data-duration="h" aria-label="Minim" title="Minim"><svg viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="11" cy="20" rx="5.3" ry="3.5" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(-12 11 20)"/><path d="M16 20V4" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
-                <button type="button" class="notation-tool is-active" data-duration="q" aria-label="Crotchet" title="Crotchet"><svg viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="11" cy="20" rx="5.4" ry="3.6" fill="currentColor" transform="rotate(-12 11 20)"/><path d="M16 20V4" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
-                <button type="button" class="notation-tool" data-duration="8" aria-label="Quaver" title="Quaver"><svg viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="10" cy="20" rx="5" ry="3.5" fill="currentColor" transform="rotate(-12 10 20)"/><path d="M15 20V4c5 2 7 5 7 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-                <button type="button" class="notation-tool" data-duration="16" aria-label="Semiquaver" title="Semiquaver"><svg viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="9" cy="21" rx="5" ry="3.4" fill="currentColor" transform="rotate(-12 9 21)"/><path d="M14 21V3c5 2 7 5 7 8M14 8c5 2 7 5 7 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-                <button type="button" class="notation-tool" id="dot-toggle" aria-pressed="false" aria-label="Dotted duration" title="Toggle dot"><svg viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="10" cy="17" rx="5" ry="3.4" fill="currentColor" transform="rotate(-12 10 17)"/><circle cx="21" cy="17" r="2" fill="currentColor"/></svg></button>
-                <button type="button" class="notation-tool" id="rest-toggle" aria-pressed="false" aria-label="Rest" title="Toggle rest"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M9 6h11l-6 7 5 3-7 8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-              </div>
-              <div class="tool-cluster" role="group" aria-label="Accidental">
-                <button type="button" class="notation-tool accidental-tool is-active" data-accidental="" aria-label="Use key signature" title="Use key signature">Key</button>
-                <button type="button" class="notation-tool accidental-tool" data-accidental="#" aria-label="Sharp" title="Sharp">♯</button>
-                <button type="button" class="notation-tool accidental-tool" data-accidental="b" aria-label="Flat" title="Flat">♭</button>
-                <button type="button" class="notation-tool accidental-tool" data-accidental="n" aria-label="Natural" title="Natural">♮</button>
-              </div>
-              <div class="tool-cluster">
-                <button type="button" class="notation-tool tool-with-label" id="tie-note" aria-label="Add or remove tie" title="Add or remove tie"><svg viewBox="0 0 28 18" aria-hidden="true"><path d="M3 14C8 3 20 3 25 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Tie</span></button>
-                <button type="button" class="notation-tool tool-with-label" id="delete-note" aria-label="Delete selected note" title="Delete selected note"><svg viewBox="0 0 28 24" aria-hidden="true"><path d="M7 7h15M11 7V4h7v3M10 10l1 10h8l1-10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Delete</span></button>
-                <button type="button" class="notation-tool tool-with-label" id="undo-edit" aria-label="Undo" title="Undo"><svg viewBox="0 0 28 24" aria-hidden="true"><path d="M10 7H4l4-4M5 7c13-2 18 4 17 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Undo</span></button>
-                <button type="button" class="notation-tool tool-with-label" id="redo-edit" aria-label="Redo" title="Redo"><svg viewBox="0 0 28 24" aria-hidden="true"><path d="M18 7h6l-4-4M23 7C10 5 5 11 6 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Redo</span></button>
+                <p class="eyebrow">Paper workflow</p>
+                <h3 id="paper-completion-heading">Complete on paper</h3>
               </div>
             </div>
-
-            <div class="editor-options">
-              <button type="button" class="notation-action" id="add-to-chord" aria-pressed="false">Add chord tone</button>
-              <label class="touch-option">
-                <input type="checkbox" id="audition-entry" checked />
-                <span>Audition notes while entering</span>
-              </label>
-            </div>
-            <div id="selected-chord-tones" class="selected-chord-tones" hidden></div>
-            <p class="editor-help">Tap the appropriate stave to enter the selected duration. Supplied notes are locked. Select one of your notes to edit it.</p>
-            <p class="editor-status" id="editor-status" role="status" aria-live="polite"></p>
+            <p id="paper-completion-instruction"></p>
+            <p>When your notation is finished, choose <strong>I’ve finished</strong> to compare it with one possible model.</p>
           </section>
 
           <section class="playback-panel" aria-labelledby="playback-heading">
@@ -161,9 +122,7 @@
               <p id="playback-lock-message" class="playback-lock-message">Available after you submit your answer.</p>
             </div>
             <div class="playback-modes" id="playback-modes" role="group" aria-label="Playback source">
-              <button type="button" data-playback-mode="student">Play just my notes</button>
               <button type="button" data-playback-mode="question" disabled>Play the score</button>
-              <button type="button" data-playback-mode="context" disabled>Play my answer with supplied parts</button>
               <button type="button" data-playback-mode="model" disabled>Play model answer</button>
             </div>
             <div class="transport-row">
@@ -211,6 +170,10 @@
             <span aria-hidden="true">⎙</span>
             Print question
           </button>
+          <button class="button button-ghost" id="print-model" type="button" hidden>
+            <span aria-hidden="true">⎙</span>
+            Print model answer
+          </button>
           <button class="button button-reveal" id="reveal-answer" type="button">
             <span aria-hidden="true">◉</span>
             Submit &amp; reveal
@@ -222,14 +185,13 @@
     </main>
 
     <script src="./vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="./key-relationships.js?v=2026-09-interaction-14"></script>
-    <script src="./question-bank.js?v=2026-09-interaction-14"></script>
-    <script src="./score-renderer.js?v=2026-09-interaction-14"></script>
-    <script src="./question-validator.js?v=2026-09-interaction-14"></script>
-    <script src="./student-answer.js?v=2026-09-interaction-14"></script>
-    <script src="./structured-answer.js?v=2026-09-interaction-14"></script>
-    <script src="./chord-generator.js?v=2026-09-interaction-14"></script>
-    <script src="./playback-engine.js?v=2026-09-interaction-14"></script>
-    <script src="./app.js?v=2026-09-interaction-14"></script>
+    <script src="./key-relationships.js?v=2026-09-paper-15"></script>
+    <script src="./question-bank.js?v=2026-09-paper-15"></script>
+    <script src="./score-renderer.js?v=2026-09-paper-15"></script>
+    <script src="./question-validator.js?v=2026-09-paper-15"></script>
+    <script src="./structured-answer.js?v=2026-09-paper-15"></script>
+    <script src="./chord-generator.js?v=2026-09-paper-15"></script>
+    <script src="./playback-engine.js?v=2026-09-paper-15"></script>
+    <script src="./app.js?v=2026-09-paper-15"></script>
   </body>
 </html>

@@ -1359,48 +1359,6 @@
     eventReferences[staff].push({ note, role, pitches });
   }
 
-  function markEditorNote(note, event, staff, role) {
-    if (!event || note.getCategory?.() === "GhostNote") return;
-    const noteId = event.editorNoteId;
-    note._cadenceEditorMetadata = {
-      locked: Boolean(event.locked),
-      noteId: noteId || null,
-      staff,
-      role: role || staff,
-      measure: Number(event._measureIndex) + 1,
-      beat: Number(event.beat ?? event._beat ?? 1),
-    };
-  }
-
-  function applyEditorNoteMetadata(note) {
-    const metadata = note?._cadenceEditorMetadata;
-    const element = note?.getSVGElement?.();
-    if (!metadata || !element) return;
-    if (metadata.locked) element.classList.add("locked-note");
-    if (metadata.noteId) {
-      element.classList.add("student-note");
-      element.dataset.editorNoteId = metadata.noteId;
-      element.dataset.editorStaff = metadata.staff;
-      element.dataset.editorVoice = metadata.role;
-      element.dataset.editorMeasure = String(metadata.measure);
-      element.dataset.editorBeat = String(metadata.beat);
-    }
-    if (!metadata.locked && !metadata.noteId) return;
-    const bounds = element.getBBox?.();
-    if (!bounds) return;
-    const hitTarget = createSvgElement("rect", {
-      x: bounds.x - 7,
-      y: bounds.y - 7,
-      width: Math.max(18, bounds.width + 14),
-      height: Math.max(28, bounds.height + 14),
-      fill: "transparent",
-      class: "editor-note-hit-target",
-      "pointer-events": "all",
-      "aria-hidden": "true",
-    });
-    element.insertBefore(hitTarget, element.firstChild);
-  }
-
   function buildStaffVoices(
     VF,
     events,
@@ -1438,7 +1396,6 @@
               staff === "bass" ? "d/3" : "b/4"
             );
             note.setStave(stave);
-            markEditorNote(note, event, staff, stream.role);
             if (Number.isInteger(event._anchorIndex)) {
               addReference(
                 VF,
@@ -1501,7 +1458,6 @@
           eventIsRest(event, staff)
         );
         note.setStave(stave);
-        markEditorNote(note, event, staff, "chord");
         addReference(
           VF,
           referenceMap,
@@ -1552,7 +1508,6 @@
             }[role.name]
           );
           note.setStave(stave);
-          markEditorNote(note, event, staff, role.name);
           if (Number.isInteger(event._anchorIndex)) {
             addReference(
               VF,
@@ -1626,7 +1581,6 @@
           ).includes(role.name)
         );
         note.setStave(stave);
-        markEditorNote(note, event, staff, role.name);
         addReference(
           VF,
           referenceMap,
@@ -2597,9 +2551,6 @@
         bottomBundles.forEach((bundle) =>
           bundle.voice.draw(context, bottomStave)
         );
-        bundles.forEach((bundle) =>
-          bundle.tickables.forEach(applyEditorNoteMetadata)
-        );
         bundles.flatMap((bundle) => bundle.beams)
           .forEach((beam) => beam.setContext(context).draw());
 
@@ -2682,36 +2633,6 @@
       svg.style.maxWidth = "100%";
       canvas.style.width = "100%";
       canvas.style.maxWidth = "100%";
-
-      if (score.editorMode && !showAnswer) {
-        const hitGroup = createSvgElement("g", {
-          class: "editor-hit-areas",
-          "aria-hidden": "true",
-        });
-        hitMeasures.forEach((measure) => {
-          [
-            ["treble", measure.topY],
-            ["bass", measure.bottomY],
-          ].forEach(([staff, y]) => {
-            if (y == null) return;
-            hitGroup.appendChild(createSvgElement("rect", {
-              x: measure.x,
-              y: y - 28,
-              width: Math.max(1, measure.endX - measure.x),
-              height: 96,
-              fill: "transparent",
-              class: "editor-hit-target",
-              "data-measure": measure.measure,
-              "data-staff": staff,
-              "pointer-events": "all",
-            }));
-          });
-        });
-        // This transparent semantic layer deliberately sits above the notation.
-        // Pointer resolution therefore depends on the selected voice/staff and
-        // rhythmic geometry, not whichever overlapping SVG note was painted last.
-        svg.appendChild(hitGroup);
-      }
 
       const decorationGroup = createSvgElement("g", {
         class: "score-decorations",
@@ -2807,82 +2728,6 @@
     };
   }
 
-  function clearEditorPreview(target) {
-    target?.querySelector?.(".editor-ghost-preview")?.remove();
-  }
-
-  function renderEditorPreview(target, preview) {
-    clearEditorPreview(target);
-    const svg = target?.querySelector?.("svg");
-    if (!svg || !preview) return null;
-    const group = createSvgElement("g", {
-      class: "editor-ghost-preview",
-      "aria-hidden": "true",
-      "pointer-events": "none",
-      "data-preview-pitch": preview.pitch || "rest",
-      "data-preview-duration": preview.duration,
-      "data-preview-measure": preview.measure,
-      "data-preview-beat": preview.beat,
-      "data-preview-voice": preview.voice,
-    });
-    const baseDuration = String(preview.duration || "q").replaceAll("d", "");
-    const dots = (String(preview.duration || "").match(/d/g) || []).length;
-    const x = Number(preview.x);
-    const y = Number(preview.y);
-    if (preview.receivingChord) {
-      group.appendChild(createSvgElement("rect", {
-        x: x - 15, y: y - 25, width: 30, height: 50, rx: 8,
-        class: "editor-ghost-chord-target",
-      }));
-    }
-    if (preview.rest) {
-      const glyph = { w: "\uE4E3", h: "\uE4E4", q: "\uE4E5", 8: "\uE4E6", 16: "\uE4E7" }[baseDuration] || "\uE4E5";
-      group.appendChild(createSvgElement("text", {
-        x, y: y + 7, class: "editor-ghost-rest", "text-anchor": "middle",
-      }, glyph));
-    } else {
-      if (preview.displayAccidental) {
-        group.appendChild(createSvgElement("text", {
-          x: x - 14, y: y + 6, class: "editor-ghost-accidental", "text-anchor": "middle",
-        }, preview.displayAccidental));
-      }
-      group.appendChild(createSvgElement("ellipse", {
-        cx: x, cy: y, rx: baseDuration === "w" ? 7 : 6.2, ry: 4.25,
-        transform: `rotate(-12 ${x} ${y})`,
-        class: `editor-ghost-notehead ${["w", "h"].includes(baseDuration) ? "is-open" : "is-filled"}`,
-      }));
-      const stemUp = preview.stemDirection !== "down";
-      if (baseDuration !== "w") {
-        const stemX = x + (stemUp ? 5.5 : -5.5);
-        const stemEndY = y + (stemUp ? -30 : 30);
-        group.appendChild(createSvgElement("line", {
-          x1: stemX, y1: y, x2: stemX, y2: stemEndY,
-          class: "editor-ghost-stem",
-        }));
-        if (["8", "16"].includes(baseDuration)) {
-          const flagCount = baseDuration === "16" ? 2 : 1;
-          for (let index = 0; index < flagCount; index += 1) {
-            const flagY = stemEndY + (stemUp ? index * 6 : -index * 6);
-            group.appendChild(createSvgElement("path", {
-              d: stemUp
-                ? `M ${stemX} ${flagY} C ${stemX + 12} ${flagY + 5}, ${stemX + 12} ${flagY + 14}, ${stemX + 3} ${flagY + 18}`
-                : `M ${stemX} ${flagY} C ${stemX - 12} ${flagY - 5}, ${stemX - 12} ${flagY - 14}, ${stemX - 3} ${flagY - 18}`,
-              class: "editor-ghost-flag",
-            }));
-          }
-        }
-      }
-      for (let index = 0; index < dots; index += 1) {
-        group.appendChild(createSvgElement("circle", {
-          cx: x + 11 + index * 5, cy: y - 1, r: 1.8,
-          class: "editor-ghost-dot",
-        }));
-      }
-    }
-    svg.appendChild(group);
-    return group;
-  }
-
   window.CadenceScoreRenderer = Object.freeze({
     render,
     version: VEXFLOW_VERSION,
@@ -2897,7 +2742,5 @@
     normalizeNoteAnnotations,
     estimateMeasureWidth,
     validateChordIdentification,
-    renderEditorPreview,
-    clearEditorPreview,
   });
 })();

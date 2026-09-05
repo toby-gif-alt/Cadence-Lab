@@ -13,18 +13,17 @@
   <body data-status="running">
     <h1>Cadence Lab interaction smoke test</h1>
     <div id="render-fixture" aria-hidden="true"></div>
-    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-interaction-14"></iframe>
+    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-paper-15"></iframe>
     <pre id="results">Running…</pre>
 
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../key-relationships.js?v=2026-09-interaction-14"></script>
-    <script src="../question-bank.js?v=2026-09-interaction-14"></script>
-    <script src="../score-renderer.js?v=2026-09-interaction-14"></script>
-    <script src="../question-validator.js?v=2026-09-interaction-14"></script>
-    <script src="../student-answer.js?v=2026-09-interaction-14"></script>
-    <script src="../structured-answer.js?v=2026-09-interaction-14"></script>
-    <script src="../chord-generator.js?v=2026-09-interaction-14"></script>
-    <script src="../playback-engine.js?v=2026-09-interaction-14"></script>
+    <script src="../key-relationships.js?v=2026-09-paper-15"></script>
+    <script src="../question-bank.js?v=2026-09-paper-15"></script>
+    <script src="../score-renderer.js?v=2026-09-paper-15"></script>
+    <script src="../question-validator.js?v=2026-09-paper-15"></script>
+    <script src="../structured-answer.js?v=2026-09-paper-15"></script>
+    <script src="../chord-generator.js?v=2026-09-paper-15"></script>
+    <script src="../playback-engine.js?v=2026-09-paper-15"></script>
     <script>
       const results = document.querySelector("#results");
       const assertions = {};
@@ -57,7 +56,6 @@
       document.querySelector("#app-frame").addEventListener("load", () => {
         try {
           const questions = window.CadenceData.questions;
-          const answer = window.CadenceStudentAnswer;
           const structured = window.CadenceStructuredAnswer;
           const chordGenerator = window.CadenceChordGenerator;
           const keyRelationships = window.CadenceKeyRelationships;
@@ -87,9 +85,11 @@
           );
           assert("allQuestionsHaveUniversalAnswerInteraction",
             questions.filter((question) => question.interaction).length === 32 &&
-            questions.filter((question) => question.interaction?.type === "notation-completion").length === 8 &&
+            questions.filter((question) => question.interaction?.type === "paper-completion").length === 8 &&
             questions.filter((question) => question.score.completion)
-              .every((question) => question.interaction?.type === "notation-completion")
+              .every((question) => question.interaction?.type === "paper-completion") &&
+            questions.every((question) => question.interaction?.type !== "notation-completion") &&
+            !window.CadenceStudentAnswer
           );
           assert("harmonicAnswerRolesAreExplicitAndOneToOne",
             questions.every((question) =>
@@ -103,479 +103,77 @@
             )
           );
 
+          const completionQuestions = questions.filter((question) =>
+            question.interaction.type === "paper-completion"
+          );
           const satbQuestion = questions.find((question) => question.id === "satb-f-c");
           const pianoQuestion = questions.find((question) => question.id === "piano-d-f");
-          const satbSourceBefore = JSON.stringify(satbQuestion);
-          let satbState = answer.create(satbQuestion);
-          satbState = answer.insert(satbState, satbQuestion, {
-            voice: "alto", measure: 1, pitches: ["C4"], duration: "w",
-          });
-          satbState = answer.insert(satbState, satbQuestion, {
-            voice: "alto", measure: 2, pitches: ["C4"], duration: "q",
-          });
-          const secondId = satbState.selectedId;
-          const firstId = satbState.measures[0].voices.alto[0].id;
-          satbState = answer.select(satbState, firstId);
-          satbState = answer.toggleTie(satbState, satbQuestion);
-          assert("contiguousCrossBarlineTiePasses",
-            satbState.measures[0].voices.alto[0].tieToNext === true
-          );
-          let contiguousTieState = answer.create(satbQuestion);
-          contiguousTieState = answer.insert(contiguousTieState, satbQuestion, {
-            voice: "alto", measure: 1, beat: 1,
-            pitches: ["C4"], duration: "q",
-          });
-          const contiguousTieStart = contiguousTieState.selectedId;
-          contiguousTieState = answer.insert(contiguousTieState, satbQuestion, {
-            voice: "alto", measure: 1, beat: 2,
-            pitches: ["C4"], duration: "q",
-          });
-          contiguousTieState = answer.select(contiguousTieState, contiguousTieStart);
-          contiguousTieState = answer.toggleTie(contiguousTieState, satbQuestion);
-          assert("contiguousSamePitchTieWithinBarPasses",
-            contiguousTieState.measures[0].voices.alto[0].tieToNext === true
-          );
-
-          let gapTieState = answer.create(satbQuestion);
-          gapTieState = answer.insert(gapTieState, satbQuestion, {
-            voice: "alto", measure: 1, beat: 1,
-            pitches: ["C4"], duration: "q",
-          });
-          const gapTieStart = gapTieState.selectedId;
-          gapTieState = answer.insert(gapTieState, satbQuestion, {
-            voice: "alto", measure: 1, beat: 3,
-            pitches: ["C4"], duration: "q",
-          });
-          gapTieState = answer.select(gapTieState, gapTieStart);
-          assert("samePitchSeparatedByGapCannotTie",
-            expectedError(
-              () => answer.toggleTie(gapTieState, satbQuestion),
-              "noncontiguous-tie"
+          const bachQuestion = questions.find((question) => question.id === "nzqa-2024-bach-satb");
+          assert("allEightCompletionsUseSemanticPaperContracts",
+            completionQuestions.length === 8 &&
+            completionQuestions.filter((question) => question.category === "satb").length === 4 &&
+            completionQuestions.filter((question) => question.category === "piano").length === 4 &&
+            completionQuestions.every((question) =>
+              question.interaction.completionType === question.category &&
+              question.interaction.completionRequirements &&
+              question.interaction.selfCheck.length >= 5 &&
+              !question.interaction.editableRegions
             )
           );
-
-          let crossBarRestState = answer.create(satbQuestion);
-          crossBarRestState = answer.insert(crossBarRestState, satbQuestion, {
-            voice: "alto", measure: 1, beat: 1,
-            pitches: ["C4"], duration: "w",
+          const suppliedPlaybackFailures = completionQuestions.flatMap((question) => {
+            const before = JSON.stringify(question.score);
+            const questionTimeline = playback.buildTimeline(
+              playback.questionOnlyScore(question.score), 88
+            );
+            const modelTimeline = playback.buildTimeline(question.score, 88);
+            const valid = questionTimeline.notes.length > 0 &&
+              questionTimeline.notes.length < modelTimeline.notes.length &&
+              questionTimeline.totalBeats === modelTimeline.totalBeats &&
+              JSON.stringify(question.score) === before;
+            return valid ? [] : [question.id];
           });
-          const crossBarRestStart = crossBarRestState.selectedId;
-          crossBarRestState = answer.insert(crossBarRestState, satbQuestion, {
-            voice: "alto", measure: 2, beat: 1,
-            pitches: [], duration: "q", rest: true,
-          });
-          crossBarRestState = answer.insert(crossBarRestState, satbQuestion, {
-            voice: "alto", measure: 2, beat: 2,
-            pitches: ["C4"], duration: "q",
-          });
-          crossBarRestState = answer.select(crossBarRestState, crossBarRestStart);
-          assert("crossBarlineTieWithInitialRestFails",
-            expectedError(
-              () => answer.toggleTie(crossBarRestState, satbQuestion),
-              "noncontiguous-tie"
+          assert("everyPaperPlaybackContainsOnlyAuthoredVisibleNotes",
+            suppliedPlaybackFailures.length === 0,
+            suppliedPlaybackFailures
+          );
+          assert("paperContractDoesNotCreateAJazzRealisationCategory",
+            questions.every((question) =>
+              question.interaction.type !== "jazz-realisation" &&
+              question.category !== "jazz-realisation"
             )
           );
-          satbState = answer.select(satbState, secondId);
-          satbState = answer.applyAccidental(satbState, satbQuestion, "#");
-          assert("accidentalEditingPreservesSpelling",
-            satbState.measures[1].voices.alto[0].pitches[0] === "C#4"
+          const bachQuestionScore = playback.questionOnlyScore(bachQuestion.score);
+          const bachQuestionTimeline = playback.buildTimeline(bachQuestionScore, 88);
+          const bachModelTimeline = playback.buildTimeline(bachQuestion.score, 88);
+          assert("questionOnlyPlaybackContainsNoHiddenBachCompletion",
+            bachQuestionTimeline.notes.length > 0 &&
+            bachQuestionTimeline.notes.every((note) => note.measure === 1) &&
+            bachModelTimeline.notes.some((note) => note.measure > 1)
           );
-
-          let overfillState = answer.create(satbQuestion);
-          overfillState = answer.insert(overfillState, satbQuestion, {
-            voice: "alto", measure: 1, pitches: ["A3"], duration: "h",
-          });
-          overfillState = answer.insert(overfillState, satbQuestion, {
-            voice: "alto", measure: 1, pitches: ["B3"], duration: "q",
-          });
-          assert("underfilledMeasuresAreAllowed",
-            answer.usedBeats(overfillState.measures[0].voices.alto) === 3
+          const pianoQuestionScore = playback.questionOnlyScore(pianoQuestion.score);
+          const pianoQuestionTimeline = playback.buildTimeline(pianoQuestionScore, 88);
+          const pianoModelTimeline = playback.buildTimeline(pianoQuestion.score, 88);
+          assert("questionOnlyPlaybackUsesVisiblePianoPartsWithoutInference",
+            pianoQuestionTimeline.notes.length < pianoModelTimeline.notes.length &&
+            pianoQuestionTimeline.notes.filter((note) => note.measure > 1)
+              .every((note) => note.staff === "treble") &&
+            pianoQuestionTimeline.totalBeats === pianoModelTimeline.totalBeats
           );
-          assert("measureOverfillHasExactRemainingBeatFeedback",
-            expectedError(
-              () => answer.insert(overfillState, satbQuestion, {
-                voice: "alto", measure: 1, pitches: ["C4"], duration: "h",
-              }),
-              "measure-overfill",
-              "That note exceeds the remaining 1 beat in this bar."
-            )
-          );
-          assert("suppliedVoicesAndBarsAreLocked",
-            expectedError(
-              () => answer.insert(overfillState, satbQuestion, {
-                voice: "soprano", measure: 1, pitches: ["F5"], duration: "q",
-              }),
-              "locked-region"
-            )
-          );
-
-          let toolState = answer.create(satbQuestion);
-          toolState = answer.insert(toolState, satbQuestion, {
-            voice: "tenor", measure: 1, pitches: [], duration: "8", rest: true,
-          });
-          toolState = answer.insert(toolState, satbQuestion, {
-            voice: "tenor", measure: 1, pitches: ["F3"], duration: "8d",
-          });
-          assert("restsAndDottedDurationsAreSemanticEvents",
-            toolState.measures[0].voices.tenor[0].rest === true &&
-            toolState.measures[0].voices.tenor[1].duration === "8d" &&
-            answer.durationBeats("8d") === 0.75
-          );
-          assert("editorSupportsTheCompleteRequiredDurationPalette",
-            [["w", 4], ["h", 2], ["q", 1], ["8", 0.5], ["16", 0.25]]
-              .every(([duration, beats]) => answer.durationBeats(duration) === beats)
-          );
-          assert("horizontalGeometrySnapsToDurationAwareOnsets",
-            answer.snapBeatAtX({
-              x: 200, startX: 0, endX: 400, capacity: 4,
-              duration: "q", denominator: 4,
-            }) === 3 &&
-            answer.snapBeatAtX({
-              x: 150, startX: 0, endX: 400, capacity: 4,
-              duration: "8", denominator: 4,
-            }) === 2.5 &&
-            answer.snapBeatAtX({
-              x: 125, startX: 0, endX: 400, capacity: 4,
-              duration: "16", denominator: 4,
-            }) === 2.25 &&
-            answer.snapBeatAtX({
-              x: 300, startX: 0, endX: 600, capacity: 6,
-              duration: "8", denominator: 8,
-            }) === 4 &&
-            answer.durationBeats("8", 8) === 1 &&
-            answer.durationBeats("16", 8) === 0.5
-          );
-          let timedState = answer.create(satbQuestion);
-          timedState = answer.insert(timedState, satbQuestion, {
-            voice: "alto", measure: 1, beat: 3,
-            pitches: ["C4"], duration: "q",
-          });
-          const timedMaterialized = answer.materializeTimedStream(
-            timedState.measures[0].voices.alto
-          );
-          assert("tappingBeatThreeCreatesABeatThreeOnset",
-            timedState.measures[0].voices.alto[0].beat === 3 &&
-            timedState.cursors.alto.beat === 4 &&
-            timedMaterialized[0].rest === true &&
-            timedMaterialized[0].generatedGap === true &&
-            timedMaterialized[0].duration === "h" &&
-            timedMaterialized[1].beat === 3
-          );
-          const timedScore = answer.composeScore(satbQuestion, timedState);
-          assert("rhythmicGapsComposeAsExplicitRests",
-            timedScore.measures[0].voices.alto[0].rest === true &&
-            timedScore.measures[0].voices.alto[0].duration === "h" &&
-            timedScore.measures[0].voices.alto[1].editorNoteId === timedState.selectedId
-          );
-          assert("overlappingStudentEventsAreRejected",
-            expectedError(
-              () => answer.insert(timedState, satbQuestion, {
-                voice: "alto", measure: 1, beat: 2,
-                pitches: ["D4"], duration: "h",
-              }),
-              "event-overlap"
-            )
-          );
-          const timedId = timedState.selectedId;
-          const durationEdited = answer.updateSelected(
-            answer.select(timedState, timedId), satbQuestion, { duration: "8" }
-          );
-          assert("editingAnExistingEventPreservesItsOnset",
-            durationEdited.measures[0].voices.alto.length === 1 &&
-            durationEdited.measures[0].voices.alto[0].beat === 3
-          );
-          const movedTimed = answer.moveSelected(
-            answer.select(timedState, timedId), satbQuestion,
-            { voice: "alto", measure: 1, beat: 2, pitches: ["D4"] }
-          );
-          assert("selectedStudentNoteCanMoveSemantically",
-            movedTimed.measures[0].voices.alto[0].beat === 2 &&
-            movedTimed.measures[0].voices.alto[0].pitches[0] === "D4"
-          );
-          const chordAtBeatThree = answer.insert(timedState, satbQuestion, {
-            voice: "alto", measure: 1, beat: 3,
-            pitches: ["E4"], duration: "q", addToChord: true,
-          });
-          assert("addToChordIsTheOnlySameVoiceOverlapException",
-            chordAtBeatThree.measures[0].voices.alto.length === 1 &&
-            chordAtBeatThree.measures[0].voices.alto[0].pitches.join(",") === "C4,E4"
-          );
-          const chordToneRemoved = answer.removePitchFromSelected(
-            chordAtBeatThree, satbQuestion, "E4"
-          );
-          assert("individualChordTonesCanBeRemoved",
-            chordToneRemoved.measures[0].voices.alto[0].pitches.join(",") === "C4"
-          );
-          let fallbackChordState = answer.create(satbQuestion);
-          fallbackChordState = answer.insert(fallbackChordState, satbQuestion, {
-            voice: "alto", measure: 1, beat: 3,
-            pitches: ["E4"], duration: "q", addToChord: true,
-          });
-          assert("addChordToneFallsBackToNormalInsertionAtEmptyOnset",
-            fallbackChordState.measures[0].voices.alto.length === 1 &&
-            fallbackChordState.measures[0].voices.alto[0].beat === 3 &&
-            fallbackChordState.measures[0].voices.alto[0].pitches[0] === "E4"
-          );
-          assert("keySignaturesAndMeasureAccidentalsPreserveSpelling",
-            answer.spellPitchAtStaffPosition({
-              staff: "treble", stepsFromTopLine: 0, keySignature: "G",
-            }) === "F#5" &&
-            answer.spellPitchAtStaffPosition({
-              staff: "treble", stepsFromTopLine: 0, keySignature: "G",
-              priorEvents: [{ pitches: ["Fn5"] }],
-            }) === "Fn5"
-          );
-          const accidentalQuestion = JSON.parse(JSON.stringify(pianoQuestion));
-          accidentalQuestion.id = "accidental-context-fixture";
-          accidentalQuestion.score.keySignature = "G";
-          accidentalQuestion.score.timeSignature = "4/4";
-          accidentalQuestion.score.measures = [
-            { expectedBeats: 4, events: [
-              { qTreble: ["Fn5"], qBass: [], duration: "q" },
-              { qTreble: [], qBass: [], duration: "q" },
-              { qTreble: [], qBass: [], duration: "q" },
-              { qTreble: [], qBass: [], duration: "q" },
-            ] },
-            { expectedBeats: 4, events: [
-              { qTreble: [], qBass: [], duration: "w" },
-            ] },
-          ];
-          accidentalQuestion.interaction.editableRegions = [{
-            measures: [1, 2], voices: ["treble"],
-          }];
-          let accidentalState = answer.create(accidentalQuestion);
-          const suppliedNaturalContext = answer.visibleAccidentalContext(
-            accidentalQuestion, accidentalState,
-            { measure: 1, beat: 2, staff: "treble" }
-          );
-          assert("suppliedNaturalCancelsKeySignatureWithinBar",
-            suppliedNaturalContext.some((event) => event.supplied && event.pitches[0] === "Fn5") &&
-            answer.spellPitchAtStaffPosition({
-              staff: "treble", stepsFromTopLine: 0, keySignature: "G",
-              insertionBeat: 2, priorEvents: suppliedNaturalContext,
-            }) === "Fn5"
-          );
-          accidentalState = answer.insert(accidentalState, accidentalQuestion, {
-            voice: "treble", measure: 1, beat: 2,
-            pitches: ["F#5"], duration: "q",
-          });
-          const studentCarryContext = answer.visibleAccidentalContext(
-            accidentalQuestion, accidentalState,
-            { measure: 1, beat: 3, staff: "treble" }
-          );
-          assert("studentAccidentalCarriesLaterWithinBar",
-            answer.spellPitchAtStaffPosition({
-              staff: "treble", stepsFromTopLine: 0, keySignature: "G",
-              insertionBeat: 3, priorEvents: studentCarryContext,
-            }) === "F#5"
-          );
-          const nextBarContext = answer.visibleAccidentalContext(
-            accidentalQuestion, accidentalState,
-            { measure: 2, beat: 1, staff: "treble" }
-          );
-          assert("accidentalContextResetsAtBarline",
-            nextBarContext.length === 0 &&
-            answer.spellPitchAtStaffPosition({
-              staff: "treble", stepsFromTopLine: 0, keySignature: "G",
-              insertionBeat: 1, priorEvents: nextBarContext,
-            }) === "F#5"
-          );
-          assert("accidentalCarryIsOctaveSpecific",
-            answer.spellPitchAtStaffPosition({
-              staff: "treble", stepsFromTopLine: 0, keySignature: "G",
-              insertionBeat: 3,
-              priorEvents: [{ beat: 1, pitches: ["Fn4"] }],
-            }) === "F#5"
-          );
-          assert("exactChromaticSpellingRemainsIntact",
-            answer.spellPitchAtStaffPosition({
-              staff: "treble", stepsFromTopLine: 1, keySignature: "C",
-              insertionBeat: 3,
-              priorEvents: [{ beat: 1, pitches: ["E#5"] }],
-            }) === "E#5"
-          );
-          function applyKeySignaturePitch(keySignature, initialPitch) {
-            const fixture = JSON.parse(JSON.stringify(satbQuestion));
-            fixture.id = `key-signature-${keySignature}-${initialPitch}`;
-            fixture.score.keySignature = keySignature;
-            let state = answer.create(fixture);
-            state = answer.insert(state, fixture, {
-              voice: "alto", measure: 1, beat: 1,
-              pitches: [initialPitch], duration: "q",
-            });
-            state = answer.applyAccidental(state, fixture, "");
-            const semanticPitch = state.measures[0].voices.alto[0].pitches[0];
-            const renderedPitch = answer.composeScore(fixture, state)
-              .measures[0].voices.alto[0].pitch;
-            const playbackPitch = playback.buildTimeline(
-              answer.scoreForPlayback(fixture, state, "student"), 88
-            ).notes[0].pitch;
-            return { semanticPitch, renderedPitch, playbackPitch };
-          }
-          const gMajorKeyPitch = applyKeySignaturePitch("G", "Fn5");
-          const fMajorKeyPitch = applyKeySignaturePitch("F", "Bn4");
-          const cMajorKeyPitch = applyKeySignaturePitch("C", "F#5");
-          assert("useKeySignatureResolvesGMajorFSharp",
-            Object.values(gMajorKeyPitch).every((pitch) => pitch === "F#5")
-          );
-          assert("useKeySignatureResolvesFMajorBFlat",
-            Object.values(fMajorKeyPitch).every((pitch) => pitch === "Bb4")
-          );
-          assert("useKeySignatureResolvesCMajorFNatural",
-            Object.values(cMajorKeyPitch).every((pitch) => pitch === "F5")
-          );
-          const history = new answer.History(answer.create(satbQuestion));
-          history.commit(toolState);
-          const undone = history.undo();
-          const redone = history.redo();
-          assert("undoAndRedoRoundTripSemanticState",
-            !undone.measures[0].voices.tenor &&
-            redone.measures[0].voices.tenor.length === 2
-          );
-          const deleted = answer.deleteSelected(toolState, satbQuestion);
-          assert("deleteRemovesOnlyTheSelectedStudentEvent",
-            deleted.measures[0].voices.tenor.length === 1
-          );
-
-          let pianoState = answer.create(pianoQuestion);
-          pianoState = answer.insert(pianoState, pianoQuestion, {
-            voice: "bass", measure: 2, pitches: ["D3"], duration: "q",
-          });
-          const cursorAfterOnset = JSON.stringify(pianoState.cursors.bass);
-          pianoState = answer.insert(pianoState, pianoQuestion, {
-            voice: "bass", measure: 2, beat: 1,
-            pitches: ["A3"], duration: "q", addToChord: true,
-          });
-          assert("addToChordBuildsASingleRhythmicOnset",
-            pianoState.measures[1].voices.bass.length === 1 &&
-            pianoState.measures[1].voices.bass[0].pitches.length === 2 &&
-            JSON.stringify(pianoState.cursors.bass) === cursorAfterOnset
-          );
-          assert("questionAndModelDataRemainImmutable",
-            JSON.stringify(satbQuestion) === satbSourceBefore
-          );
-          const submittedState = answer.setSubmitted(pianoState);
-          assert("submittedAnswersAreLocked",
-            submittedState.submitted && expectedError(
-              () => answer.insert(submittedState, pianoQuestion, {
-                voice: "bass", pitches: ["F3"], duration: "q",
-              }),
-              "answer-locked"
-            )
-          );
-
-          const composedSatb = answer.composeScore(satbQuestion, satbState);
-          const satbFixture = document.createElement("div");
-          document.querySelector("#render-fixture").append(satbFixture);
-          renderer.render(satbFixture, composedSatb, { width: 780 });
-          assert("studentAndLockedNotesShareTheNormalRenderer",
-            satbFixture.querySelectorAll(".student-note").length >= 2 &&
-            satbFixture.querySelectorAll(".locked-note").length > 0 &&
-            satbFixture.querySelectorAll(".editor-hit-target").length === 6
-          );
-          renderer.renderEditorPreview(satbFixture, {
-            voice: "alto", measure: 1, beat: 2.5, pitch: "F#4",
-            duration: "8d", x: 220, y: 94, stemDirection: "down",
-            displayAccidental: "♯", rest: false,
-          });
-          const dottedGhost = satbFixture.querySelector(".editor-ghost-preview");
-          assert("ghostPreviewShowsPitchDurationStemDotAndAccidental",
-            dottedGhost.dataset.previewPitch === "F#4" &&
-            dottedGhost.dataset.previewDuration === "8d" &&
-            dottedGhost.querySelector(".editor-ghost-notehead") &&
-            dottedGhost.querySelector(".editor-ghost-stem") &&
-            dottedGhost.querySelector(".editor-ghost-flag") &&
-            dottedGhost.querySelector(".editor-ghost-dot") &&
-            dottedGhost.querySelector(".editor-ghost-accidental")?.textContent === "♯"
-          );
-          renderer.renderEditorPreview(satbFixture, {
-            voice: "tenor", measure: 1, beat: 3, duration: "q",
-            x: 280, y: 170, stemDirection: "up", rest: true,
-          });
-          assert("ghostPreviewUsesADurationSpecificRestGlyph",
-            satbFixture.querySelector(".editor-ghost-rest") &&
-            satbFixture.querySelector(".editor-ghost-preview").dataset.previewPitch === "rest"
-          );
-          assert("satbVoiceStemDirectionsRemainIndependent",
-            ["soprano", "alto", "tenor", "bass"].every((voice) =>
-              composedSatb.measures.every((measure) => Array.isArray(measure.voices[voice]))
-            ) && Number(satbFixture.dataset.maximumSatbAlignmentDelta) <= 0.5
-          );
-
-          const timelineScore = {
+          const timelineFixture = {
             timeSignature: "4/4",
-            measures: [
-              { staffVoices: {
-                treble: [{ role: "melody", events: [
-                  { pitches: ["C4", "E4"], duration: "q", tieToNext: true },
-                  { pitches: ["C4", "E4"], duration: "q" },
-                  { pitches: ["G4"], duration: "qd" },
-                  { pitches: ["A4"], duration: "8" },
-                ] }],
-                bass: [{ role: "bass", events: [
-                  { rest: true, duration: "q" },
-                  { pitches: ["C3"], duration: "h" },
-                  { rest: true, duration: "q" },
-                ] }],
-              } },
-              { staffVoices: {
-                treble: [{ role: "melody", events: [
-                  { pitches: ["B4"], duration: "w" },
-                ] }],
-                bass: [{ role: "bass", events: [
-                  { pitches: ["C3"], duration: "w" },
-                ] }],
-              } },
-            ],
+            measures: [{ events: [
+              { treble: ["C4", "E4"], bass: ["C3"], duration: "qd" },
+              { treble: [], trebleRest: true, bass: [], bassRest: true, duration: "8" },
+              { treble: ["G4"], bass: ["G2"], duration: "h" },
+            ] }],
           };
-          const timeline60 = playback.buildTimeline(timelineScore, 60);
-          const timeline120 = playback.buildTimeline(timelineScore, 120);
-          const tiedC = timeline60.notes.find((note) => note.pitch === "C4");
-          assert("timelineSupportsChordsRestsDotsAndTies",
-            timeline60.notes.filter((note) => note.startBeat === 0).length === 2 &&
-            tiedC.durationBeats === 2 &&
-            !timeline60.notes.some((note) => note.staff === "bass" && note.startBeat === 0) &&
-            timeline60.notes.some((note) => note.pitch === "G4" && note.durationBeats === 1.5)
-          );
-          assert("tempoScalesTimelineWithoutChangingNotes",
-            timeline60.durationSeconds === timeline120.durationSeconds * 2 &&
-            timeline60.notes.length === timeline120.notes.length
-          );
-          assert("timelineKeepsVoicesSynchronizedByMeasure",
-            timeline60.measureStarts.join(",") === "0,4" &&
-            timeline60.notes.some((note) => note.pitch === "B4" && note.startBeat === 4) &&
-            timeline60.notes.some((note) => note.pitch === "C3" && note.startBeat === 4)
-          );
-          const forcedGapTieState = JSON.parse(JSON.stringify(gapTieState));
-          forcedGapTieState.measures[0].voices.alto[0].tieToNext = true;
-          const gapTieTimeline = playback.buildTimeline(
-            answer.scoreForPlayback(satbQuestion, forcedGapTieState, "student"), 60
-          );
-          const separatedCs = gapTieTimeline.notes.filter(
-            (note) => note.pitch === "C4" && note.voice === "alto"
-          );
-          assert("playbackDoesNotSustainThroughGeneratedGap",
-            separatedCs.length === 2 &&
-            separatedCs[0].startBeat === 0 && separatedCs[0].durationBeats === 1 &&
-            separatedCs[1].startBeat === 2 && separatedCs[1].durationBeats === 1
-          );
-
-          const studentOnly = playback.buildTimeline(
-            answer.scoreForPlayback(pianoQuestion, pianoState, "student"), 88
-          );
-          const sourceOnly = playback.buildTimeline(
-            answer.scoreForPlayback(pianoQuestion, pianoState, "question"), 88
-          );
-          const inContext = playback.buildTimeline(
-            answer.scoreForPlayback(pianoQuestion, pianoState, "context"), 88
-          );
-          assert("studentPlaybackContainsOnlyAuthoredNotes",
-            studentOnly.notes.length === 2 &&
-            studentOnly.notes.every((note) => ["D3", "A3"].includes(note.pitch))
-          );
-          assert("contextPlaybackCombinesSourceAndStudent",
-            sourceOnly.notes.length > 0 &&
-            inContext.notes.length === sourceOnly.notes.length + studentOnly.notes.length
+          const timeline = playback.buildTimeline(timelineFixture, 80);
+          assert("authoredPlaybackRetainsChordsRestsAndDottedDurations",
+            timeline.notes.length === 5 &&
+            timeline.notes.filter((note) => note.startBeat === 0)
+              .every((note) => note.durationBeats === 1.5) &&
+            timeline.notes.filter((note) => note.startBeat === 2).length === 2 &&
+            timeline.totalBeats === 4
           );
 
           const analysisQuestion = questions.find((question) => question.id === "analysis-c-g");
@@ -1142,9 +740,6 @@
             })()
           );
 
-          const completionQuestions = questions.filter((question) =>
-            question.interaction.type === "notation-completion"
-          );
           assert("completionScoresOnlyExposeAuthoredSuppliedHarmonicLabels",
             completionQuestions.every((question) =>
               question.score.harmonicEvents.every((event) => event.answerRole !== "editable") &&
@@ -1209,11 +804,12 @@
               preRevealLeaks.push(`${question.id}: prebuilt answer DOM`);
             }
             const permissions = appWindow.CadenceLab.getPlaybackPermissions();
-            if (permissions.question || permissions.context || permissions.model) {
+            const paper = question.interaction.type === "paper-completion";
+            if (permissions.question !== paper || permissions.context || permissions.model) {
               preRevealLeaks.push(`${question.id}: locked playback exposed`);
             }
-            if (permissions.student !== (question.interaction.type === "notation-completion")) {
-              preRevealLeaks.push(`${question.id}: Hear my work availability is incorrect`);
+            if (permissions.student) {
+              preRevealLeaks.push(`${question.id}: removed student playback is still available`);
             }
           });
           assert("all32QuestionsAreSpoilerSafeBeforeReveal",
@@ -1260,7 +856,7 @@
             appDocument.querySelector("#structured-builder summary")?.textContent.includes("second / pivot")
           );
           appDocument.querySelectorAll(".structured-slot")[0].click();
-          editableScoreBoxes[1].dispatchEvent(new appWindow.PointerEvent("pointerdown", {
+          editableScoreBoxes[1].dispatchEvent(new appWindow.MouseEvent("click", {
             bubbles: true,
           }));
           assert("clickingBlankScoreBoxOpensItsStructuredBuilder",
@@ -1274,155 +870,110 @@
           );
 
           appWindow.CadenceLab.showQuestion("satb-f-c");
-          assert("notationToolbarUsesLocalSvgIconsAndHighlightsSelectedStaff",
-            appDocument.querySelectorAll("#duration-controls button").length === 7 &&
-            [...appDocument.querySelectorAll("#duration-controls button")]
-              .every((button) => button.querySelector("svg")) &&
-            appDocument.querySelectorAll('.editor-hit-target.is-current-editable[data-staff="treble"]').length === 3 &&
-            appDocument.querySelectorAll('.editor-hit-target.is-current-editable[data-staff="bass"]').length === 0
+          const paperPrePermissions = appWindow.CadenceLab.getPlaybackPermissions();
+          assert("paperSatbUsesSimpleCompletionInstructionAndSuppliedPlayback",
+            !appDocument.querySelector("#paper-completion-panel").hidden &&
+            appDocument.querySelector("#paper-completion-instruction").textContent ===
+              "Complete this harmony on paper or on a printed copy of the score." &&
+            appDocument.querySelector("#reveal-answer").textContent.includes("I’ve finished") &&
+            paperPrePermissions.question && !paperPrePermissions.student &&
+            !paperPrePermissions.context && !paperPrePermissions.model &&
+            !appDocument.querySelector('[data-playback-mode="question"]').hidden &&
+            appDocument.querySelector('[data-playback-mode="question"]').textContent ===
+              "Hear supplied passage"
           );
-          const beatThreeTarget = appDocument.querySelector(
-            '.editor-hit-target[data-measure="1"][data-staff="treble"]'
-          );
-          const beatThreeBounds = beatThreeTarget.getBoundingClientRect();
-          beatThreeTarget.dispatchEvent(new appWindow.PointerEvent("pointerdown", {
-            bubbles: true,
-            pointerId: 7,
-            pointerType: "mouse",
-            clientX: beatThreeBounds.left + beatThreeBounds.width / 2,
-            clientY: beatThreeBounds.top + beatThreeBounds.height / 2,
-          }));
-          const ghost = appDocument.querySelector(".editor-ghost-preview");
-          const beforeReleaseState = appWindow.CadenceLab.getStudentAnswer();
-          assert("ghostPreviewUsesTheCommittedSemanticIntentBeforePlacement",
-            ghost && beforeReleaseState.measures[0].voices.alto == null &&
-            ghost.dataset.previewMeasure === "1" && ghost.dataset.previewBeat === "3" &&
-            ghost.querySelector(".editor-ghost-notehead") && ghost.querySelector(".editor-ghost-stem")
-          );
-          beatThreeTarget.dispatchEvent(new appWindow.PointerEvent("pointerup", {
-            bubbles: true,
-            pointerId: 7,
-            pointerType: "mouse",
-            clientX: beatThreeBounds.left + beatThreeBounds.width / 2,
-            clientY: beatThreeBounds.top + beatThreeBounds.height / 2,
-          }));
-          const pointerState = appWindow.CadenceLab.getStudentAnswer();
-          assert("pointerTapAtBeatThreeDoesNotAppendEarlier",
-            pointerState.measures[0].voices.alto.length === 1 &&
-            pointerState.measures[0].voices.alto[0].beat === 3 &&
-            appDocument.querySelector("#editor-status").textContent.includes("beat 3")
-          );
-          const renderedStudentPitch = pointerState.measures[0].voices.alto[0].pitches[0];
-          assert("ghostAndCommittedPitchCalculationsAgree",
-            ghost.dataset.previewPitch === renderedStudentPitch
-          );
-          const currentHitTarget = appDocument.querySelector(
-            '.editor-hit-target[data-measure="1"][data-staff="treble"]'
-          );
-          const currentBounds = currentHitTarget.getBoundingClientRect();
-          currentHitTarget.dispatchEvent(new appWindow.PointerEvent("pointerdown", {
-            bubbles: true, pointerId: 8, pointerType: "mouse",
-            clientX: currentBounds.left + currentBounds.width / 2,
-            clientY: currentBounds.top + currentBounds.height / 2,
-          }));
-          currentHitTarget.dispatchEvent(new appWindow.PointerEvent("pointerup", {
-            bubbles: true, pointerId: 8, pointerType: "mouse",
-            clientX: currentBounds.left + currentBounds.width / 2,
-            clientY: currentBounds.top + currentBounds.height / 2,
-          }));
-          assert("secondTapOnSelectedStudentNoteDeletesAndLeavesUndoAvailable",
-            !appWindow.CadenceLab.getStudentAnswer().measures[0].voices.alto.length &&
-            !appDocument.querySelector("#undo-edit").disabled &&
-            appDocument.querySelector("#editor-status").textContent.includes("Undo")
-          );
-          appDocument.querySelector("#undo-edit").click();
-          assert("undoRestoresDirectlyDeletedStudentNote",
-            appWindow.CadenceLab.getStudentAnswer().measures[0].voices.alto.length === 1
-          );
-          const scoreSvg = appDocument.querySelector("#score svg");
-          const lockedNote = scoreSvg.querySelector(".locked-note");
-          const voiceHitLayer = scoreSvg.querySelector(".editor-hit-areas");
-          assert("voiceSafeHitLayerSitsAboveLockedNotation",
-            lockedNote && voiceHitLayer &&
-            Boolean(lockedNote.compareDocumentPosition(voiceHitLayer) & appWindow.Node.DOCUMENT_POSITION_FOLLOWING)
+          assert("browserNotationEditorAndStudentPlaybackAreAbsent",
+            !appDocument.querySelector("#editor-panel") &&
+            !appDocument.querySelector("#voice-controls") &&
+            !appDocument.querySelector("#duration-controls") &&
+            !appDocument.querySelector("#add-to-chord") &&
+            !appDocument.querySelector("#undo-edit") &&
+            !appDocument.querySelector(".editor-hit-target") &&
+            !appDocument.querySelector('[data-playback-mode="student"]') &&
+            !appDocument.querySelector('[data-playback-mode="context"]')
           );
 
-          appDocument.querySelector('[data-voice="tenor"]').click();
-          const tenorHit = appDocument.querySelector(
-            '.editor-hit-target[data-measure="1"][data-staff="bass"]'
-          );
-          const tenorBounds = tenorHit.getBoundingClientRect();
-          const tenorPointer = (type) => tenorHit.dispatchEvent(new appWindow.PointerEvent(type, {
-            bubbles: true, pointerId: 14, pointerType: "mouse",
-            clientX: tenorBounds.left + tenorBounds.width / 2,
-            clientY: tenorBounds.top + tenorBounds.height / 2,
-          }));
-          tenorPointer("pointerdown");
-          tenorPointer("pointerup");
-          assert("suppliedBassDoesNotBlockEditableTenorEntry",
-            appWindow.CadenceLab.getStudentAnswer().measures[0].voices.tenor.length === 1 &&
-            JSON.stringify(satbQuestion) === satbSourceBefore
-          );
-
-          const pianoSourceBeforeUi = JSON.stringify(pianoQuestion.score);
           appWindow.CadenceLab.showQuestion("piano-d-f");
-          appDocument.querySelector('[data-voice="bass"]').click();
-          let pianoHit = appDocument.querySelector(
-            '.editor-hit-target[data-measure="2"][data-staff="bass"]'
+          assert("originalPianoUsesPaperCompletionInstruction",
+            appDocument.querySelector("#paper-completion-instruction").textContent ===
+              "Complete this piano part on paper or on a printed copy of the score." &&
+            appDocument.querySelector("#score").dataset.scoreMode === "question"
           );
-          let pianoBounds = pianoHit.getBoundingClientRect();
-          const pianoX = pianoBounds.left + pianoBounds.width * 0.25;
-          const pianoY = pianoBounds.top + pianoBounds.height * 0.5;
-          const firePianoPointer = (type, pointerId, y) => pianoHit.dispatchEvent(
-            new appWindow.PointerEvent(type, {
-              bubbles: true, pointerId, pointerType: "touch",
-              clientX: pianoX, clientY: y,
-            })
+          appWindow.CadenceLab.showQuestion("piano-bflat-gminor");
+          appWindow.CadenceLab.submit({ skipConfirmation: true, noScroll: true });
+          assert("bFlatToGMinorHasQuestionAwarePaperChecklist",
+            appDocument.querySelector("#criteria-grid").textContent.includes("dotted-quarter–quaver") &&
+            appDocument.querySelector("#criteria-grid").textContent.includes("F♯ leads to G") &&
+            appDocument.querySelector("#result-badge").textContent.includes("0 of") &&
+            appDocument.querySelector("#judgement-note").textContent.includes("not grading")
           );
-          firePianoPointer("pointerdown", 21, pianoY);
-          const touchBeforeRelease = appWindow.CadenceLab.getStudentAnswer();
-          firePianoPointer("pointerup", 21, pianoY);
-          const firstPianoBeat = appWindow.CadenceLab.getStudentAnswer()
-            .measures[1].voices.bass[0].beat;
-          assert("touchPreviewCommitsOnlyOnRelease",
-            touchBeforeRelease.measures[1].voices.bass == null &&
-            appWindow.CadenceLab.getStudentAnswer().measures[1].voices.bass.length === 1
+          const portraitPrintCalls = [];
+          appWindow.print = () => portraitPrintCalls.push({
+            mode: appDocument.body.dataset.printMode,
+            orientation: appDocument.body.dataset.printOrientation,
+          });
+          appWindow.CadenceLab.print("question");
+          appWindow.CadenceLab.print("model");
+          assert("originalPaperCompletionsPrintAsSeparatePortraitA4Sheets",
+            portraitPrintCalls.length === 2 &&
+            portraitPrintCalls[0].mode === "question" &&
+            portraitPrintCalls[1].mode === "model" &&
+            portraitPrintCalls.every((call) => call.orientation === "portrait")
           );
-          appDocument.querySelector("#add-to-chord").click();
-          pianoHit = appDocument.querySelector(
-            '.editor-hit-target[data-measure="2"][data-staff="bass"]'
+
+          appWindow.CadenceLab.showQuestion("nzqa-2024-bach-satb");
+          assert("bachQuestionStartsBlankWithoutModelDom",
+            appDocument.querySelector("#score").dataset.scoreMode === "question" &&
+            !appDocument.querySelector("#model-score").children.length &&
+            appDocument.querySelector("#print-model").hidden &&
+            appWindow.getComputedStyle(appDocument.querySelector("#print-model")).display === "none" &&
+            appWindow.CadenceLab.print("model") === false
           );
-          pianoBounds = pianoHit.getBoundingClientRect();
-          pianoHit.dispatchEvent(new appWindow.PointerEvent("pointerdown", {
-            bubbles: true, pointerId: 22, pointerType: "touch",
-            clientX: pianoBounds.left + pianoBounds.width * 0.25,
-            clientY: pianoBounds.top + pianoBounds.height * 0.5 - 10,
-          }));
-          const chordGhostBeat = appDocument.querySelector(".editor-ghost-preview")?.dataset.previewBeat;
-          const chordGhostTarget = Boolean(appDocument.querySelector(".editor-ghost-chord-target"));
-          const chordNoteTarget = Boolean(appDocument.querySelector(".student-note.is-chord-target"));
-          assert("addChordToneGhostHighlightsTheReceivingOnset",
-            chordGhostBeat === String(firstPianoBeat) && chordGhostTarget && chordNoteTarget,
-            { chordGhostBeat, chordGhostTarget, chordNoteTarget,
-              studentMetadata: [...appDocument.querySelectorAll(".student-note")].map((node) => ({
-                voice: node.dataset.editorVoice,
-                measure: node.dataset.editorMeasure,
-                beat: node.dataset.editorBeat,
-              })) }
+          appWindow.CadenceLab.submit({ skipConfirmation: true, noScroll: true });
+          const bachChecklistText = appDocument.querySelector("#criteria-grid").textContent;
+          const bachPostPermissions = appWindow.CadenceLab.getPlaybackPermissions();
+          assert("bachRevealKeepsBlankQuestionAndShowsSeparateModel",
+            appDocument.querySelector("#score").dataset.scoreMode === "question" &&
+            appDocument.querySelector("#model-score").dataset.scoreMode === "model" &&
+            !appDocument.querySelector("#model-score-wrap").hidden &&
+            !appDocument.querySelector("#print-model").hidden &&
+            bachPostPermissions.question && bachPostPermissions.model &&
+            !bachPostPermissions.student && !bachPostPermissions.context
           );
-          pianoHit.dispatchEvent(new appWindow.PointerEvent("pointerup", {
-            bubbles: true, pointerId: 22, pointerType: "touch",
-            clientX: pianoBounds.left + pianoBounds.width * 0.25,
-            clientY: pianoBounds.top + pianoBounds.height * 0.5 - 10,
-          }));
-          const pianoChordState = appWindow.CadenceLab.getStudentAnswer();
-          assert("pianoAddChordToneBuildsOneSharedOnset",
-            pianoChordState.measures[1].voices.bass.length === 1 &&
-            pianoChordState.measures[1].voices.bass[0].pitches.length === 2
+          assert("bachChecklistNamesTwoPassingNotesAndOneV43Span",
+            bachChecklistText.includes("at least two passing notes") &&
+            bachChecklistText.includes("eight chord moments") &&
+            bachChecklistText.includes("V⁴–³ treated as one dominant span") &&
+            bachQuestion.interaction.completionRequirements.minimumPassingNotes === 2 &&
+            bachQuestion.interaction.completionRequirements.suspension === "V⁴–³"
           );
-          assert("suppliedPianoMelodyDoesNotBlockOrChangeAccompanimentEntry",
-            JSON.stringify(pianoQuestion.score) === pianoSourceBeforeUi &&
-            pianoChordState.measures[1].voices.bass.length === 1
+          const printCalls = [];
+          appWindow.print = () => printCalls.push({
+            mode: appDocument.body.dataset.printMode,
+            orientation: appDocument.body.dataset.printOrientation,
+            questionMode: appDocument.querySelector("#score").dataset.scoreMode,
+            modelMode: appDocument.querySelector("#model-score").dataset.scoreMode,
+          });
+          appWindow.CadenceLab.print("question");
+          appWindow.CadenceLab.print("model");
+          const printCss = [...appDocument.styleSheets]
+            .flatMap((sheet) => [...sheet.cssRules])
+            .map((rule) => rule.cssText)
+            .join(" ")
+            .toLocaleLowerCase("en-NZ");
+          assert("paperPrintModesSeparateBlankQuestionAndModelOnA4",
+            printCalls.length === 2 &&
+            printCalls[0].mode === "question" &&
+            printCalls[0].questionMode === "question" &&
+            printCalls[1].mode === "model" &&
+            printCalls[1].modelMode === "model" &&
+            printCalls.every((call) => call.orientation === "landscape") &&
+            printCss.includes("@page cadence-portrait { size: a4;") &&
+            printCss.includes("size: a4 landscape") &&
+            printCss.includes('body[data-print-mode="question"] .answer-panel') &&
+            printCss.includes('body[data-print-mode="model"] .score-frame') &&
+            !appDocument.body.dataset.printMode &&
+            !appDocument.body.dataset.printOrientation
           );
 
           const revealedConcepts = [
@@ -1609,26 +1160,13 @@
             !appDocument.querySelector("#student-comparison").textContent.includes("Accepted analyses")
           );
 
-          appWindow.CadenceLab.showQuestion("satb-f-c");
-          const studentModeButton = appDocument.querySelector('[data-playback-mode="student"]');
-          const questionModeButton = appDocument.querySelector('[data-playback-mode="question"]');
-          assert("hearMyWorkIsAvailableButSilentTransportWaitsForAnEntry",
-            !studentModeButton.disabled && questionModeButton.disabled &&
-            appDocument.querySelector("#play-pause").disabled &&
-            !appDocument.querySelector("#play-selection") &&
-            !appDocument.querySelector("#start-bar")
-          );
-          appWindow.CadenceLab.submit({ skipConfirmation: true, noScroll: true });
-          const interactivePostPermissions = appWindow.CadenceLab.getPlaybackPermissions();
-          assert("interactiveSubmissionUnlocksAllComparisonModes",
-            interactivePostPermissions.student && !interactivePostPermissions.question &&
-            interactivePostPermissions.context && interactivePostPermissions.model &&
-            appDocument.querySelector('[data-playback-mode="question"]').hidden &&
-            !appDocument.querySelector('[data-playback-mode="student"]').hidden &&
-            !appDocument.querySelector('[data-playback-mode="context"]').hidden &&
-            !appDocument.querySelector('[data-playback-mode="model"]').hidden &&
-            appDocument.querySelector('[data-playback-mode="model"]').textContent.trim() === "Play model answer" &&
-            appDocument.querySelector("#model-playback-cursor")
+          appWindow.CadenceLab.showQuestion("nzqa-2024-commercial-chromatic-bass");
+          assert("loveIsCommercialKeepsStructuredJazzInteraction",
+            appDocument.querySelector("#paper-completion-panel").hidden &&
+            !appDocument.querySelector("#structured-response-panel").hidden &&
+            appDocument.querySelector("[data-chord-quality]") &&
+            appDocument.querySelectorAll(".analysis-box-editable").length === 10 &&
+            appDocument.querySelector(".hint-bank")
           );
 
           finish();

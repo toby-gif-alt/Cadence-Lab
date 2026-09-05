@@ -58,6 +58,34 @@
     return event[field] || [];
   }
 
+  function questionOnlyScore(score) {
+    const questionScore = JSON.parse(JSON.stringify(score));
+    questionScore.measures.forEach((measure) => {
+      if (measure.voices && !measure.events) {
+        if (measure.questionVoices) {
+          measure.voices = measure.questionVoices;
+        }
+        delete measure.questionVoices;
+        return;
+      }
+      (measure.events || []).forEach((event) => {
+        if (event.voices && event.questionVoices) {
+          event.voices = event.questionVoices;
+          delete event.questionVoices;
+        }
+        if (Object.hasOwn(event, "qTreble")) {
+          event.treble = event.qTreble;
+          delete event.qTreble;
+        }
+        if (Object.hasOwn(event, "qBass")) {
+          event.bass = event.qBass;
+          delete event.qBass;
+        }
+      });
+    });
+    return questionScore;
+  }
+
   function measureStreams(measure, measureIndex, firstSourceEventIndex) {
     if (measure.staffVoices) {
       return {
@@ -386,15 +414,12 @@
       }
     }
 
-    auditionPitch(pitch) {
-      const context = this.ensureContext();
-      this.makeTone(pitch, context.currentTime + 0.01, 0.24, 0.8);
-    }
   }
 
   window.CadencePlayback = Object.freeze({
     PlaybackEngine,
     buildTimeline,
+    questionOnlyScore,
     durationBeats,
     pitchFrequency,
   });
