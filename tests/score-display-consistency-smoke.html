@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+  <meta charset="utf-8" />
+  <title>Cadence Lab score display consistency smoke test</title>
+  <style>
+    body { margin: 20px; font-family: system-ui, sans-serif; }
+    #app { position: absolute; left: -10000px; top: 0; width: 1100px; height: 1000px; }
+    #results { white-space: pre-wrap; }
+  </style>
+</head>
+<body data-status="running">
+  <h1>Cadence Lab score display consistency smoke test</h1>
+  <iframe id="app" title="Cadence Lab production application" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-21"></iframe>
+  <pre id="results">Running…</pre>
+<script>
+  const frame = document.querySelector('#app');
+  const results = document.querySelector('#results');
+  const assertions = {};
+  const details = {};
+  const assert = (name, condition, detail = null) => {
+    assertions[name] = Boolean(condition);
+    if (!condition && detail != null) details[name] = detail;
+  };
+  const nextTurn = w => new Promise(resolve => w.setTimeout(resolve, 0));
+  function finish(error = null) {
+    if (error) details.runtimeError = error.stack || String(error);
+    const passed = !error && Object.values(assertions).every(Boolean);
+    document.body.dataset.status = passed ? 'pass' : 'fail';
+    results.textContent = JSON.stringify({passed, assertions, details}, null, 2);
+  }
+  addEventListener('error', event => finish(event.error || event.message));
+  addEventListener('unhandledrejection', event => finish(event.reason));
+
+  frame.addEventListener('load', async () => {
+    try {
+      const w = frame.contentWindow;
+      const d = frame.contentDocument;
+      const lab = w.CadenceLab;
+      const display = w.CadenceScoreDisplay;
+      const questions = lab?.questions || [];
+      assert('production-app-and-display-layer-load', Boolean(lab && display));
+      assert('repo-wide-display-audit-valid', display?.initialAudit?.valid === true, display?.initialAudit?.errors);
+
+      const expectedExactBarMaps = {
+        'nzqa-2021-bach-pivots': [null,1,2,3,4,5,6,7,8],
+        'nzqa-2022-bach-c-aminor': [0,1,2,3,4,5],
+        'nzqa-2023-bach-key-regions': [4,5,6,7,8,9,10],
+        'nzqa-2024-bach-analysis': [null,1,2,3,4],
+        'nzqa-2024-bach-satb': [17,18,19],
+        'nzqa-2025-bach-analysis': [5,6,7,8,9],
+        'nzqa-2025-bach-modulation': [9,10,11,12,13,14,15,16,17,18,19,20],
+        'nzqa-2025-bach-satb': [21,22,23,24],
+      };
+      Object.entries(expectedExactBarMaps).forEach(([id, expected]) => {
+        const question = questions.find(candidate => candidate.id === id);
+        assert(`exact-bar-map:${id}`, JSON.stringify(question?.score?.barNumbers) === JSON.stringify(expected), question?.score?.barNumbers);
+      });
+
+      const locatedQuestions = questions.filter(question =>
+        ['roman-analysis', 'jazz-chord-placement'].includes(question.interaction?.type)
+      );
+      const slotProblems = [];
+      locatedQuestions.forEach(question => {
+        (question.interaction.slots || []).forEach(slot => {
+          const event = question.score.harmonicEvents?.[slot.harmonicIndex];
+          const expected = event ? display.locationLabel(question, event) : null;
+          if (!event || event.answerRole !== 'editable' || event.analysisBox === false || slot.label !== expected) {
+            slotProblems.push({question: question.id, slot: slot.id, label: slot.label, expected, role: event?.answerRole});
+          }
+        });
+      });
+      assert('all-roman-and-jazz-slots-match-engraved-score-locations', slotProblems.length === 0, slotProblems);
+
+      const renderProblems = [];
+      for (const question of questions) {
+        lab.showQuestion(question.id);
+        const score = d.querySelector('#score');
+        const expectedBarCount = (question.score.barNumbers || []).filter(value => value != null).length;
+        const actualNumbers = [...d.querySelectorAll('#score .measure-bar-number')].map(node => Number(node.dataset.barNumber));
+        const expectedNumbers = (question.score.barNumbers || []).filter(value => value != null);
+        const editableCount = question.score.harmonicEvents.filter(event => event.answerRole === 'editable' && event.analysisBox !== false).length;
+        const actualEditable = d.querySelectorAll('#score .analysis-box-editable').length;
+        if (question.score.showBarNumbers !== false && expectedBarCount &&
+            JSON.stringify(actualNumbers) !== JSON.stringify(expectedNumbers)) {
+          renderProblems.push({question: question.id, kind: 'bar-numbers', expectedNumbers, actualNumbers});
+        }
+        if (['roman-analysis', 'jazz-chord-placement'].includes(question.interaction?.type) && actualEditable !== editableCount) {
+          renderProblems.push({question: question.id, kind: 'editable-box-count', editableCount, actualEditable});
+        }
+        if (['roman-analysis', 'jazz-chord-placement'].includes(question.interaction?.type) && editableCount &&
+            Number(score.dataset.blankEditableAnalysisBoxCount || 0) !== editableCount) {
+          renderProblems.push({question: question.id, kind: 'blank-box-visibility', editableCount, blank: score.dataset.blankEditableAnalysisBoxCount});
+        }
+      }
+      assert('all-authored-scores-render-correct-bar-numbers-and-editable-boxes', renderProblems.length === 0, renderProblems);
+
+      const nonPaperIds = [
+        'nzqa-2025-bach-analysis',
+        'nzqa-2025-bach-modulation',
+        locatedQuestions.find(question => question.category === 'jazz')?.id,
+        questions.find(question => question.category === 'features' && question.interaction?.type !== 'paper-completion')?.id,
+      ].filter(Boolean);
+      const revealProblems = [];
+      for (const id of [...new Set(nonPaperIds)]) {
+        lab.showQuestion(id);
+        const question = lab.getCurrentQuestion();
+        if (!lab.submit({skipConfirmation:true, noScroll:true})) {
+          revealProblems.push({question: id, kind: 'submit-failed'});
+          continue;
+        }
+        await nextTurn(w);
+        if (d.querySelector('#score')?.dataset.scoreMode !== 'model' ||
+            !d.querySelector('#model-score-wrap')?.hidden ||
+            d.querySelector('#model-score')?.childNodes.length) {
+          revealProblems.push({
+            question: id,
+            kind: 'duplicate-model',
+            scoreMode: d.querySelector('#score')?.dataset.scoreMode,
+            modelHidden: d.querySelector('#model-score-wrap')?.hidden,
+            modelChildren: d.querySelector('#model-score')?.childNodes.length,
+          });
+        }
+      }
+      assert('browser-analysis-reveals-on-one-score-without-duplicate-extract', revealProblems.length === 0, revealProblems);
+
+      const paperQuestions = questions.filter(question => question.interaction?.type === 'paper-completion');
+      const paperProblems = [];
+      for (const question of paperQuestions) {
+        lab.showQuestion(question.id);
+        if (!lab.submit({skipConfirmation:true, noScroll:true})) {
+          paperProblems.push({question: question.id, kind: 'submit-failed'});
+          continue;
+        }
+        await nextTurn(w);
+        if (d.querySelector('#score')?.dataset.scoreMode !== 'question' ||
+            d.querySelector('#model-score-wrap')?.hidden ||
+            !d.querySelector('#model-score')?.childNodes.length) {
+          paperProblems.push({
+            question: question.id,
+            kind: 'paper-model-separation',
+            scoreMode: d.querySelector('#score')?.dataset.scoreMode,
+            modelHidden: d.querySelector('#model-score-wrap')?.hidden,
+            modelChildren: d.querySelector('#model-score')?.childNodes.length,
+          });
+        }
+      }
+      assert('all-paper-completions-keep-separate-question-and-model-scores', paperProblems.length === 0, paperProblems);
+
+      finish();
+    } catch (error) {
+      finish(error);
+    }
+  });
+</script>
+</body>
+</html>
