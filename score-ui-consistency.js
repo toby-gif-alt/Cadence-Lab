@@ -18,11 +18,110 @@
     "jazz-chord-placement",
   ]);
   const SVG_NS = "http://www.w3.org/2000/svg";
+  const VOICES = ["soprano", "alto", "tenor", "bass"];
+  const NATURAL_PITCH_CLASSES = Object.freeze({
+    C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
+  });
 
   function copy(value) {
     return typeof structuredClone === "function"
       ? structuredClone(value)
       : JSON.parse(JSON.stringify(value));
+  }
+
+  function questionById(id) {
+    return data.questions.find((question) => question.id === id) || null;
+  }
+
+  function setModelVoice(questionId, measureIndex, eventIndex, voice, pitch) {
+    const question = questionById(questionId);
+    const event = question?.score?.measures?.[measureIndex]?.events?.[eventIndex];
+    if (!event?.voices || !Object.hasOwn(event.voices, voice)) {
+      throw new Error(
+        `${questionId}: cannot apply ${voice} model correction at measure ${measureIndex + 1}, event ${eventIndex + 1}`
+      );
+    }
+    event.voices[voice] = pitch;
+  }
+
+  function applyOriginalSatbModelCorrections() {
+    // F major -> C major: remove the tenor/bass parallel fifth into the
+    // fourth chord without changing the supplied soprano or bass.
+    setModelVoice("satb-f-c", 0, 3, "tenor", "C4");
+
+    // G-minor model: remove the two tenor/bass parallel-fifth chains while
+    // preserving the soprano leading-note resolutions and chord functions.
+    setModelVoice("satb-gminor", 1, 1, "tenor", "Bb3");
+    setModelVoice("satb-gminor", 2, 0, "tenor", "C4");
+    setModelVoice("satb-gminor", 2, 2, "tenor", "Bb3");
+
+    // C major -> A minor: revoice the inner parts so the model contains no
+    // consecutive perfect fifths/octaves and the final E7 tendencies resolve
+    // literally as described: G# -> A and D -> C.
+    setModelVoice("satb-c-aminor", 0, 0, "tenor", "C4");
+    setModelVoice("satb-c-aminor", 0, 1, "alto", "C4");
+    setModelVoice("satb-c-aminor", 0, 1, "tenor", "A3");
+    setModelVoice("satb-c-aminor", 0, 2, "tenor", "D4");
+    setModelVoice("satb-c-aminor", 0, 3, "tenor", "C4");
+    setModelVoice("satb-c-aminor", 1, 0, "alto", "F4");
+    setModelVoice("satb-c-aminor", 1, 0, "tenor", "A3");
+    setModelVoice("satb-c-aminor", 1, 1, "alto", "D4");
+    setModelVoice("satb-c-aminor", 1, 1, "tenor", "G#3");
+    setModelVoice("satb-c-aminor", 2, 0, "alto", "C4");
+    setModelVoice("satb-c-aminor", 2, 0, "tenor", "A3");
+  }
+
+  function pitchMidi(value) {
+    const match = /^([A-G])([#b]?)(-?\d+)$/.exec(String(value || ""));
+    if (!match) return null;
+    const accidental = match[2] === "#" ? 1 : match[2] === "b" ? -1 : 0;
+    return (
+      (Number(match[3]) + 1) * 12 +
+      NATURAL_PITCH_CLASSES[match[1]] +
+      accidental
+    );
+  }
+
+  function originalSatbParallelErrors(question) {
+    if (question.sourceType !== "original-practice" || question.category !== "satb") {
+      return [];
+    }
+    const moments = (question.score?.measures || []).flatMap((measure) =>
+      (measure.events || [])
+        .filter((event) => event.voices && VOICES.every((voice) => event.voices[voice]))
+        .map((event) => ({ ...event.voices }))
+    );
+    const errors = [];
+    for (let index = 1; index < moments.length; index += 1) {
+      const previous = moments[index - 1];
+      const current = moments[index];
+      for (let first = 0; first < VOICES.length; first += 1) {
+        for (let second = first + 1; second < VOICES.length; second += 1) {
+          const firstVoice = VOICES[first];
+          const secondVoice = VOICES[second];
+          const previousFirst = pitchMidi(previous[firstVoice]);
+          const previousSecond = pitchMidi(previous[secondVoice]);
+          const currentFirst = pitchMidi(current[firstVoice]);
+          const currentSecond = pitchMidi(current[secondVoice]);
+          if ([previousFirst, previousSecond, currentFirst, currentSecond].some(
+            (pitch) => !Number.isFinite(pitch)
+          )) continue;
+          const previousInterval = Math.abs(previousFirst - previousSecond) % 12;
+          const currentInterval = Math.abs(currentFirst - currentSecond) % 12;
+          const firstMotion = currentFirst - previousFirst;
+          const secondMotion = currentSecond - previousSecond;
+          const samePerfectClass =
+            previousInterval === currentInterval &&
+            [0, 7].includes(currentInterval);
+          if (samePerfectClass && firstMotion * secondMotion > 0) {
+            errors.push(
+              `${question.id}: consecutive ${currentInterval === 7 ? "perfect fifths" : "octaves/unisons"} between ${firstVoice} and ${secondVoice} at model moments ${index}–${index + 1}`
+            );
+          }
+        }
+      }
+    }
+    return errors;
   }
 
   function integerRange(first, last) {
@@ -84,7 +183,7 @@
   function formatBeat(value) {
     const numeric = Number(value ?? 1);
     if (!Number.isFinite(numeric)) return String(value ?? 1);
-    return Number.isInteger(numeric) ? String(numeric) : String(numeric);
+    return String(numeric);
   }
 
   function locationLabel(question, harmonicEvent) {
@@ -163,10 +262,13 @@
           }
         });
       }
+
+      errors.push(...originalSatbParallelErrors(question));
     });
     return Object.freeze({ valid: errors.length === 0, errors: Object.freeze(errors) });
   }
 
+  applyOriginalSatbModelCorrections();
   data.questions.forEach(applyQuestion);
   const displayAudit = auditQuestions();
   if (!displayAudit.valid) {
@@ -230,26 +332,48 @@
     target.dataset.barNumberCount = String(count);
   }
 
-  function strengthenEditableBoxes(target) {
-    target.querySelectorAll(
+  function strengthenEditableBoxes(target, score, options = {}) {
+    const groups = [...target.querySelectorAll(
       ".analysis-box-group.analysis-box-editable"
-    ).forEach((group) => {
+    )];
+    target.dataset.editableAnalysisBoxCount = String(groups.length);
+
+    if (options.showAnswer) {
+      target.dataset.blankEditableAnalysisBoxCount = "0";
+      return;
+    }
+
+    const eventBySlot = new Map(
+      (score.harmonicEvents || [])
+        .filter((event) => event.answerSlotId)
+        .map((event) => [event.answerSlotId, event])
+    );
+
+    groups.forEach((group) => {
       const rect = group.querySelector(".analysis-box");
       if (!rect) return;
       const blank = !group.querySelector(".analysis-box-label");
+      const event = eventBySlot.get(group.dataset.answerSlotId || "");
+      const position = event?.labelPosition || score.labelPosition || "bottom";
       group.dataset.blankEditable = String(blank);
+      group.dataset.boxPosition = position;
+
+      // The original y-position sat too close to downward bass stems. Keep the
+      // same useful boxes, but move only bottom answer-entry boxes clear of the
+      // notation. Top jazz/pop boxes stay where they were.
+      if (position !== "top") {
+        group.setAttribute("transform", "translate(0 18)");
+        group.dataset.boxShiftY = "18";
+      }
+
       rect.style.fill = blank ? "#eef6ff" : "#eff6ff";
       rect.style.stroke = "#2563eb";
       rect.style.strokeWidth = blank ? "2" : "1.8";
       rect.style.strokeDasharray = blank ? "5 3" : "none";
     });
-    target.dataset.editableAnalysisBoxCount = String(
-      target.querySelectorAll(".analysis-box-group.analysis-box-editable").length
-    );
+
     target.dataset.blankEditableAnalysisBoxCount = String(
-      target.querySelectorAll(
-        '.analysis-box-group.analysis-box-editable[data-blank-editable="true"]'
-      ).length
+      groups.filter((group) => group.dataset.blankEditable === "true").length
     );
   }
 
@@ -259,80 +383,53 @@
     render(target, score, options = {}) {
       const result = baseRenderer.render(target, score, options);
       decorateBarNumbers(target, score);
-      strengthenEditableBoxes(target);
+      strengthenEditableBoxes(target, score, options);
       return result;
     },
   });
   window.CadenceScoreRenderer = wrappedRenderer;
 
-  function scoreLayout(question) {
-    if (question.score?.layout) return question.score.layout;
-    if (question.category === "satb") return "satb";
-    if (question.category === "piano") return "piano";
-    return "grand";
-  }
-
-  function startRevealSynchronizer() {
+  function startKeyModulationDuplicateSuppressor() {
     const lab = window.CadenceLab;
-    const scoreElement = document.querySelector("#score");
     const modelWrap = document.querySelector("#model-score-wrap");
-    const modelScore = document.querySelector("#model-score");
     const answerPanel = document.querySelector("#answer-panel");
-    if (!lab || !scoreElement || !modelWrap || !modelScore || !answerPanel) return;
+    const printModel = document.querySelector("#print-model");
+    if (!lab || !modelWrap || !answerPanel) return;
 
-    let synchronizing = false;
-    const sync = () => {
-      if (synchronizing) return;
+    const suppressDuplicate = () => {
       const question = lab.getCurrentQuestion?.();
-      if (!question) return;
-      applyQuestion(question);
-      const submitted = lab.isSubmitted?.() === true;
-      const paperCompletion = question.interaction?.type === "paper-completion";
-      const printingQuestion = document.body.dataset.printMode === "question";
+      const shouldSuppress =
+        lab.isSubmitted?.() === true &&
+        question?.interaction?.type === "key-modulation";
+      if (!shouldSuppress) return;
 
-      if (!submitted || paperCompletion || printingQuestion) return;
-
-      modelWrap.hidden = true;
-      if (modelScore.childNodes.length) modelScore.replaceChildren();
-      if (scoreElement.dataset.scoreMode === "model") return;
-
-      synchronizing = true;
-      try {
-        const width = scoreElement.getBoundingClientRect().width ||
-          document.querySelector(".score-frame")?.getBoundingClientRect().width ||
-          900;
-        window.CadenceScoreRenderer.render(scoreElement, question.score, {
-          layout: scoreLayout(question),
-          showAnswer: true,
-          width,
-        });
-      } finally {
-        synchronizing = false;
-      }
+      // Key/modulation questions use the same musical extract before and after
+      // submission, so a second notation copy adds nothing. Do not touch the
+      // main score and do not interfere with Roman/jazz answer re-rendering.
+      if (!modelWrap.hidden) modelWrap.hidden = true;
+      if (printModel && !printModel.hidden) printModel.hidden = true;
     };
 
-    const observer = new MutationObserver(() => queueMicrotask(sync));
-    observer.observe(scoreElement, {
-      childList: true,
+    const observer = new MutationObserver(() => queueMicrotask(suppressDuplicate));
+    observer.observe(answerPanel, {
       attributes: true,
-      attributeFilter: ["data-score-mode"],
+      attributeFilter: ["hidden"],
     });
     observer.observe(modelWrap, {
       attributes: true,
       attributeFilter: ["hidden"],
     });
-    observer.observe(answerPanel, {
-      attributes: true,
-      attributeFilter: ["hidden"],
-    });
-    window.addEventListener("afterprint", () => queueMicrotask(sync));
-    queueMicrotask(sync);
+    queueMicrotask(suppressDuplicate);
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", startRevealSynchronizer, { once: true });
+    document.addEventListener(
+      "DOMContentLoaded",
+      startKeyModulationDuplicateSuppressor,
+      { once: true }
+    );
   } else {
-    queueMicrotask(startRevealSynchronizer);
+    queueMicrotask(startKeyModulationDuplicateSuppressor);
   }
 
   window.CadenceScoreDisplay = Object.freeze({
@@ -343,6 +440,7 @@
       return result ? copy(result) : result;
     },
     locationLabel,
+    originalSatbParallelErrors,
     audit: () => auditQuestions(data.questions),
     initialAudit: displayAudit,
   });
