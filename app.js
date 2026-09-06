@@ -104,6 +104,9 @@
     if (question.sourceType === "generated-practice") {
       return `Generated Cadence Lab practice · ${question.variantId}.`;
     }
+    if (source.adaptedFrom) {
+      return source.acknowledgement;
+    }
     return "Original Cadence Lab practice material.";
   }
 
@@ -1018,6 +1021,24 @@
     if (yearField.hidden) yearSelect.value = "";
   }
 
+  function syncFilterAvailability() {
+    [...sourceSelect.options].forEach((option) => {
+      if (["mixed", "generated-practice"].includes(option.value)) return;
+      option.disabled = !questionBank.some(
+        (question) => question.sourceType === option.value
+      );
+    });
+    if (sourceSelect.selectedOptions[0]?.disabled) sourceSelect.value = "mixed";
+    [...yearSelect.options].forEach((option) => {
+      if (!option.value) return;
+      option.disabled = !questionBank.some((question) =>
+        Number(option.value) === question.source?.year &&
+        (sourceSelect.value === "mixed" || question.sourceType === sourceSelect.value)
+      );
+    });
+    if (yearSelect.selectedOptions[0]?.disabled) yearSelect.value = "";
+  }
+
   function showGeneratedQuestion(seed) {
     categorySelect.value = "chord-identification";
     sourceSelect.value = "generated-practice";
@@ -1040,6 +1061,7 @@
   sourceSelect.addEventListener("change", () => {
     if (sourceSelect.value === "generated-practice") categorySelect.value = "chord-identification";
     else if (categorySelect.value === "chord-identification") categorySelect.value = "mixed";
+    syncFilterAvailability();
     syncSourceYearVisibility();
     renderQuestion();
   });
@@ -1118,6 +1140,7 @@
     sourceSelect.value = requestedQuestion.sourceType;
     yearSelect.value = requestedQuestion.source?.year || "";
   }
+  syncFilterAvailability();
   syncSourceYearVisibility();
   try {
     renderQuestion(requestedVariantId

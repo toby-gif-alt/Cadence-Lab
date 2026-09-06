@@ -13,17 +13,17 @@
   <body data-status="running">
     <h1>Cadence Lab interaction smoke test</h1>
     <div id="render-fixture" aria-hidden="true"></div>
-    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-source-bank-17"></iframe>
+    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-source-bank-18"></iframe>
     <pre id="results">Running…</pre>
 
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../key-relationships.js?v=2026-09-source-bank-17"></script>
-    <script src="../question-bank.js?v=2026-09-source-bank-17"></script>
-    <script src="../score-renderer.js?v=2026-09-source-bank-17"></script>
-    <script src="../question-validator.js?v=2026-09-source-bank-17"></script>
-    <script src="../structured-answer.js?v=2026-09-source-bank-17"></script>
-    <script src="../chord-generator.js?v=2026-09-source-bank-17"></script>
-    <script src="../playback-engine.js?v=2026-09-source-bank-17"></script>
+    <script src="../key-relationships.js?v=2026-09-source-bank-18"></script>
+    <script src="../question-bank.js?v=2026-09-source-bank-18"></script>
+    <script src="../score-renderer.js?v=2026-09-source-bank-18"></script>
+    <script src="../question-validator.js?v=2026-09-source-bank-18"></script>
+    <script src="../structured-answer.js?v=2026-09-source-bank-18"></script>
+    <script src="../chord-generator.js?v=2026-09-source-bank-18"></script>
+    <script src="../playback-engine.js?v=2026-09-source-bank-18"></script>
     <script>
       const results = document.querySelector("#results");
       const assertions = {};
@@ -86,7 +86,7 @@
           const referenceQuestions = questions.filter((question) =>
             ["nzqa-reference", "practice-assessment-reference"].includes(question.sourceType)
           );
-          const official2025Ids = [
+          const adapted2025Ids = [
             "nzqa-2025-bach-analysis", "nzqa-2025-bach-modulation", "nzqa-2025-bach-satb",
             "nzqa-2025-schubert-analysis", "nzqa-2025-schubert-feature", "nzqa-2025-schubert-piano",
             "nzqa-2025-joel-chords", "nzqa-2025-joel-context", "nzqa-2025-joel-piano",
@@ -102,18 +102,33 @@
               question.source.provider && question.source.sourceKind && question.source.location &&
               question.source.acknowledgement
             ) &&
-            questions.filter((question) => question.sourceType === "practice-assessment-reference")
-              .every((question) =>
-                question.source.provider === "Learning Ideas" &&
-                question.source.sourceKind === "practice-assessment" &&
-                /not an official NZQA/i.test(question.source.acknowledgement)
-              )
+            referenceQuestions.length === 5 &&
+            referenceQuestions.every((question) =>
+              question.sourceSpec.transcriptionMode === "exact"
+            ) &&
+            !questions.some((question) =>
+              question.sourceType === "practice-assessment-reference"
+            )
           );
-          assert("allNineOfficial2025SubquestionsAreImplemented",
-            official2025Ids.every((id) => questions.some((question) => question.id === id)) &&
-            questions.filter((question) =>
+          assert("allNine2025StudiesAreRetainedAsAdaptedOriginalPractice",
+            adapted2025Ids.every((id) => {
+              const question = questions.find((candidate) => candidate.id === id);
+              return question?.sourceType === "original-practice" &&
+                question.source.adaptedFrom &&
+                /^Adapted:/.test(question.studentTitle);
+            }) &&
+            !questions.some((question) =>
               question.sourceType === "nzqa-reference" && question.source.year === 2025
-            ).length === official2025Ids.length
+            )
+          );
+          const practiceReferenceOption = appDocument.querySelector(
+            '#source-type option[value="practice-assessment-reference"]'
+          );
+          const referenceYear2025Option = appDocument.querySelector(
+            '#source-year option[value="2025"]'
+          );
+          assert("emptyReferenceFiltersAreDisabled",
+            practiceReferenceOption.disabled && referenceYear2025Option.disabled
           );
           assert("contextualAnalysisUsesScaffoldedReflectionOnlyFields",
             contextualQuestions.length >= 4 && contextualQuestions.every((question) =>
@@ -148,6 +163,9 @@
           const satbQuestion = questions.find((question) => question.id === "satb-f-c");
           const pianoQuestion = questions.find((question) => question.id === "piano-d-f");
           const bachQuestion = questions.find((question) => question.id === "nzqa-2024-bach-satb");
+          const bach2025Completion = questions.find(
+            (question) => question.id === "nzqa-2025-bach-satb"
+          );
           assert("allCompletionsUseSemanticPaperContracts",
             completionQuestions.some((question) => question.category === "satb") &&
             completionQuestions.some((question) => question.category === "piano") &&
@@ -157,6 +175,24 @@
               question.interaction.selfCheck.length >= 5 &&
               !question.interaction.editableRegions
             )
+          );
+          assert("adapted2025SatbPreservesFourSuppliedAndSixChoiceContract",
+            bach2025Completion.sourceType === "original-practice" &&
+            bach2025Completion.score.harmonicEvents.length === 10 &&
+            JSON.stringify(bach2025Completion.score.harmonicEvents
+              .filter((event) => event.questionLabel)
+              .map((event) => event.questionLabel)) ===
+              JSON.stringify(["I", "Ib", "IV⁹–⁸", "I"]) &&
+            bach2025Completion.score.harmonicEvents
+              .filter((event) => event.analysisBox !== false && !event.questionLabel)
+              .length === 6 &&
+            bach2025Completion.interaction.completionRequirements.totalChordMoments === 10 &&
+            bach2025Completion.interaction.completionRequirements.suppliedChordMoments === 4 &&
+            bach2025Completion.interaction.completionRequirements.learnerChosenChordMoments === 6 &&
+            bach2025Completion.interaction.completionRequirements.minimumPassingNotes === 2 &&
+            bach2025Completion.interaction.completionRequirements.requiredSuspension === true &&
+            JSON.stringify(bach2025Completion.interaction.completionRequirements.allowedRomanChords) ===
+              JSON.stringify(["I", "ii", "V", "V7", "vi"])
           );
           const suppliedPlaybackFailures = completionQuestions.flatMap((question) => {
             const before = JSON.stringify(question.score);
@@ -337,7 +373,7 @@
             unrepresentableJazzAnswers.length === 0,
             unrepresentableJazzAnswers
           );
-          assert("nzqa2021And2024ReferenceSymbolsAreExplicitSemanticAcceptanceCases",
+          assert("adapted2021And2024SourceSymbolsRemainSemanticAcceptanceCases",
             ["nzqa-2021-valentine-techniques", "nzqa-2024-commercial-chromatic-bass"]
               .flatMap((questionId) => questions.find((question) =>
                 question.id === questionId

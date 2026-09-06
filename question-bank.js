@@ -115,6 +115,16 @@ function originalSource(focus) {
   };
 }
 
+function adaptedOriginalSource(focus, provenance) {
+  return {
+    ...originalSource(focus),
+    adaptedFrom: provenance,
+    acknowledgement:
+      `Original Cadence Lab adapted study informed by ${provenance}. ` +
+      "Its displayed notation is pedagogical material, not a transcription of the source extract.",
+  };
+}
+
 function nzqaSource(year, question, part, extract, creator, title, location, bars = "") {
   return {
     provider: "NZQA",
@@ -284,13 +294,13 @@ const studentPresentationById = {
     hiddenConceptTerms: ["G minor"],
   },
   "nzqa-2021-valentine-techniques": {
-    title: "Reference: chord and harmonic-feature analysis",
+    title: "Adapted: chord and harmonic-feature analysis",
     context:
       "Complete the chord boxes above bars 21–29, classify the marked X, Y and Z melody notes, and explain the two harmonic techniques operating in bars 21–25.",
     hiddenConceptTerms: ["tonic pedal", "pedal point", "minor-line harmony"],
   },
   "nzqa-2024-commercial-chromatic-bass": {
-    title: "Reference: chord and bass-line analysis",
+    title: "Adapted: chord and bass-line analysis",
     context:
       "Analyse the eleven boxed positions in bars 19–28, including both sonorities in bar 23, then explain the bass movement and rate of harmonic change in bars 24–28.",
     hiddenConceptTerms: ["chromatic bass", "one chord per bar"],
@@ -409,6 +419,9 @@ const completionInteractions = {
         second: ["alto", "tenor", "bass"],
       },
       harmonicIndications: 10,
+      totalChordMoments: 10,
+      suppliedChordMoments: 4,
+      learnerChosenChordMoments: 6,
       requiredSuspension: true,
       minimumPassingNotes: 2,
       learnerChoosesHarmony: true,
@@ -882,6 +895,133 @@ function neutralStudentCaption(config) {
   return `Original Cadence Lab practice • ${categoryNames[config.category]}`;
 }
 
+// These contracts were manually recorded from the learner-visible question-paper
+// notation. They are deliberately independent of the score objects they validate.
+const exactTranscriptionContracts = {
+  "nzqa-2021-bach-pivots": {
+    transcriptionMode: "exact",
+    printedBars: "1–8",
+    printedMeasureCount: 9,
+    pickupMeasureCount: 1,
+    staffLayout: "satb",
+    voiceNames: ["soprano", "alto", "tenor", "bass"],
+    perMeasureVoiceEventCounts: [
+      { soprano: 1, alto: 1, tenor: 1, bass: 1 },
+      { soprano: 2, alto: 2, tenor: 2, bass: 2 },
+      { soprano: 2, alto: 3, tenor: 2, bass: 2 },
+      { soprano: 2, alto: 3, tenor: 2, bass: 3 },
+      { soprano: 2, alto: 3, tenor: 2, bass: 2 },
+      { soprano: 3, alto: 2, tenor: 2, bass: 2 },
+      { soprano: 2, alto: 2, tenor: 2, bass: 3 },
+      { soprano: 2, alto: 2, tenor: 3, bass: 3 },
+      { soprano: 1, alto: 1, tenor: 1, bass: 1 },
+    ],
+    measureRhythmSignatures: [
+      { soprano: "q", alto: "q", tenor: "q", bass: "q" },
+      { soprano: "h q", alto: "h q", tenor: "h q", bass: "h q" },
+      { soprano: "h q", alto: "q q q", tenor: "h q", bass: "h q" },
+      { soprano: "q h", alto: "q q q", tenor: "h q", bass: "q q q" },
+      { soprano: "h q", alto: "h 8 8", tenor: "h q", bass: "h q" },
+      { soprano: "q q q", alto: "h q", tenor: "h q", bass: "h q" },
+      { soprano: "h q", alto: "h q", tenor: "h q", bass: "q q q" },
+      { soprano: "q h", alto: "h q", tenor: "q q q", bass: "q q q" },
+      { soprano: "h", alto: "h", tenor: "h", bass: "h" },
+    ],
+  },
+  "nzqa-2022-bach-c-aminor": {
+    transcriptionMode: "exact",
+    printedBars: "0–5",
+    printedMeasureCount: 6,
+    staffLayout: "satb",
+    voiceNames: ["soprano", "alto", "tenor", "bass"],
+    perMeasureVoiceEventCounts: [
+      { soprano: 1, alto: 1, tenor: 1, bass: 1 },
+      { soprano: 4, alto: 7, tenor: 6, bass: 6 },
+      { soprano: 4, alto: 4, tenor: 6, bass: 4 },
+      { soprano: 4, alto: 4, tenor: 4, bass: 6 },
+      { soprano: 3, alto: 3, tenor: 4, bass: 5 },
+      { soprano: 1, alto: 1, tenor: 1, bass: 1 },
+    ],
+    measureRhythmSignatures: [
+      { soprano: "q", alto: "q", tenor: "q", bass: "q" },
+      { soprano: "q q q q", alto: "8 8 8 8 8 8 q", tenor: "q 8 8 q 8 8", bass: "q q 8 8 8 8" },
+      { soprano: "q q q q", alto: "q q q q", tenor: "8 16 16 q q q", bass: "q q q q" },
+      { soprano: "q q qd 8", alto: "q 8 8 h", tenor: "q q q q", bass: "q 8 8 8 8 q" },
+      { soprano: "q q h", alto: "q h q", tenor: "q q qd 8", bass: "8 8 8 8 h" },
+      { soprano: "hd", alto: "hd", tenor: "hd", bass: "hd" },
+    ],
+  },
+  "nzqa-2024-bach-analysis": {
+    transcriptionMode: "exact",
+    printedBars: "1–4",
+    printedMeasureCount: 5,
+    pickupMeasureCount: 1,
+    staffLayout: "satb",
+    voiceNames: ["soprano", "alto", "tenor", "bass"],
+    perMeasureVoiceEventCounts: [
+      { soprano: 1, alto: 1, tenor: 1, bass: 1 },
+      { soprano: 5, alto: 6, tenor: 6, bass: 5 },
+      { soprano: 4, alto: 5, tenor: 6, bass: 6 },
+      { soprano: 5, alto: 6, tenor: 5, bass: 5 },
+      { soprano: 4, alto: 7, tenor: 7, bass: 6 },
+    ],
+    measureRhythmSignatures: [
+      { soprano: "q", alto: "q", tenor: "q", bass: "q" },
+      { soprano: "q q q 8 8", alto: "8 8 q q 8 8", tenor: "q 8 8 q 8 8", bass: "q q 8 8 q" },
+      { soprano: "q q q q", alto: "q q q 8 8", tenor: "8 8 q q 8 8", bass: "8 8 8 8 q q" },
+      { soprano: "q q q 8 8", alto: "q 8 8 q 8 8", tenor: "8 8 q q q", bass: "q q q 8 8" },
+      { soprano: "q q q q", alto: "8 8 8 8 8 8 q", tenor: "8 8 8 8 q 8 8", bass: "8 8 8 8 q q" },
+    ],
+  },
+  "nzqa-2023-bach-key-regions": {
+    transcriptionMode: "exact",
+    printedBars: "4–10",
+    printedMeasureCount: 7,
+    staffLayout: "satb",
+    voiceNames: ["soprano", "alto", "tenor", "bass"],
+    perMeasureVoiceEventCounts: [
+      { soprano: 3, alto: 3, tenor: 4, bass: 2 },
+      { soprano: 7, alto: 7, tenor: 5, bass: 6 },
+      { soprano: 4, alto: 5, tenor: 4, bass: 5 },
+      { soprano: 5, alto: 4, tenor: 6, bass: 6 },
+      { soprano: 2, alto: 3, tenor: 3, bass: 2 },
+      { soprano: 4, alto: 7, tenor: 5, bass: 5 },
+      { soprano: 5, alto: 5, tenor: 4, bass: 4 },
+    ],
+    measureRhythmSignatures: [
+      { soprano: "q q q", alto: "q q q", tenor: "8 q 8 q", bass: "h q" },
+      { soprano: "q 8 8 8 8 8 8", alto: "8 8 8 8 q 8 8", tenor: "q q q 8 8", bass: "8 8 q 8 8 q" },
+      { soprano: "q q q q", alto: "q q q 8 8", tenor: "qd 8 q q", bass: "8 8 q q q" },
+      { soprano: "q q q 8 8", alto: "q q q q", tenor: "8 8 q 8 8 q", bass: "q 8 8 8 8 q" },
+      { soprano: "h q", alto: "q q q", tenor: "qd 8 q", bass: "h q" },
+      { soprano: "q q q q", alto: "q 8 8 8 8 8 8", tenor: "8 8 q q q", bass: "q q 8 8 q" },
+      { soprano: "8 8 q q q", alto: "8 8 q q q", tenor: "qd 8 q q", bass: "q q q q" },
+    ],
+  },
+  "nzqa-2024-bach-satb": {
+    transcriptionMode: "exact",
+    printedBars: "17–19",
+    printedMeasureCount: 3,
+    staffLayout: "satb",
+    voiceNames: ["soprano", "alto", "tenor", "bass"],
+    perMeasureVoiceEventCounts: [
+      { soprano: 5, alto: 6, tenor: 6, bass: 5 },
+      { soprano: 4, alto: 7, tenor: 7, bass: 6 },
+      { soprano: 3, alto: 3, tenor: 4, bass: 3 },
+    ],
+    measureRhythmSignatures: [
+      { soprano: "8 8 q q q", alto: "8 8 q q 8 8", tenor: "8 8 8 8 q q", bass: "q 8 8 q q" },
+      { soprano: "q q q q", alto: "8 8 8 8 q 8 8", tenor: "8 8 q 8 8 8 8", bass: "8 8 q q 8 8" },
+      { soprano: "q q q", alto: "qd 8 q", tenor: "8 8 q q", bass: "q q q" },
+    ],
+    questionVoiceEventCounts: [
+      { soprano: 5, alto: 6, tenor: 6, bass: 5 },
+      { soprano: 1, alto: 1, tenor: 1, bass: 1 },
+      { soprano: 1, alto: 1, tenor: 1, bass: 1 },
+    ],
+  },
+};
+
 function createQuestion(config) {
   const rubric = rubricByCategory[config.category];
   const presentation = config.presentation || studentPresentationById[config.id];
@@ -893,6 +1033,9 @@ function createQuestion(config) {
     universalInteraction(config, score);
   return {
     ...config,
+    sourceSpec: config.sourceSpec
+      ? { ...config.sourceSpec, ...(exactTranscriptionContracts[config.id] || {}) }
+      : undefined,
     internalTitle: config.internalTitle || config.title,
     studentTitle: presentation.title,
     studentContext: presentation.context || config.context,
@@ -911,6 +1054,40 @@ function createQuestion(config) {
     tasks: config.tasks || rubric.tasks,
     criteria: config.criteria || rubric.criteria,
   };
+}
+
+function adaptedLabel(value) {
+  return String(value || "Adapted study").replace(
+    /^(?:Practice reference|Reference):\s*/i,
+    "Adapted: "
+  );
+}
+
+function createAdaptedQuestion(config) {
+  const reference = config.source;
+  const provenance = [
+    `${reference.provider} ${reference.year}`,
+    reference.question,
+    reference.part,
+    reference.extract,
+    reference.creator,
+    `“${reference.title}”`,
+  ].filter(Boolean).join(" · ");
+  const basePresentation = config.presentation || studentPresentationById[config.id];
+  return createQuestion({
+    ...config,
+    sourceType: "original-practice",
+    source: adaptedOriginalSource(`Adapted ${config.family.toLowerCase()} study`, provenance),
+    title: adaptedLabel(config.title),
+    presentation: {
+      ...basePresentation,
+      title: adaptedLabel(basePresentation?.title || config.title),
+    },
+    score: {
+      ...config.score,
+      caption: `Original Cadence Lab adaptation • informed by ${provenance}`,
+    },
+  });
 }
 
 const questionBank = [
@@ -2227,19 +2404,13 @@ const questionBank = [
   createQuestion({
     id: "nzqa-2021-valentine-techniques",
     category: "jazz",
-    sourceType: "nzqa-reference",
-    source: nzqaSource(
-      2021,
-      "Question Three",
-      "(a)",
-      "Extract Six",
-      "Richard Rodgers and Lorenz Hart",
-      "My Funny Valentine",
-      "bars 21–29, exam pp.8–9; schedule pp.8–9",
-      "21–29"
+    sourceType: "original-practice",
+    source: adaptedOriginalSource(
+      "Adapted minor-line harmony and tonic-pedal study",
+      "the 2021 NZQA My Funny Valentine task and published schedule"
     ),
     family: "Jazz / rock notation",
-    title: "Reference: minor-line harmony and tonic pedal",
+    title: "Adapted: minor-line harmony and tonic pedal",
     context:
       "Complete the chord boxes above bars 21–29, classify the marked X, Y and Z melody notes, and explain the two harmonic techniques operating in bars 21–25.",
     sourceSpec: {
@@ -2265,7 +2436,7 @@ const questionBank = [
       sourceKeyCentres: ["C minor"],
       layout: "piano",
       labelPosition: "top",
-      caption: "NZQA examination reference • 2021 Q3(a), Extract Six • bars 21–29 transcription",
+      caption: "Original Cadence Lab adaptation • minor-line harmony and tonic-pedal study",
       noteAnnotations: [
         { measure: 1, beat: 3, staff: "treble", pitch: "D5", label: "Y" },
         { measure: 2, beat: 2.5, staff: "treble", pitch: "F5", label: "X" },
@@ -2351,19 +2522,13 @@ const questionBank = [
   createQuestion({
     id: "nzqa-2024-commercial-chromatic-bass",
     category: "jazz",
-    sourceType: "nzqa-reference",
-    source: nzqaSource(
-      2024,
-      "Question Three",
-      "(a)",
-      "Extract Six",
-      "Phillip Norman",
-      "Love is Commercial",
-      "bars 16–28, exam pp.8–9; schedule p.9",
-      "16–28"
+    sourceType: "original-practice",
+    source: adaptedOriginalSource(
+      "Adapted chromatic-bass chord study",
+      "the 2024 NZQA Love is Commercial task and published schedule"
     ),
     family: "Jazz / rock notation",
-    title: "Reference: one chord per bar over chromatic bass",
+    title: "Adapted: chromatic-bass chord analysis",
     context:
       "Analyse the eleven boxed positions in bars 19–28, including both sonorities in bar 23, then explain the descending bass and one-chord-per-bar harmonic rhythm in bars 24–28.",
     sourceSpec: {
@@ -2380,7 +2545,7 @@ const questionBank = [
       keySignature: "D",
       layout: "piano",
       labelPosition: "top",
-      caption: "NZQA examination reference • 2024 Q3(a), Extract Six • bars 19–28 transcription",
+      caption: "Original Cadence Lab adaptation • chromatic-bass chord study",
       brackets: [{ start: 18, end: 40, label: "bars 24–28" }],
       measures: [
         { events: [
@@ -2694,7 +2859,7 @@ const questionBank = [
       "The C in G7sus4 replaces B and delays the dominant’s leading-note pull. Its fall to B forms G7, which then resolves to Cmaj9; the second half uses A7 as V7 of ii.",
     ],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "nzqa-2023-poulenc-pedal",
     category: "features",
     sourceType: "nzqa-reference",
@@ -2977,7 +3142,7 @@ const questionBank = [
       "The acceleration increases urgency into ii–V7–I. This claim is supported by explicit 4/4 metre, durations and barlines in the displayed score.",
     ],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "nzqa-2023-bach-analysis",
     category: "analysis",
     sourceType: "nzqa-reference",
@@ -3043,7 +3208,7 @@ const questionBank = [
     answerHeading: "Published Roman-numeral route",
     answer: ["The 13 assessed positions are i–ib–IV7b–Vb–i9–8–V7 4–3–i–i / G minor: iv–i–ivb–iv–ii°–ic, followed by the supplied V7 4–3–I close."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "nzqa-2021-beethoven-piano",
     category: "piano",
     sourceType: "nzqa-reference",
@@ -3103,11 +3268,11 @@ const questionBank = [
     answerHeading: "One possible model completion",
     answer: ["The model preserves the printed melody and supplies eight chords through the B♭–F–C tonal route. It is one possible realisation; other stylistically appropriate bass and inner-part solutions are possible."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "nzqa-2023-novelette-piano",
     category: "piano",
     sourceType: "nzqa-reference",
-    source: nzqaSource(2023, "Question Two", "(c)", "Extract Six", "Robert Schumann, arranged", "Novelette No. 1 in C minor", "bars 20–24, exam p.7; schedule p.7", "20–24"),
+    source: nzqaSource(2023, "Question Two", "(c)", "Extract Six", "Francis Poulenc, arranged", "Novelette No. 1 in C minor", "bars 20–24, exam p.7; schedule p.7", "20–24"),
     family: "Piano completion",
     title: "Reference: continue the Novelette piano texture",
     context: "The extract is in C major. Complete bars 21–24 from the seven supplied Roman-numeral indications by adding a bass line and two inner parts in the style of bar 20.",
@@ -3150,7 +3315,7 @@ const questionBank = [
     answerHeading: "One possible model completion",
     answer: ["The model continues the 3/8 texture through Ib–ii7–V–I–ivmaj7(♭3)–vii°7c–Ib. It is one possible realisation; other solutions are valid when the supplied melody, harmony and style are preserved."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "nzqa-2025-bach-analysis",
     category: "analysis",
     sourceType: "nzqa-reference",
@@ -3214,7 +3379,7 @@ const questionBank = [
     answerHeading: "Published Roman-numeral route",
     answer: ["After the supplied G: I–Vb–IVb, the 12 assessed labels are I–Vb–V / D: I–Vb–IVb–IV(7)–V(7)–I–I / G: V7d–Ib–vii°b–I."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "nzqa-2025-bach-modulation",
     category: "modulation",
     homeKey: "G major",
@@ -3254,7 +3419,7 @@ const questionBank = [
     answerHeading: "Published key, evidence and relationship table",
     answer: ["X: E minor — imperfect cadence in bars 10–11 moving to I in bar 11, with D♯ — relative minor. Y: D major — perfect cadence and C♯ — dominant. Z: A minor — perfect cadence and G♯ — relative minor of the subdominant; supertonic minor is accepted."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "nzqa-2025-bach-satb",
     category: "satb",
     sourceType: "nzqa-reference",
@@ -3266,9 +3431,15 @@ const questionBank = [
     sourceSpec: {
       year: 2025, provider: "NZQA", question: "Question One", part: "(c)", bars: "21–24",
       romanNumerals: ["I", "Ib", "IV⁹–⁸", "I", "Vb", "I", "vi", "iib", "V⁷", "I"],
-      analysisPositions: 10, suppliedLabels: ["I", "Ib", "IV⁹–⁸"], keyCentres: ["G major"], measureCount: 4,
+      analysisPositions: 10, suppliedLabels: ["I", "Ib", "IV⁹–⁸", "I"], keyCentres: ["G major"], measureCount: 4,
       expectedChordCount: 10, requiredPassingNotes: 2, requiredSuspension: true, expectedCompletionType: "satb",
-      completionContract: { targetMeasures: [2, 3, 4], chordsToRealise: 10, harmonicIndications: 3 },
+      completionContract: {
+        targetMeasures: [2, 3, 4],
+        chordsToRealise: 10,
+        totalChordMoments: 10,
+        suppliedChordMoments: 4,
+        learnerChosenChordMoments: 6,
+      },
     },
     score: measuredScore({
       key: "G major", keySignature: "G", layout: "satb", voiceLabels: { treble: ["S", "A"], bass: ["T", "B"] }, completion: true,
@@ -3283,7 +3454,7 @@ const questionBank = [
         harmonicBox(2, 1, null, "I", { questionLabel: "I", romanNumeral: "I", localKey: "G major" }),
         harmonicBox(2, 2, null, "Ib", { questionLabel: "Ib", romanNumeral: "Ib", localKey: "G major" }),
         harmonicBox(2, 3, null, "IV⁹–⁸", { questionLabel: "IV⁹–⁸", romanNumeral: "IV⁹–⁸", localKey: "G major" }),
-        harmonicBox(3, 1, null, "I", { romanNumeral: "I", localKey: "G major" }),
+        harmonicBox(3, 1, null, "I", { questionLabel: "I", romanNumeral: "I", localKey: "G major" }),
         harmonicBox(3, 2, null, "Vb", { romanNumeral: "Vb", localKey: "G major" }),
         harmonicBox(3, 3, null, "I", { romanNumeral: "I", localKey: "G major" }),
         harmonicBox(3, 4, null, "vi", { romanNumeral: "vi", localKey: "G major" }),
@@ -3295,7 +3466,7 @@ const questionBank = [
     answerHeading: "One possible model completion",
     answer: ["The schedule model realises I–Ib–IV9–8, then one valid chosen route I–Vb–I–vi–iib–V7–I. It preserves the supplied tenor in stage one, the supplied melody in stage two, the required suspension, and at least two passing notes. Other stylistically valid realisations are possible."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "nzqa-2025-schubert-analysis",
     category: "analysis",
     sourceType: "nzqa-reference",
@@ -3326,7 +3497,7 @@ const questionBank = [
     answerHeading: "Published Schubert analysis",
     answer: ["The 12 assessed positions are V7b–I–ii / F♯m:i–iib / F♯m:ib–V7–V7–i / E:ii–V7b–vii°7–V7b–I–V7c as a suspension. The schedule accepts either adjacent ii/i pivot placement at the first modulation."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "nzqa-2025-schubert-feature",
     category: "features",
     sourceType: "nzqa-reference",
@@ -3352,7 +3523,7 @@ const questionBank = [
     answerHeading: "Schedule-derived contextual evidence",
     answer: ["One response identifies contrary chromatic semitone motion at bar 7 beat 3: one part descends while another ascends. It decorates the cadence point, emphasises the imperfect cadence/dominant and creates variety, interest and momentum back to tonic. The schedule also allows repetition, imitation or sequence in the melody when its developmental and continuity function is explained."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "nzqa-2025-schubert-piano",
     category: "piano",
     sourceType: "nzqa-reference",
@@ -3378,7 +3549,7 @@ const questionBank = [
     answerHeading: "One possible model completion",
     answer: ["The schedule model continues the compact two-part melodic texture with a bass and two inner parts through V–ii–iib–vii°7–V–I–V7–I. Other stylistically appropriate realisations are possible."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "nzqa-2025-joel-chords",
     category: "jazz",
     sourceType: "nzqa-reference",
@@ -3407,7 +3578,7 @@ const questionBank = [
     answerHeading: "Published chord-symbol sequence",
     answer: ["The 10 assessed answers are E7, Am7, Gm(add4), C7, F, A7, Dm7, B♭9, B♭7 and C."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "nzqa-2025-joel-context",
     category: "features",
     sourceType: "nzqa-reference",
@@ -3436,7 +3607,7 @@ const questionBank = [
     answerHeading: "Schedule-derived bridge analysis",
     answer: ["The schedule describes chords changing every one or two bars and settling into a 1–1–2 pattern that emphasises G, F, A and G. Tonality moves away from C major through dominant–tonic and circle-of-fifths motion, jazz seventh/major-seventh additions, and changes such as G to G minor and A to A minor."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "nzqa-2025-joel-piano",
     category: "piano",
     sourceType: "nzqa-reference",
@@ -3464,7 +3635,7 @@ const questionBank = [
     answerHeading: "One possible model completion",
     answer: ["The schedule model realises the 10 printed chord moments Cmaj7/G–F–C/E–D9–F9–G9–Am7–D7–Am7–G while preserving the vocal melody and continuing the piano texture. Other stylistically appropriate realisations are possible."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "practice-2022-asharp-function",
     category: "modulation",
     homeKey: "A major",
@@ -3498,7 +3669,7 @@ const questionBank = [
     answerHeading: "Practice-schedule evidence",
     answer: ["1 is B minor: A♯ and a perfect cadence support the supertonic region. 2 is D major: G♮ and a perfect cadence support the subdominant. 3 is E major: four sharps and B–E support the dominant. A♯ is B minor's leading note and the third of F♯7, producing strong voice leading through the perfect cadence into the modulated key."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "practice-2022-integrated-analysis",
     category: "features",
     sourceType: "practice-assessment-reference",
@@ -3528,7 +3699,7 @@ const questionBank = [
     answerHeading: "Practice-schedule integrated evidence",
     answer: ["The answer schedule combines the eight Roman answers with two evidence-based modulations: F major, the relative major, in bars 4–5; and A major, the dominant major, in bars 6–8. Its marked NHT evidence includes passing notes, auxiliary notes and accented passing notes."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "practice-2023-tonality-harmony",
     category: "features",
     sourceType: "practice-assessment-reference",
@@ -3557,7 +3728,7 @@ const questionBank = [
     answerHeading: "Practice-schedule tonal analysis",
     answer: ["The overall key is E♭ major, confirmed by B♭7–E♭ in bars 7–8 after an ambiguous IV–iv opening. Bar 13 moves to vi; minor ii–V7–i progressions briefly establish G minor and then F minor before a final perfect cadence returns to E♭. The last ii–V–I unusually uses diminished ii."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "practice-2024-two-devices",
     category: "features",
     sourceType: "practice-assessment-reference",
@@ -3586,7 +3757,7 @@ const questionBank = [
     answerHeading: "Practice-schedule device evidence",
     answer: ["Valid schedule examples include a tonic pedal in the bass, which establishes D major while generating dissonant interest; melodic sequence in bars 1–3, which makes the theme memorable through repetition with variation; and diminution in bar 3, where the motif rhythm is halved to create a brisk, urgent effect. The response must explain two separate devices."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "practice-2024-jazz-tonality",
     category: "jazz",
     sourceType: "practice-assessment-reference",
@@ -3624,7 +3795,7 @@ const questionBank = [
     answerHeading: "Practice-schedule chord and tonal evidence",
     answer: ["The 14 assessed symbols are Gm7, C7, F6, Gm11, C9, G13, Gm7, C7, D9, Fmaj7, B♭maj9, Eø7, A7 and Dm. The overall key is F major, supported by the one-flat signature and perfect cadences in bars 3–4 and 11–12. Bars 13–14 tonicise D minor through a minor ii–V7–i, while G9 and G13 act as secondary dominants."],
   }),
-  createQuestion({
+  createAdaptedQuestion({
     id: "practice-2025-integrated-tonality",
     category: "features",
     sourceType: "practice-assessment-reference",
