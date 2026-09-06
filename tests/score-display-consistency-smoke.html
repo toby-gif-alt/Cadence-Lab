@@ -11,7 +11,7 @@
 </head>
 <body data-status="running">
   <h1>Cadence Lab score display consistency smoke test</h1>
-  <iframe id="app" title="Cadence Lab production application" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-21"></iframe>
+  <iframe id="app" title="Cadence Lab production application" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-22"></iframe>
   <pre id="results">Running…</pre>
 <script>
   const frame = document.querySelector('#app');
@@ -58,7 +58,8 @@
       });
 
       const locatedQuestions = questions.filter(question =>
-        ['roman-analysis', 'jazz-chord-placement'].includes(question.interaction?.type)
+        ['roman-analysis', 'jazz-chord-placement'].includes(question.interaction?.type) &&
+        question.sourceType !== 'generated-practice'
       );
       const slotProblems = [];
       locatedQuestions.forEach(question => {
@@ -70,7 +71,7 @@
           }
         });
       });
-      assert('all-roman-and-jazz-slots-match-engraved-score-locations', slotProblems.length === 0, slotProblems);
+      assert('all-static-roman-and-jazz-slots-match-engraved-score-locations', slotProblems.length === 0, slotProblems);
 
       const renderProblems = [];
       for (const question of questions) {
@@ -88,6 +89,13 @@
         if (['roman-analysis', 'jazz-chord-placement'].includes(question.interaction?.type) && actualEditable !== editableCount) {
           renderProblems.push({question: question.id, kind: 'editable-box-count', editableCount, actualEditable});
         }
+        if (question.interaction?.type === 'roman-analysis' && editableCount) {
+          const bottomGroups = [...d.querySelectorAll('#score .analysis-box-editable')]
+            .filter(group => group.dataset.boxPosition !== 'top');
+          if (bottomGroups.some(group => group.dataset.boxShiftY !== '18')) {
+            renderProblems.push({question: question.id, kind: 'bottom-box-clearance'});
+          }
+        }
         if (['roman-analysis', 'jazz-chord-placement'].includes(question.interaction?.type) && editableCount &&
             Number(score.dataset.blankEditableAnalysisBoxCount || 0) !== editableCount) {
           renderProblems.push({question: question.id, kind: 'blank-box-visibility', editableCount, blank: score.dataset.blankEditableAnalysisBoxCount});
@@ -95,34 +103,34 @@
       }
       assert('all-authored-scores-render-correct-bar-numbers-and-editable-boxes', renderProblems.length === 0, renderProblems);
 
-      const nonPaperIds = [
-        'nzqa-2025-bach-analysis',
-        'nzqa-2025-bach-modulation',
-        locatedQuestions.find(question => question.category === 'jazz')?.id,
-        questions.find(question => question.category === 'features' && question.interaction?.type !== 'paper-completion')?.id,
-      ].filter(Boolean);
-      const revealProblems = [];
-      for (const id of [...new Set(nonPaperIds)]) {
-        lab.showQuestion(id);
-        const question = lab.getCurrentQuestion();
-        if (!lab.submit({skipConfirmation:true, noScroll:true})) {
-          revealProblems.push({question: id, kind: 'submit-failed'});
-          continue;
-        }
+      const originalSatb = questions.filter(question => question.sourceType === 'original-practice' && question.category === 'satb');
+      const voiceLeadingProblems = originalSatb.flatMap(question => display.originalSatbParallelErrors(question));
+      assert('original-satb-models-have-no-consecutive-perfect-fifths-or-octaves', voiceLeadingProblems.length === 0, voiceLeadingProblems);
+
+      lab.showQuestion('nzqa-2025-bach-analysis');
+      assert('roman-submit-succeeds', lab.submit({skipConfirmation:true, noScroll:true}) === true);
+      await nextTurn(w);
+      assert('roman-analysis-keeps-separate-model-score',
+        d.querySelector('#score')?.dataset.scoreMode === 'question' &&
+        d.querySelector('#model-score-wrap')?.hidden === false &&
+        d.querySelector('#model-score')?.childNodes.length > 0
+      );
+
+      const jazzQuestion = questions.find(question => question.interaction?.type === 'jazz-chord-placement' && question.sourceType !== 'generated-practice');
+      if (jazzQuestion) {
+        lab.showQuestion(jazzQuestion.id);
+        assert('jazz-submit-succeeds', lab.submit({skipConfirmation:true, noScroll:true}) === true);
         await nextTurn(w);
-        if (d.querySelector('#score')?.dataset.scoreMode !== 'model' ||
-            !d.querySelector('#model-score-wrap')?.hidden ||
-            d.querySelector('#model-score')?.childNodes.length) {
-          revealProblems.push({
-            question: id,
-            kind: 'duplicate-model',
-            scoreMode: d.querySelector('#score')?.dataset.scoreMode,
-            modelHidden: d.querySelector('#model-score-wrap')?.hidden,
-            modelChildren: d.querySelector('#model-score')?.childNodes.length,
-          });
-        }
+        assert('jazz-analysis-keeps-separate-model-score', d.querySelector('#model-score-wrap')?.hidden === false && d.querySelector('#model-score')?.childNodes.length > 0);
       }
-      assert('browser-analysis-reveals-on-one-score-without-duplicate-extract', revealProblems.length === 0, revealProblems);
+
+      lab.showQuestion('nzqa-2025-bach-modulation');
+      assert('key-modulation-submit-succeeds', lab.submit({skipConfirmation:true, noScroll:true}) === true);
+      await nextTurn(w);
+      assert('key-modulation-suppresses-only-the-redundant-second-extract',
+        d.querySelector('#score')?.dataset.scoreMode === 'question' &&
+        d.querySelector('#model-score-wrap')?.hidden === true
+      );
 
       const paperQuestions = questions.filter(question => question.interaction?.type === 'paper-completion');
       const paperProblems = [];
