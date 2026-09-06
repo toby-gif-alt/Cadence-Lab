@@ -21,7 +21,7 @@ The in-app checklists use these observable progressions. They deliberately avoid
 | Q1(c) chorale realisation | Bach continuation; exam p.4 | 11-chord sample realisation; schedule p.4 | SATB family and explicit four-voice completion contract. |
 | Q2(a) classical analysis and tonal comment | Beethoven, *Bagatelle*, Op. 119 No. 8, bars 1–8; exam p.6 | Consecutive Roman-numeral analysis, modulation evidence, chromatic function; schedule pp.6–7 | Classical piano-analysis family and chromatic-function prompts. |
 | Q2(b) piano completion | Beethoven continuation; exam p.7 | Eight-chord sample realisation; schedule p.7 | Piano-completion family. |
-| Q3 jazz analysis, non-harmonic notes and devices | Rodgers/Hart, *My Funny Valentine*, bars 21–29; exam pp.8–9 | Chord analysis across bars 21–29; X appoggiatura, Y accented passing note and Z passing note; chromatic inner line and tonic pedal; schedule pp.8–9 | Adapted original chromatic/pedal study, displayed as practice bars 1–9; exact vocal/piano reference deferred. |
+| Q3 jazz analysis, non-harmonic notes and devices | Rodgers/Hart, *My Funny Valentine*, bars 21–29; exam pp.8–9 | Chord analysis across bars 21–29; X at bars 22 and 24 is an auxiliary note, Y at bars 21, 23 and 25 is an accented passing note, and Z at bar 26 is an appoggiatura; chromatic inner line and tonic pedal; schedule pp.8–9 | Exact vocal/piano source deferred. The retained Cadence Lab adaptation uses its own displayed practice examples: X = appoggiatura, Y = accented passing note, Z = passing note. |
 | Q3(b) jazz completion | Song continuation; exam p.10 | Eight-chord sample realisation; schedule p.9 | Jazz-completion practice. |
 
 ## 2022

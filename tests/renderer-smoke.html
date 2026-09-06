@@ -263,6 +263,11 @@
         (event) => event.modelLabel
       );
       const eSharpDiminishedEvent = commercialStudy.score.measures[6].events[0];
+      const commercialBracketTarget = document.createElement("div");
+      renderer.render(commercialBracketTarget, commercialStudy.score, {
+        showAnswer: false,
+        width: 390,
+      });
       const bach2025 = questions.find(
         (question) => question.id === "nzqa-2025-bach-analysis"
       );
@@ -652,13 +657,19 @@
             (annotation) => annotation.pitch && annotation.staff === "treble"
           ) &&
           valentine.score.noteAnnotations.map((annotation) =>
-            `${annotation.label}${annotation.measure}`
-          ).join(",") === "X2,Y3,X4,Y5,Z6" &&
+            `${annotation.label}${annotation.measure}:${annotation.beat}`
+          ).join(",") === "X2:3,Y3:3,X4:3,Y5:3,Z6:2" &&
           valentine.score.nonHarmonicNotes.map((note) => note.type).join(",") ===
-            "appoggiatura,accented passing note,appoggiatura,accented passing note,passing note",
+            "appoggiatura,accented passing note,appoggiatura,accented passing note,passing note" &&
+          valentine.score.measures[5].events.map((event) => event.duration).join(",") === "q,q,h" &&
+          valentine.score.measures[5].events.every((event) => event.bass?.[0] === "F2"),
         commercialSequenceMatchesPublishedSchedule:
           JSON.stringify(commercialSequence) ===
           JSON.stringify(expectedCommercialSequence),
+        commercialSpanningBracketShowsOneTextLabel:
+          commercialStudy.score.brackets[0].repeatLabel === false &&
+          commercialBracketTarget.querySelectorAll(".analysis-bracket").length > 1 &&
+          commercialBracketTarget.querySelectorAll(".analysis-bracket-label").length === 1,
         eSharpDiminishedSpellingPreserved:
           eSharpDiminishedEvent.treble.includes("E#4") &&
           eSharpDiminishedEvent.bass.includes("E#2") &&

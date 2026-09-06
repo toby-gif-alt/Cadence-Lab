@@ -2432,7 +2432,7 @@ const questionBank = [
         { measure: 3, beat: 3, staff: "treble", pitch: "D5", label: "Y" },
         { measure: 4, beat: 3, staff: "treble", pitch: "F5", label: "X" },
         { measure: 5, beat: 3, staff: "treble", pitch: "G4", label: "Y" },
-        { measure: 6, beat: 3, staff: "treble", pitch: "G4", label: "Z" },
+        { measure: 6, beat: 2, staff: "treble", pitch: "G4", label: "Z" },
       ],
       measureCount: 9,
     },
@@ -2448,7 +2448,7 @@ const questionBank = [
         { measure: 3, beat: 3, staff: "treble", pitch: "D5", label: "Y" },
         { measure: 4, beat: 3, staff: "treble", pitch: "F5", label: "X" },
         { measure: 5, beat: 3, staff: "treble", pitch: "G4", label: "Y" },
-        { measure: 6, beat: 3, staff: "treble", pitch: "G4", label: "Z" },
+        { measure: 6, beat: 2, staff: "treble", pitch: "G4", label: "Z" },
       ],
       measures: [
         { events: [
@@ -2477,9 +2477,9 @@ const questionBank = [
           { treble: ["Ab4"], bass: ["C3"], duration: "q" },
         ] },
         { events: [
-          { treble: ["Ab3", "C4", "F4"], bass: ["F2"], duration: "h" },
-          { treble: ["G4"], bass: ["C3"], duration: "q" },
-          { treble: ["Ab4"], bass: ["F2"], duration: "q" },
+          { treble: ["Ab3", "C4", "F4"], bass: ["F2"], duration: "q" },
+          { treble: ["G4"], bass: ["F2"], duration: "q" },
+          { treble: ["Ab4"], bass: ["F2"], duration: "h" },
         ] },
         { events: [
           { treble: ["F4", "Ab4", "C5"], bass: ["D3"], duration: "h" },
@@ -2520,7 +2520,7 @@ const questionBank = [
     answerHeading: "Reference harmonic techniques",
     answer: [
       "<strong>Published chord route:</strong> Cm–Cm9(maj7)–Cm7–Cm9(add6)–Fm/C–Fm–Dm7(♭5)–G7–Fm/A♭–G7–Cm. Accepted alternatives should be credited when the displayed pitches and bass support them.",
-      "X is an appoggiatura (displayed bars 2 and 4), Y is an accented passing note (displayed bars 3 and 5), and Z is a passing note (displayed bar 6). The descending chromatic inner line creates movement and interest against the repeated melody, while the C tonic pedal in displayed bars 1–5 provides stability.",
+      "X is an appoggiatura (displayed bars 2 and 4), Y is an accented passing note (displayed bars 3 and 5), and Z is the unaccented G passing note on beat 2 of displayed bar 6. The descending chromatic inner line creates movement and interest against the repeated melody, while the C tonic pedal in displayed bars 1–5 provides stability.",
     ],
   }),
   createQuestion({
@@ -2551,7 +2551,7 @@ const questionBank = [
       layout: "piano",
       labelPosition: "top",
       caption: "Original Cadence Lab adaptation • chromatic-bass chord study",
-      brackets: [{ start: 18, end: 40, label: "chromatic bass • displayed bars 6–10" }],
+      brackets: [{ start: 18, end: 40, label: "chromatic bass • displayed bars 6–10", repeatLabel: false }],
       measures: [
         { events: [
           { treble: ["E4", "G#4", "C#5", "D#5"], bass: ["C#3"], duration: "qd" },
