@@ -13,7 +13,7 @@
   <body data-status="running">
     <h1>Cadence Lab interaction smoke test</h1>
     <div id="render-fixture" aria-hidden="true"></div>
-    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-source-bank-18"></iframe>
+    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-source-filter-19"></iframe>
     <pre id="results">Running…</pre>
 
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
@@ -129,6 +129,111 @@
           );
           assert("emptyReferenceFiltersAreDisabled",
             practiceReferenceOption.disabled && referenceYear2025Option.disabled
+          );
+          const sourceSelect = appDocument.querySelector("#source-type");
+          const yearSelect = appDocument.querySelector("#source-year");
+          const yearField = appDocument.querySelector("#source-year-field");
+          const yearLabel = appDocument.querySelector("#source-year-label");
+          const categorySelect = appDocument.querySelector("#category");
+          const changeFilter = (control, value) => {
+            control.value = value;
+            control.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
+          };
+
+          yearSelect.value = "2024";
+          changeFilter(sourceSelect, "mixed");
+          assert("mixedSourcesHideAndClearReferenceYear",
+            yearField.hidden && yearSelect.value === "" && yearLabel.textContent === ""
+          );
+          changeFilter(sourceSelect, "original-practice");
+          assert("originalPracticeHidesReferenceYear",
+            yearField.hidden && yearSelect.value === ""
+          );
+          changeFilter(sourceSelect, "generated-practice");
+          assert("generatedPracticeHidesReferenceYear",
+            yearField.hidden && yearSelect.value === ""
+          );
+          changeFilter(sourceSelect, "nzqa-reference");
+          assert("nzqaReferencesShowExaminationYearWithSourceCounts",
+            !yearField.hidden && yearLabel.textContent === "Examination year" &&
+            yearSelect.options[0].textContent === "All years (5)" &&
+            [...yearSelect.options].find((option) => option.value === "2021").textContent === "2021 (1)" &&
+            [...yearSelect.options].find((option) => option.value === "2024").textContent === "2024 (2)"
+          );
+          assert("zeroCount2025ReferenceYearRemainsDisabled",
+            referenceYear2025Option.disabled && referenceYear2025Option.textContent === "2025"
+          );
+
+          const allNzqaReferences = appWindow.CadenceLab.filterQuestions({
+            category: "mixed", sourceType: "nzqa-reference", sourceYear: "",
+          });
+          const nzqa2024References = appWindow.CadenceLab.filterQuestions({
+            category: "mixed", sourceType: "nzqa-reference", sourceYear: "2024",
+          });
+          assert("nzqaAllYearsPoolContainsOnlyNzqaReferences",
+            allNzqaReferences.length === 5 &&
+            allNzqaReferences.every((question) => question.sourceType === "nzqa-reference")
+          );
+          assert("nzqa2024PoolContainsOnlyExact2024References",
+            nzqa2024References.length === 2 &&
+            nzqa2024References.every((question) =>
+              question.sourceType === "nzqa-reference" &&
+              question.source.year === 2024 &&
+              question.sourceSpec.transcriptionMode === "exact"
+            )
+          );
+          assert("adaptedProvenanceYearsNeverEnterReferencePools",
+            !allNzqaReferences.some((question) => question.sourceType === "original-practice") &&
+            !nzqa2024References.some((question) => question.sourceType === "original-practice") &&
+            !appWindow.CadenceLab.filterQuestions({
+              category: "mixed", sourceType: "nzqa-reference", sourceYear: "2025",
+            }).length
+          );
+
+          const syntheticExact2025 = {
+            ...referenceQuestions[0],
+            id: "synthetic-exact-2025",
+            source: { ...referenceQuestions[0].source, year: 2025 },
+          };
+          const futureNzqaState = appWindow.CadenceLab.referenceYearState(
+            "nzqa-reference",
+            [...questions, syntheticExact2025]
+          );
+          const syntheticPractice2025 = {
+            ...referenceQuestions[0],
+            id: "synthetic-practice-2025",
+            sourceType: "practice-assessment-reference",
+            source: { ...referenceQuestions[0].source, year: 2025 },
+          };
+          const futurePracticeState = appWindow.CadenceLab.referenceYearState(
+            "practice-assessment-reference",
+            [...questions, syntheticPractice2025]
+          );
+          assert("referenceYearAvailabilityUpdatesFromBankData",
+            futureNzqaState.total === 6 && futureNzqaState.counts[2025] === 1 &&
+            futurePracticeState.visible && futurePracticeState.label === "Assessment year" &&
+            futurePracticeState.total === 1 && futurePracticeState.counts[2025] === 1
+          );
+
+          changeFilter(yearSelect, "2024");
+          changeFilter(categorySelect, "piano");
+          const fallbackQuestion = appWindow.CadenceLab.getCurrentQuestion();
+          assert("categoryFallbackPreservesReferenceSourceAndYear",
+            categorySelect.value === "mixed" &&
+            sourceSelect.value === "nzqa-reference" && yearSelect.value === "2024" &&
+            fallbackQuestion?.sourceType === "nzqa-reference" &&
+            fallbackQuestion?.source?.year === 2024
+          );
+          changeFilter(yearSelect, "2025");
+          assert("emptyReferencePoolDoesNotEscapeSelectedConstraints",
+            sourceSelect.value === "nzqa-reference" && yearSelect.value === "2025" &&
+            appWindow.CadenceLab.getCurrentQuestion() === null &&
+            appDocument.querySelector("#question-title").textContent ===
+              "No question matches these filters"
+          );
+          appWindow.CadenceLab.showQuestion("satb-f-c");
+          assert("showingOriginalQuestionClearsReferenceYearSemantics",
+            sourceSelect.value === "original-practice" && yearField.hidden && yearSelect.value === ""
           );
           assert("contextualAnalysisUsesScaffoldedReflectionOnlyFields",
             contextualQuestions.length >= 4 && contextualQuestions.every((question) =>

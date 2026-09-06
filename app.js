@@ -31,6 +31,7 @@
   const sourceSelect = document.querySelector("#source-type");
   const yearSelect = document.querySelector("#source-year");
   const yearField = document.querySelector("#source-year-field");
+  const yearLabel = document.querySelector("#source-year-label");
   const answerPanel = document.querySelector("#answer-panel");
   const revealButton = document.querySelector("#reveal-answer");
   const scoreElement = document.querySelector("#score");
@@ -62,30 +63,65 @@
       .replaceAll('"', "&quot;");
   }
 
+  const referenceSourceTypes = new Set([
+    "nzqa-reference",
+    "practice-assessment-reference",
+  ]);
+
+  function isReferenceSourceType(sourceType) {
+    return referenceSourceTypes.has(sourceType);
+  }
+
+  function filterQuestions(filters, bank = questionBank) {
+    const category = filters.category || "mixed";
+    const sourceType = filters.sourceType || "mixed";
+    const sourceYear = isReferenceSourceType(sourceType) && filters.sourceYear
+      ? Number(filters.sourceYear)
+      : null;
+    return bank.filter(
+      (question) =>
+        (category === "mixed" || question.category === category) &&
+        (sourceType === "mixed" || question.sourceType === sourceType) &&
+        (!sourceYear || sourceYear === question.source?.year)
+    );
+  }
+
+  function referenceYearState(sourceType, bank = questionBank) {
+    const counts = {};
+    if (isReferenceSourceType(sourceType)) {
+      bank.forEach((question) => {
+        if (question.sourceType !== sourceType || !question.source?.year) return;
+        counts[question.source.year] = (counts[question.source.year] || 0) + 1;
+      });
+    }
+    return {
+      visible: isReferenceSourceType(sourceType),
+      label: sourceType === "nzqa-reference" ? "Examination year" :
+        sourceType === "practice-assessment-reference" ? "Assessment year" : "",
+      total: Object.values(counts).reduce((sum, count) => sum + count, 0),
+      counts,
+    };
+  }
+
   function chooseQuestion() {
-    const category = categorySelect.value;
-    const sourceType = sourceSelect.value;
-    const sourceYear = yearSelect.value;
+    const filters = {
+      category: categorySelect.value,
+      sourceType: sourceSelect.value,
+      sourceYear: yearSelect.value,
+    };
+    const { category, sourceType } = filters;
     if (category === "chord-identification" || sourceType === "generated-practice") {
       categorySelect.value = "chord-identification";
       sourceSelect.value = "generated-practice";
       const seed = `set-${Date.now()}-${setNumber + 1}`;
       return chordGenerator.create(seed);
     }
-    let pool = questionBank.filter(
-      (question) =>
-        (category === "mixed" || question.category === category) &&
-        (sourceType === "mixed" || question.sourceType === sourceType) &&
-        (!sourceYear || Number(sourceYear) === question.source?.year)
-    );
+    let pool = filterQuestions(filters);
     if (!pool.length) {
       categorySelect.value = "mixed";
-      pool = questionBank.filter(
-        (question) =>
-          (sourceType === "mixed" || question.sourceType === sourceType) &&
-          (!sourceYear || Number(sourceYear) === question.source?.year)
-      );
+      pool = filterQuestions({ ...filters, category: "mixed" });
     }
+    if (!pool.length) return null;
     let candidates = pool.filter((question) => question.id !== lastQuestionId);
     if (!candidates.length) candidates = pool;
     const picked = candidates[Math.floor(Math.random() * candidates.length)];
@@ -189,7 +225,49 @@
     renderedWidth = 0;
   }
 
+  function renderEmptyState() {
+    stopPlayback();
+    currentQuestion = null;
+    structuredAnswer = null;
+    submissionSnapshot = null;
+    submitted = false;
+    selectedPlaybackMode = null;
+    renderedWidth = 0;
+    const sourceType = sourceSelect.value;
+    const sourceName = sourceTypeNames[sourceType] || "Selected source";
+    const sourceYear = isReferenceSourceType(sourceType) && yearSelect.value
+      ? ` from ${yearSelect.value}`
+      : "";
+    document.querySelector("#question-family").textContent = "No matching questions";
+    document.querySelector("#question-title").textContent = "No question matches these filters";
+    document.querySelector("#question-context").textContent =
+      `There are no ${sourceName.toLowerCase()} questions${sourceYear} in the selected category.`;
+    const sourceChip = document.querySelector("#source-chip");
+    sourceChip.textContent = sourceName;
+    sourceChip.className = `source-chip source-${sourceType}`;
+    document.querySelector("#variant-chip").textContent = "No match";
+    document.querySelector("#source-attribution").textContent =
+      "Choose another category, source, or available year.";
+    document.querySelector("#task-list").innerHTML =
+      "<li>The selected source and year constraints have been preserved.</li>";
+    answerPanel.hidden = true;
+    document.querySelector("#model-score-wrap").hidden = true;
+    document.querySelector("#print-model").hidden = true;
+    revealButton.disabled = true;
+    paperCompletionPanel.hidden = true;
+    structuredPanel.hidden = true;
+    structuredControls.replaceChildren();
+    structuredBuilder.replaceChildren();
+    scoreElement.replaceChildren();
+    modelScoreElement.replaceChildren();
+    updatePlaybackPermissions();
+  }
+
   function renderQuestion(question = chooseQuestion()) {
+    if (!question) {
+      renderEmptyState();
+      return;
+    }
     resetQuestionState(question);
     setNumber += 1;
     document.querySelector("#question-family").textContent = question.family;
@@ -1011,14 +1089,34 @@
     if (!question) throw new Error(`Unknown question: ${questionId}`);
     categorySelect.value = question.category;
     sourceSelect.value = question.sourceType;
-    yearSelect.value = question.source?.year || "";
+    yearSelect.value = isReferenceSourceType(question.sourceType)
+      ? question.source?.year || ""
+      : "";
     syncSourceYearVisibility();
     renderQuestion(question);
   }
 
+  function syncYearOptions() {
+    const state = referenceYearState(sourceSelect.value);
+    [...yearSelect.options].forEach((option) => {
+      if (!option.value) {
+        option.textContent = state.visible ? `All years (${state.total})` : "All years";
+        option.disabled = !state.visible || state.total === 0;
+        return;
+      }
+      const count = state.counts[option.value] || 0;
+      option.textContent = count ? `${option.value} (${count})` : option.value;
+      option.disabled = !state.visible || count === 0;
+    });
+    if (yearSelect.selectedOptions[0]?.disabled) yearSelect.value = "";
+  }
+
   function syncSourceYearVisibility() {
-    yearField.hidden = !["mixed", "nzqa-reference", "practice-assessment-reference"].includes(sourceSelect.value);
-    if (yearField.hidden) yearSelect.value = "";
+    const state = referenceYearState(sourceSelect.value);
+    yearField.hidden = !state.visible;
+    yearLabel.textContent = state.label;
+    if (!state.visible) yearSelect.value = "";
+    syncYearOptions();
   }
 
   function syncFilterAvailability() {
@@ -1029,25 +1127,20 @@
       );
     });
     if (sourceSelect.selectedOptions[0]?.disabled) sourceSelect.value = "mixed";
-    [...yearSelect.options].forEach((option) => {
-      if (!option.value) return;
-      option.disabled = !questionBank.some((question) =>
-        Number(option.value) === question.source?.year &&
-        (sourceSelect.value === "mixed" || question.sourceType === sourceSelect.value)
-      );
-    });
-    if (yearSelect.selectedOptions[0]?.disabled) yearSelect.value = "";
+    syncSourceYearVisibility();
   }
 
   function showGeneratedQuestion(seed) {
     categorySelect.value = "chord-identification";
     sourceSelect.value = "generated-practice";
+    syncSourceYearVisibility();
     renderQuestion(chordGenerator.create(seed));
   }
 
   function showGeneratedVariant(variantId) {
     categorySelect.value = "chord-identification";
     sourceSelect.value = "generated-practice";
+    syncSourceYearVisibility();
     renderQuestion(chordGenerator.createFromVariantId(variantId));
   }
 
@@ -1055,14 +1148,13 @@
   categorySelect.addEventListener("change", () => {
     if (categorySelect.value === "chord-identification") sourceSelect.value = "generated-practice";
     else if (sourceSelect.value === "generated-practice") sourceSelect.value = "mixed";
-    syncSourceYearVisibility();
+    syncFilterAvailability();
     renderQuestion();
   });
   sourceSelect.addEventListener("change", () => {
     if (sourceSelect.value === "generated-practice") categorySelect.value = "chord-identification";
     else if (categorySelect.value === "chord-identification") categorySelect.value = "mixed";
     syncFilterAvailability();
-    syncSourceYearVisibility();
     renderQuestion();
   });
   yearSelect.addEventListener("change", () => renderQuestion());
@@ -1118,6 +1210,8 @@
     showQuestion: showQuestionById,
     showGeneratedQuestion,
     showGeneratedVariant,
+    filterQuestions: (filters, bank = questionBank) => filterQuestions(filters, bank),
+    referenceYearState: (sourceType, bank = questionBank) => referenceYearState(sourceType, bank),
     submit: submitAndReveal,
     print: printCurrent,
     stopPlayback,
@@ -1138,10 +1232,11 @@
   } else if (requestedQuestion) {
     categorySelect.value = requestedQuestion.category;
     sourceSelect.value = requestedQuestion.sourceType;
-    yearSelect.value = requestedQuestion.source?.year || "";
+    yearSelect.value = isReferenceSourceType(requestedQuestion.sourceType)
+      ? requestedQuestion.source?.year || ""
+      : "";
   }
   syncFilterAvailability();
-  syncSourceYearVisibility();
   try {
     renderQuestion(requestedVariantId
       ? chordGenerator.createFromVariantId(requestedVariantId)
