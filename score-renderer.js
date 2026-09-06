@@ -1641,7 +1641,8 @@
   }
 
   function harmonicBoxIsVisible(event) {
-    return event.analysisBox !== false && event.answerRole !== "none";
+    return event.analysisBox !== false &&
+      (event.answerRole !== "none" || event.paperChoiceBox === true);
   }
 
   function drawAnalysisBox(
@@ -1665,15 +1666,20 @@
     const y =
       position === "top"
         ? anchor.topStave.getYForLine(0) - 22
-        : anchor.bottomStave.getYForLine(4) + 36;
+        : anchor.systemLayout.bottomAnalysisY ||
+          anchor.bottomStave.getYForLine(4) + 58;
+
+    const editable = harmonicEvent.answerRole === "editable" && !showAnswer;
 
     const boxGroup = createSvgElement("g", {
       class: `analysis-box-group analysis-box-${harmonicEvent.answerRole || "legacy"}`,
       "data-answer-role": harmonicEvent.answerRole || "legacy",
       "data-answer-slot-id": harmonicEvent.answerSlotId || "",
-      tabindex: harmonicEvent.answerRole === "editable" && !showAnswer ? "0" : "-1",
-      role: harmonicEvent.answerRole === "editable" && !showAnswer ? "button" : "presentation",
-      "aria-label": harmonicEvent.answerRole === "editable" && !showAnswer
+      "data-geometry-positioned": position === "top" ? "false" : "true",
+      "data-box-position": position,
+      tabindex: editable ? "0" : "-1",
+      role: editable ? "button" : "presentation",
+      "aria-label": editable
         ? `${label ? `Edit ${label}` : "Enter Roman numeral or chord"} at bar ${harmonicEvent.measure}, beat ${harmonicEvent.beat || 1}`
         : "",
     });
@@ -1684,10 +1690,11 @@
         width: boxWidth,
         height: 27,
         rx: 4,
-        fill: showAnswer ? "#ecfdf5" : "#f8fafc",
-        stroke: showAnswer ? "#0f8a6b" : "#8a96a7",
-        "stroke-width": 1.2,
-        class: `analysis-box${harmonicEvent.answerRole === "editable" && !showAnswer ? " is-editable" : ""}`,
+        fill: showAnswer ? "#ecfdf5" : editable ? "#eef6ff" : "#f8fafc",
+        stroke: showAnswer ? "#0f8a6b" : editable ? "#2563eb" : "#8a96a7",
+        "stroke-width": editable ? 2 : 1.2,
+        "stroke-dasharray": editable && !label ? "5 3" : "none",
+        class: `analysis-box${editable ? " is-editable" : ""}`,
       })
     );
     if (label) {
@@ -1710,6 +1717,87 @@
     }
     group.appendChild(boxGroup);
     return boxGroup;
+  }
+
+  function positionBottomAnalysisBoxes(systems, references, anchors) {
+    systems.forEach((system, systemIndex) => {
+      const bottomStave = system.firstBottomStave || system.firstTopStave;
+      let lowestNotationY = bottomStave?.getYForLine(4) || 0;
+      references.forEach((staffReferences, eventIndex) => {
+        if (anchors.get(eventIndex)?.systemIndex !== systemIndex) return;
+        Object.values(staffReferences || {}).flat().forEach((reference) => {
+          const box = reference.note?.getBoundingBox?.();
+          if (box?.getY && box?.getH) {
+            lowestNotationY = Math.max(lowestNotationY, box.getY() + box.getH());
+          } else {
+            const ys = reference.note?.getYs?.() || [];
+            if (ys.length) lowestNotationY = Math.max(lowestNotationY, ...ys);
+          }
+        });
+      });
+      const staveFloor = (bottomStave?.getYForLine(4) || lowestNotationY) + 46;
+      const geometryFloor = lowestNotationY + 28;
+      system.layout.lowestNotationY = lowestNotationY;
+      system.layout.bottomAnalysisY = Math.min(
+        Math.max(staveFloor, geometryFloor),
+        system.layout.yOffset + system.layout.height - 22
+      );
+    });
+  }
+
+  function drawBarNumbers(group, target, score, hitMeasures) {
+    const numbers = Array.isArray(score.barNumbers) &&
+      score.barNumbers.length === hitMeasures.length
+      ? score.barNumbers
+      : hitMeasures.map((_, index) => index + 1);
+    target.dataset.barNumbers = JSON.stringify(numbers);
+    let count = 0;
+    if (score.showBarNumbers !== false) {
+      hitMeasures.forEach((measure, index) => {
+        const number = numbers[index];
+        if (number == null) return;
+        group.appendChild(createSvgElement("text", {
+          class: "measure-bar-number",
+          x: measure.x + 4,
+          y: Math.max(12, measure.topY - 14),
+          "text-anchor": "middle",
+          "font-family": "Georgia, 'Times New Roman', serif",
+          "font-size": 10.5,
+          "font-weight": 700,
+          fill: "#526176",
+          "data-internal-measure": measure.measure,
+          "data-bar-number": number,
+          "data-system-start": String(measure.systemStart),
+        }, number));
+        count += 1;
+      });
+    }
+    target.dataset.barNumberCount = String(count);
+  }
+
+  function drawRhythmCues(group, target, score, hitMeasures, showAnswer) {
+    let count = 0;
+    if (!showAnswer) {
+      (score.rhythmCues || []).forEach((cue) => {
+        const measure = hitMeasures.find((candidate) => candidate.measure === cue.measure);
+        if (!measure || measure.bottomY == null) return;
+        const beatSpan = Math.max(1, measure.expectedBeats || 4);
+        const x = measure.x + ((cue.beat - 1) / beatSpan) * (measure.endX - measure.x);
+        const y = measure.bottomY + (measure.bottomSpacing || 10) * 5.2;
+        group.appendChild(createSvgElement("text", {
+          class: "source-rhythm-cue",
+          x,
+          y,
+          "text-anchor": "middle",
+          "font-size": 23,
+          "font-family": "Bravura, 'Noto Music', serif",
+          fill: "#20242a",
+          "data-rhythm-cue": cue.label || cue.text,
+        }, cue.text));
+        count += 1;
+      });
+    }
+    target.dataset.sourceRhythmCueCount = String(count);
   }
 
   function drawBracket(
@@ -1909,11 +1997,23 @@
       return stream.flatMap((event, index) => {
         if (!event.tieToNext) return [];
         const next = stream[index + 1];
-        if (!next || !Number.isInteger(event._anchorIndex) ||
-            !Number.isInteger(next._anchorIndex)) {
+        if (!Number.isInteger(event._anchorIndex)) {
           throw new Error(
-            `SATB ${voiceName} tie has no following anchored note.`
+            `SATB ${voiceName} tie has no anchored first note.`
           );
+        }
+        if (!next) {
+          return [{
+            from: event._anchorIndex,
+            openEnd: true,
+            staff: ["soprano", "alto"].includes(voiceName) ? "treble" : "bass",
+            voice: voiceName,
+            firstPitch: event.pitch,
+            direction: ["soprano", "tenor"].includes(voiceName) ? "above" : "below",
+          }];
+        }
+        if (!Number.isInteger(next._anchorIndex)) {
+          throw new Error(`SATB ${voiceName} tie has no following anchored note.`);
         }
         return [{
           from: event._anchorIndex,
@@ -1983,6 +2083,22 @@
         staff,
         tie.voice
       );
+      if (tie.openEnd && first) {
+        const pitchIndex = tie.firstPitch
+          ? first.pitches.indexOf(tie.firstPitch)
+          : tie.firstIndex ?? 0;
+        if (pitchIndex < 0) throw new Error(`Open tie pitch ${tie.firstPitch} is not displayed.`);
+        const staveTie = new VF.StaveTie({
+          first_note: first.note,
+          last_note: null,
+          first_indices: [pitchIndex],
+          last_indices: [pitchIndex],
+        });
+        if (tie.direction === "above") staveTie.setDirection(VF.Stem.UP);
+        if (tie.direction === "below") staveTie.setDirection(VF.Stem.DOWN);
+        staveTie.setContext(context).draw();
+        return;
+      }
       const last = resolveTieReference(
         referenceMap,
         toIndex,
@@ -2146,7 +2262,9 @@
         (hasTopBoxes ? 42 : 0) +
         (hasAnnotations ? 28 : 0) +
         (hasBrackets ? 25 : 0);
-      const bottomPadding = hasBottomBoxes ? 55 : 8;
+      // Reserve enough space for boxes after their final y-position is derived
+      // from the rendered lower-staff note geometry.
+      const bottomPadding = hasBottomBoxes ? 94 : 8;
       const height = hasTwoStaves
         ? topPadding + staffDistance + 106 + bottomPadding
         : topPadding + 92 + bottomPadding;
@@ -2162,6 +2280,7 @@
         hasBrackets,
         annotationY: 0,
         bracketY: 0,
+        bottomAnalysisY: 0,
       };
       yOffset += height;
     });
@@ -2447,6 +2566,7 @@
         hitMeasures.push({
           measure: measure.index + 1,
           system: systemIndex,
+          systemStart: measureIndexInSystem === 0,
           x: topStave.getNoteStartX(),
           endX: topStave.getNoteEndX(),
           topY: topStave.getYForLine(0),
@@ -2606,6 +2726,8 @@
       anchors
     );
 
+    positionBottomAnalysisBoxes(systems, references, anchors);
+
     const diagnostics = layoutDiagnostics(anchors, references);
     target.dataset.minimumRhythmicGap =
       diagnostics.minimumRhythmicGap == null
@@ -2642,6 +2764,7 @@
         class: "score-decorations",
         "aria-hidden": "true",
       });
+      drawBarNumbers(decorationGroup, target, score, hitMeasures);
       hitMeasures.forEach((measure) => {
         if (!measure.keyLabel) return;
         decorationGroup.appendChild(createSvgElement("text", {
@@ -2664,6 +2787,15 @@
           width
         )
       );
+      drawRhythmCues(
+        decorationGroup,
+        target,
+        score,
+        hitMeasures,
+        showAnswer
+      );
+      let editableAnalysisBoxCount = 0;
+      let blankEditableAnalysisBoxCount = 0;
       harmonicEvents.forEach((harmonicEvent) => {
         if (!harmonicBoxIsVisible(harmonicEvent)) return;
         const anchor = anchors.get(harmonicEvent._index);
@@ -2674,7 +2806,7 @@
             harmonicEvent.romanNumeral ||
             ""
           : harmonicEvent.questionLabel || "";
-        drawAnalysisBox(
+        const group = drawAnalysisBox(
           decorationGroup,
           anchor,
           label,
@@ -2683,7 +2815,18 @@
           width,
           harmonicEvent
         );
+        if (harmonicEvent.answerRole === "editable") {
+          editableAnalysisBoxCount += 1;
+          if (!showAnswer && !label) blankEditableAnalysisBoxCount += 1;
+        }
+        if ((analysisPosition(harmonicEvent)) !== "top") {
+          group.dataset.boxClearance = String(Math.round(
+            anchor.systemLayout.bottomAnalysisY - anchor.systemLayout.lowestNotationY
+          ));
+        }
       });
+      target.dataset.editableAnalysisBoxCount = String(editableAnalysisBoxCount);
+      target.dataset.blankEditableAnalysisBoxCount = String(blankEditableAnalysisBoxCount);
       let resolvedAnnotationCount = 0;
       noteAnnotations.forEach((annotation) => {
         if (drawNoteAnnotation(

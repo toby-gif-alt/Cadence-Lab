@@ -534,23 +534,22 @@
     const previousPitches = previous?.[note.staff] || [];
     const currentPitches = targetEvent[note.staff] || [];
     const nextPitches = next?.[note.staff] || [];
-    if (
-      previousPitches.length !== 1 ||
-      currentPitches.length !== 1 ||
-      nextPitches.length !== 1
-    ) {
+    if (!previousPitches.length || currentPitches.length !== 1 || !nextPitches.length) {
       return {
         manual:
-          "adjacent events do not define one unambiguous melodic pitch on the selected staff",
+          "adjacent events do not define a continuous melodic pitch on the selected staff",
       };
     }
     if (currentPitches[0] !== note.pitch) {
       return { manual: `${note.pitch} is not the selected melodic pitch` };
     }
+    const melodicPitch = (pitches) => [...pitches].sort(
+      (first, second) => pitchNumber(first) - pitchNumber(second)
+    )[note.staff === "treble" ? pitches.length - 1 : 0];
     return {
-      previousPitch: previousPitches[0],
+      previousPitch: melodicPitch(previousPitches),
       currentPitch: currentPitches[0],
-      nextPitch: nextPitches[0],
+      nextPitch: melodicPitch(nextPitches),
       beat: targetEvent._beat,
       timeSignature: measure.effectiveTimeSignature,
     };
@@ -619,11 +618,13 @@
       };
     }
     if (type.includes("appoggiatura")) {
+      const metricAccent = isMetricAccent(context.beat, context.timeSignature);
       return {
         valid:
-          Math.abs(approach) > 2 && departureIsStep && nextChordTone,
+          Math.abs(approach) > 2 && departureIsStep && nextChordTone &&
+          metricAccent === true,
         expectation:
-          "an appoggiatura approached by leap and resolved by step to a chord tone",
+          "an appoggiatura approached by leap on an accented beat and resolved by step to a chord tone",
       };
     }
     if (type.includes("suspension")) {
@@ -884,6 +885,17 @@
           SATB_NAMES.map((voiceName) => [
             voiceName,
             (measure.questionVoices?.[voiceName] || []).length,
+          ])
+        ))
+      );
+      compareList(
+        "questionVoicePitchCounts",
+        question.score.measures.map((measure) => Object.fromEntries(
+          SATB_NAMES.map((voiceName) => [
+            voiceName,
+            (measure.questionVoices?.[voiceName] || []).filter(
+              (event) => event.pitch || event.pitches?.length
+            ).length,
           ])
         ))
       );

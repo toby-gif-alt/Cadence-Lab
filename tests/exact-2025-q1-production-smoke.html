@@ -2,7 +2,7 @@
 <html lang="en-NZ">
 <head><meta charset="utf-8"><title>2025 Q1 production-loading smoke test</title></head>
 <body data-status="running">
-<iframe id="app" title="Cadence Lab production frame" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-22" style="width:1100px;height:950px"></iframe>
+<iframe id="app" title="Cadence Lab production frame" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-24" style="width:1100px;height:950px"></iframe>
 <pre id="results">Running…</pre>
 <script>
   const frame = document.querySelector('#app');
@@ -44,7 +44,8 @@
       assert('q1a-score-bars-are-5-through-9', d.querySelector('#score')?.dataset.barNumbers === '[5,6,7,8,9]' && d.querySelectorAll('#score .measure-bar-number').length === 5, d.querySelector('#score')?.dataset.barNumbers);
       assert('q1a-production-has-twelve-editable-boxes', d.querySelectorAll('#score .analysis-box-editable').length === 12);
       assert('q1a-twelve-blank-boxes-are-visible-before-submit', d.querySelector('#score')?.dataset.blankEditableAnalysisBoxCount === '12');
-      assert('q1a-bottom-answer-boxes-are-shifted-clear-of-bass-stems', [...d.querySelectorAll('#score .analysis-box-editable')].every(group => group.dataset.boxShiftY === '18'));
+      assert('q1a-bottom-answer-boxes-use-rendered-geometry', [...d.querySelectorAll('#score .analysis-box-editable')].every(group => group.dataset.geometryPositioned === 'true' && Number(group.dataset.boxClearance) >= 28));
+      assert('renderer-is-not-runtime-wrapped', !w.CadenceScoreRenderer.__scoreDisplayConsistency && !w.CadenceScoreRenderer.__exact2025Q1RhythmCueOverlay);
       const q1aPivot = current.interaction?.slots?.find(slot => slot.label === 'Bar 8, beat 4');
       assert('q1a-production-response-slot-has-correct-return-pivot', Boolean(q1aPivot) && q1aPivot.harmonicIndex === 11, current.interaction?.slots);
 
@@ -53,6 +54,8 @@
       assert('q1a-main-score-remains-the-learner-score', d.querySelector('#score')?.dataset.scoreMode === 'question');
       assert('q1a-separate-model-is-restored-for-roman-analysis', d.querySelector('#model-score-wrap')?.hidden === false && d.querySelectorAll('#model-score .analysis-box-label').length === 15);
       assert('q1a-bar-numbers-remain-visible-after-reveal', d.querySelector('#score')?.dataset.barNumbers === '[5,6,7,8,9]');
+      await nextTurn(w); await nextTurn(w);
+      assert('q1a-submit-state-remains-stable', lab.isSubmitted() === true && d.querySelector('#score')?.dataset.scoreMode === 'question' && d.querySelector('#model-score')?.dataset.scoreMode === 'model');
 
       lab.showQuestion('nzqa-2025-bach-modulation');
       current = lab.getCurrentQuestion();
@@ -75,6 +78,8 @@
       assert('q1c-production-six-blank-paper-choice-boxes', [...d.querySelectorAll('#score .analysis-box-group')].filter(group => !group.querySelector('.analysis-box-label')).length === 6);
       assert('q1c-production-paper-boxes-not-browser-editable', d.querySelectorAll('#score .analysis-box-editable').length === 0);
       assert('q1c-production-four-rhythm-cues', d.querySelector('#score')?.dataset.sourceRhythmCueCount === '4');
+      assert('q1c-question-mask-does-not-leak-model-pitches', JSON.stringify(current.sourceSpec.questionVoicePitchCounts) === JSON.stringify(current.score.measures.map(measure => Object.fromEntries(['soprano','alto','tenor','bass'].map(voice => [voice, measure.questionVoices[voice].filter(event => event.pitch || event.pitches?.length).length])))));
+      assert('q1c-suspension-and-bar23-bass-match-schedule', current.score.measures[1].voices.alto[2].pitch === 'C4' && current.score.measures[2].voices.bass[0].pitch === 'G3');
       const permissionsBefore = lab.getPlaybackPermissions();
       assert('q1c-supplied-playback-available-before-reveal', permissionsBefore.question === true && permissionsBefore.model === false, permissionsBefore);
 

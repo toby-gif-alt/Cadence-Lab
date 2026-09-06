@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en-NZ">
+<head><meta charset="utf-8"><title>Cadence Lab corrective integrity smoke test</title></head>
+<body data-status="running">
+<iframe id="app" title="Cadence Lab production application" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-24" style="width:1100px;height:1000px"></iframe>
+<pre id="results">Running…</pre>
+<script>
+const frame=document.querySelector('#app'),out=document.querySelector('#results'),assertions={},details={};
+const assert=(name,value,detail)=>{assertions[name]=Boolean(value);if(!value&&detail!==undefined)details[name]=detail;};
+const turn=w=>new Promise(resolve=>w.setTimeout(resolve,0));
+function finish(error){if(error)details.error=error.stack||String(error);const passed=!error&&Object.values(assertions).every(Boolean);document.body.dataset.status=passed?'pass':'fail';out.textContent=JSON.stringify({passed,assertions,details},null,2);}
+addEventListener('error',event=>finish(event.error||event.message));
+addEventListener('unhandledrejection',event=>finish(event.reason));
+frame.addEventListener('load',async()=>{try{
+  const w=frame.contentWindow,d=frame.contentDocument,lab=w.CadenceLab,byId=id=>lab.questions.find(question=>question.id===id);
+  assert('production-validator-valid',w.CadenceQuestionValidator.report.valid,w.CadenceQuestionValidator.report.errors);
+  assert('display-contract-valid',w.CadenceScoreDisplay.initialAudit.valid,w.CadenceScoreDisplay.initialAudit.errors);
+  assert('full-original-satb-audit-valid',w.CadenceSatbIntegrity.initialAudit.valid,w.CadenceSatbIntegrity.initialAudit.errors);
+
+  const q1a=byId('nzqa-2025-bach-analysis');
+  assert('q1a-official-analysis-sequence',q1a.sourceSpec.romanNumerals.join('|')==='G: I|Vb|IVb|I|Vb|V / D: I|Vb|IVb|IV⁽⁷⁾|V⁽⁷⁾|I|I / G: V⁷d|Ib|vii°b|I');
+  assert('q1a-partial-and-return-pivot',q1a.score.measures[0].expectedBeats===1&&q1a.score.harmonicEvents[11].measure===4&&q1a.score.harmonicEvents[11].beat===4);
+  assert('q1a-analysis-boxes-clear-notation',[...d.querySelectorAll('#score .analysis-box-editable')].every(group=>group.dataset.geometryPositioned==='true'&&Number(group.dataset.boxClearance)>=28));
+  assert('q1a-submit',lab.submit({skipConfirmation:true,noScroll:true})===true);
+  await turn(w);await turn(w);
+  assert('q1a-submit-does-not-freeze-or-rewrite',lab.isSubmitted()&&d.querySelector('#score')?.dataset.scoreMode==='question'&&d.querySelector('#model-score')?.dataset.scoreMode==='model');
+
+  lab.showQuestion('nzqa-2023-bach-analysis');
+  assert('adapted-roman-submit',lab.submit({skipConfirmation:true,noScroll:true})===true);
+  await turn(w);await turn(w);
+  assert('adapted-roman-submit-remains-stable',lab.isSubmitted()&&d.querySelector('#score')?.dataset.scoreMode==='question'&&!d.querySelector('#model-score-wrap')?.hidden);
+
+  const q1b=byId('nzqa-2025-bach-modulation');
+  assert('q1b-opening-alto-and-y-boundary',q1b.score.measures[0].voices.alto.map(event=>event.pitch).join(',')==='G4,A4'&&q1b.score.brackets[1].end.measure===5&&q1b.score.brackets[1].end.beat===3);
+
+  const q1c=byId('nzqa-2025-bach-satb');
+  assert('q1c-iv9-8-and-bass-source-correction',q1c.score.measures[1].voices.alto.map(event=>event.pitch).join(',')==='D4,D4,C4,C4'&&q1c.score.measures[2].voices.bass[0].pitch==='G3');
+  assert('q1c-four-supplied-six-choice-moments',q1c.score.harmonicEvents.filter(event=>event.questionLabel).length===4&&q1c.score.harmonicEvents.filter(event=>event.paperChoiceBox).length===6);
+  assert('q1c-question-pitch-mask-is-source-locked',JSON.stringify(q1c.sourceSpec.questionVoicePitchCounts)===JSON.stringify(q1c.score.measures.map(measure=>Object.fromEntries(['soprano','alto','tenor','bass'].map(voice=>[voice,measure.questionVoices[voice].filter(event=>event.pitch||event.pitches?.length).length])))));
+
+  const valentine=byId('nzqa-2021-valentine-techniques');
+  assert('valentine-adapted-bars-one-to-nine',valentine.sourceType==='original-practice'&&valentine.score.barNumbers.join(',')==='1,2,3,4,5,6,7,8,9');
+  assert('valentine-marker-locations-and-types',valentine.score.noteAnnotations.map(item=>`${item.label}${item.measure}`).join(',')==='X2,Y3,X4,Y5,Z6'&&valentine.score.nonHarmonicNotes.map(item=>item.type).join(',')==='appoggiatura,accented passing note,appoggiatura,accented passing note,passing note');
+  assert('valentine-response-contract',valentine.interaction.fields.find(field=>field.id==='x').acceptedAnswers[0].label==='appoggiatura'&&valentine.interaction.fields.find(field=>field.id==='z').acceptedAnswers[0].label==='passing note');
+
+  const commercial=byId('nzqa-2024-commercial-chromatic-bass');
+  assert('commercial-adapted-bars-one-to-ten',commercial.sourceType==='original-practice'&&commercial.score.barNumbers.join(',')==='1,2,3,4,5,6,7,8,9,10');
+  assert('commercial-single-sane-displayed-region',commercial.score.brackets.length===1&&commercial.score.brackets[0].label.includes('displayed bars 6–10'));
+
+  const adapted=lab.questions.filter(question=>question.sourceType==='original-practice'&&question.source?.adaptedFrom);
+  assert('all-adapted-scores-use-practice-numbering',adapted.every(question=>question.score.barNumbers.every((number,index)=>number===index+1)&&question.sourceSpec?.displayedBars===`1–${question.score.measures.length}`));
+  const systemStartBars=[...d.querySelectorAll('#score .measure-bar-number[data-system-start="true"]')];
+  const hitMap=d.querySelector('#score')._cadenceHitMap;
+  assert('bar-numbers-anchor-after-clef-key-and-time',systemStartBars.every(label=>{const measure=hitMap.measures.find(item=>String(item.measure)===label.dataset.internalMeasure);return measure&&Math.abs(Number(label.getAttribute('x'))-(measure.x+4))<0.1;}));
+  finish();
+}catch(error){finish(error);}});
+</script>
+</body></html>

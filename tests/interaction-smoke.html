@@ -11,7 +11,7 @@
 </head>
 <body data-status="running">
   <h1>Cadence Lab production interaction smoke test</h1>
-  <iframe id="app-frame" title="Cadence Lab production app" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-22"></iframe>
+  <iframe id="app-frame" title="Cadence Lab production app" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-24"></iframe>
   <pre id="results">Running…</pre>
 <script>
   const frame = document.querySelector('#app-frame');
@@ -147,7 +147,7 @@
       assert('analysis-score-starts-with-visible-clear-blank-boxes',
         d.querySelector('#score')?.dataset.blankEditableAnalysisBoxCount === '12' &&
         d.querySelector('#score')?.dataset.barNumbers === '[5,6,7,8,9]' &&
-        [...d.querySelectorAll('#score .analysis-box-editable')].every(group => group.dataset.boxShiftY === '18')
+        [...d.querySelectorAll('#score .analysis-box-editable')].every(group => group.dataset.geometryPositioned === 'true' && Number(group.dataset.boxClearance) >= 28)
       );
       assert('analysis-submit-reveals', lab.submit({skipConfirmation:true,noScroll:true}) === true);
       await nextTurn(w);

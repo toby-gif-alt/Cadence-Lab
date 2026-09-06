@@ -35,7 +35,10 @@
   const answerPanel = document.querySelector("#answer-panel");
   const revealButton = document.querySelector("#reveal-answer");
   const scoreElement = document.querySelector("#score");
+  const scoreFrame = scoreElement.closest(".score-frame");
   const modelScoreElement = document.querySelector("#model-score");
+  const modelScoreWrap = document.querySelector("#model-score-wrap");
+  const printModel = document.querySelector("#print-model");
   const paperCompletionPanel = document.querySelector("#paper-completion-panel");
   const structuredPanel = document.querySelector("#structured-response-panel");
   const structuredControls = document.querySelector("#structured-controls");
@@ -168,6 +171,14 @@
     );
   }
 
+  function showsSeparateModelScore(question = currentQuestion) {
+    if (!question) return false;
+    if (isPaperCompletion(question)) return true;
+    return ["roman-analysis", "jazz-chord-placement"].includes(
+      question.interaction?.type
+    );
+  }
+
   function currentQuestionScore() {
     if (isStructuredInteraction()) {
       return structuredModel.scoreWithResponses(currentQuestion, structuredAnswer);
@@ -187,8 +198,8 @@
     if (!currentQuestion) return;
     if (options.stopAudio !== false) stopPlayback();
     const measuredWidth = options.width ||
+      scoreFrame?.getBoundingClientRect().width ||
       scoreElement.getBoundingClientRect().width ||
-      document.querySelector(".score-frame").getBoundingClientRect().width ||
       900;
     if (!force && Math.abs(measuredWidth - renderedWidth) < 36) return;
 
@@ -198,7 +209,7 @@
       showAnswer: false,
       width: measuredWidth,
     });
-    if (submitted) {
+    if (submitted && showsSeparateModelScore()) {
       scoreRenderer.render(modelScoreElement, currentQuestion.score, {
         layout,
         showAnswer: true,
@@ -1004,8 +1015,8 @@
     buildCriteria(currentQuestion);
     answerPanel.hidden = false;
     buildStudentComparison();
-    document.querySelector("#model-score-wrap").hidden = false;
-    document.querySelector("#print-model").hidden = !isPaperCompletion();
+    modelScoreWrap.hidden = !showsSeparateModelScore();
+    printModel.hidden = !isPaperCompletion();
     revealButton.disabled = true;
     revealButton.innerHTML = isPaperCompletion()
       ? '<span aria-hidden="true">✓</span> Model shown'
@@ -1195,10 +1206,15 @@
   });
 
   if ("ResizeObserver" in window) {
-    new ResizeObserver(() => {
+    let observedFrameWidth = scoreFrame?.getBoundingClientRect().width || 0;
+    new ResizeObserver((entries) => {
+      const nextWidth = entries[0]?.contentRect?.width ||
+        scoreFrame?.getBoundingClientRect().width || 0;
+      if (Math.abs(nextWidth - observedFrameWidth) < 1) return;
+      observedFrameWidth = nextWidth;
       cancelAnimationFrame(resizeFrame);
       resizeFrame = requestAnimationFrame(() => renderScores());
-    }).observe(scoreElement);
+    }).observe(scoreFrame || scoreElement);
   }
 
   window.CadenceLab = Object.freeze({
@@ -1220,6 +1236,7 @@
     getSubmissionSnapshot: () => copy(submissionSnapshot),
     getPlaybackPermissions: () => copy(playbackPermissions()),
     isSubmitted: () => submitted,
+    showsSeparateModelScore: () => showsSeparateModelScore(),
   });
 
   const requestedParameters = new URLSearchParams(window.location.search);

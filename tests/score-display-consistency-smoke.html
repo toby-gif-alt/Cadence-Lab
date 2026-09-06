@@ -11,7 +11,7 @@
 </head>
 <body data-status="running">
   <h1>Cadence Lab score display consistency smoke test</h1>
-  <iframe id="app" title="Cadence Lab production application" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-22"></iframe>
+  <iframe id="app" title="Cadence Lab production application" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-24"></iframe>
   <pre id="results">Running…</pre>
 <script>
   const frame = document.querySelector('#app');
@@ -92,7 +92,7 @@
         if (question.interaction?.type === 'roman-analysis' && editableCount) {
           const bottomGroups = [...d.querySelectorAll('#score .analysis-box-editable')]
             .filter(group => group.dataset.boxPosition !== 'top');
-          if (bottomGroups.some(group => group.dataset.boxShiftY !== '18')) {
+          if (bottomGroups.some(group => group.dataset.geometryPositioned !== 'true' || Number(group.dataset.boxClearance) < 28)) {
             renderProblems.push({question: question.id, kind: 'bottom-box-clearance'});
           }
         }
@@ -103,9 +103,8 @@
       }
       assert('all-authored-scores-render-correct-bar-numbers-and-editable-boxes', renderProblems.length === 0, renderProblems);
 
-      const originalSatb = questions.filter(question => question.sourceType === 'original-practice' && question.category === 'satb');
-      const voiceLeadingProblems = originalSatb.flatMap(question => display.originalSatbParallelErrors(question));
-      assert('original-satb-models-have-no-consecutive-perfect-fifths-or-octaves', voiceLeadingProblems.length === 0, voiceLeadingProblems);
+      const satbAudit = w.CadenceSatbIntegrity?.audit();
+      assert('original-satb-models-pass-the-full-counterpoint-audit', satbAudit?.valid === true, satbAudit?.errors);
 
       lab.showQuestion('nzqa-2025-bach-analysis');
       assert('roman-submit-succeeds', lab.submit({skipConfirmation:true, noScroll:true}) === true);
