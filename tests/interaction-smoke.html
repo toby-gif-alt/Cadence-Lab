@@ -1,1478 +1,240 @@
 <!doctype html>
 <html lang="en-NZ">
-  <head>
-    <meta charset="utf-8" />
-    <title>Cadence Lab interaction smoke test</title>
-    <style>
-      body { margin: 20px; font-family: system-ui, sans-serif; }
-      #render-fixture { position: absolute; left: -10000px; width: 780px; }
-      #app-frame { position: absolute; left: -10000px; width: 1100px; height: 900px; }
-      #results { white-space: pre-wrap; }
-    </style>
-  </head>
-  <body data-status="running">
-    <h1>Cadence Lab interaction smoke test</h1>
-    <div id="render-fixture" aria-hidden="true"></div>
-    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-source-filter-19"></iframe>
-    <pre id="results">Running…</pre>
+<head>
+  <meta charset="utf-8" />
+  <title>Cadence Lab production interaction smoke test</title>
+  <style>
+    body { margin: 20px; font-family: system-ui, sans-serif; }
+    #app-frame { position: absolute; left: -10000px; top: 0; width: 1100px; height: 1000px; }
+    #results { white-space: pre-wrap; }
+  </style>
+</head>
+<body data-status="running">
+  <h1>Cadence Lab production interaction smoke test</h1>
+  <iframe id="app-frame" title="Cadence Lab production app" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-21"></iframe>
+  <pre id="results">Running…</pre>
+<script>
+  const frame = document.querySelector('#app-frame');
+  const results = document.querySelector('#results');
+  const assertions = {};
+  const details = {};
+  const assert = (name, condition, detail = null) => {
+    assertions[name] = Boolean(condition);
+    if (!condition && detail != null) details[name] = detail;
+  };
+  const nextTurn = w => new Promise(resolve => w.setTimeout(resolve, 0));
+  function finish(error = null) {
+    if (error) details.runtimeError = error.stack || String(error);
+    const passed = !error && Object.values(assertions).every(Boolean);
+    document.body.dataset.status = passed ? 'pass' : 'fail';
+    results.textContent = JSON.stringify({passed, assertions, details}, null, 2);
+  }
+  addEventListener('error', event => finish(event.error || event.message));
+  addEventListener('unhandledrejection', event => finish(event.reason));
 
-    <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../key-relationships.js?v=2026-09-source-bank-18"></script>
-    <script src="../question-bank.js?v=2026-09-source-bank-18"></script>
-    <script src="../score-renderer.js?v=2026-09-source-bank-18"></script>
-    <script src="../question-validator.js?v=2026-09-source-bank-18"></script>
-    <script src="../structured-answer.js?v=2026-09-source-bank-18"></script>
-    <script src="../chord-generator.js?v=2026-09-source-bank-18"></script>
-    <script src="../playback-engine.js?v=2026-09-source-bank-18"></script>
-    <script>
-      const results = document.querySelector("#results");
-      const assertions = {};
-      const details = {};
+  frame.addEventListener('load', async () => {
+    try {
+      const w = frame.contentWindow;
+      const d = frame.contentDocument;
+      const lab = w.CadenceLab;
+      const structured = w.CadenceStructuredAnswer;
+      const generator = w.CadenceChordGenerator;
+      const relationships = w.CadenceKeyRelationships;
+      const playback = w.CadencePlayback;
+      const validator = w.CadenceQuestionValidator?.report;
+      const display = w.CadenceScoreDisplay;
+      const questions = lab?.questions || [];
 
-      function assert(name, condition, detail = null) {
-        assertions[name] = Boolean(condition);
-        if (!condition && detail != null) details[name] = detail;
+      assert('production-apis-load', Boolean(lab && structured && generator && relationships && playback && display));
+      assert('production-validator-is-valid', validator?.valid === true, validator?.errors);
+      assert('production-display-audit-is-valid', display?.initialAudit?.valid === true, display?.initialAudit?.errors);
+      assert('student-target-selector-remains-removed', !d.querySelector('#difficulty') && !d.querySelector('#difficulty-chip'));
+      assert('all-authored-questions-have-spoiler-presentation-metadata', questions.length >= 50 && questions.every(question =>
+        question.internalTitle && question.studentTitle && question.studentContext &&
+        question.score?.studentCaption && Array.isArray(question.hiddenConceptTerms)
+      ));
+
+      const nzqaRefs = questions.filter(question => question.sourceType === 'nzqa-reference');
+      const practiceRefs = questions.filter(question => question.sourceType === 'practice-assessment-reference');
+      assert('current-source-counts-are-production-counts', nzqaRefs.length === 8 && practiceRefs.length === 0, {nzqa: nzqaRefs.length, practice: practiceRefs.length});
+      assert('every-retained-reference-is-exact', nzqaRefs.every(question => question.sourceSpec?.transcriptionMode === 'exact'));
+      assert('three-exact-2025-references-are-live', nzqaRefs.filter(question => question.source?.year === 2025).length === 3);
+
+      const sourceSelect = d.querySelector('#source-type');
+      const yearSelect = d.querySelector('#source-year');
+      const yearField = d.querySelector('#source-year-field');
+      const yearLabel = d.querySelector('#source-year-label');
+      const categorySelect = d.querySelector('#category');
+      const change = (control, value) => {
+        control.value = value;
+        control.dispatchEvent(new w.Event('change', {bubbles:true}));
+      };
+
+      change(sourceSelect, 'mixed');
+      assert('mixed-sources-hide-and-clear-reference-year', yearField.hidden && yearSelect.value === '');
+      change(sourceSelect, 'original-practice');
+      assert('original-practice-hides-reference-year', yearField.hidden && yearSelect.value === '');
+      change(sourceSelect, 'generated-practice');
+      assert('generated-practice-hides-reference-year', yearField.hidden && yearSelect.value === '');
+      change(sourceSelect, 'nzqa-reference');
+      const yearOptions = Object.fromEntries([...yearSelect.options].map(option => [option.value || 'all', {text:option.textContent, disabled:option.disabled}]));
+      assert('nzqa-filter-shows-current-examination-years', !yearField.hidden && yearLabel.textContent === 'Examination year' &&
+        yearOptions.all.text === 'All years (8)' && yearOptions['2021'].text === '2021 (1)' &&
+        yearOptions['2022'].text === '2022 (1)' && yearOptions['2023'].text === '2023 (1)' &&
+        yearOptions['2024'].text === '2024 (2)' && yearOptions['2025'].text === '2025 (3)' && !yearOptions['2025'].disabled,
+        yearOptions);
+      const practiceOption = [...sourceSelect.options].find(option => option.value === 'practice-assessment-reference');
+      assert('empty-practice-reference-source-is-disabled', practiceOption?.disabled === true);
+
+      const allNzqa = lab.filterQuestions({category:'mixed', sourceType:'nzqa-reference', sourceYear:''});
+      const refs2025 = lab.filterQuestions({category:'mixed', sourceType:'nzqa-reference', sourceYear:'2025'});
+      assert('reference-pools-never-leak-adapted-practice', allNzqa.length === 8 && allNzqa.every(question => question.sourceType === 'nzqa-reference') &&
+        refs2025.length === 3 && refs2025.every(question => question.source?.year === 2025 && question.sourceType === 'nzqa-reference'));
+
+      change(sourceSelect, 'nzqa-reference');
+      change(yearSelect, '2024');
+      change(categorySelect, 'piano');
+      assert('empty-category-fallback-preserves-source-and-year', categorySelect.value === 'mixed' &&
+        lab.getCurrentQuestion()?.sourceType === 'nzqa-reference' && lab.getCurrentQuestion()?.source?.year === 2024,
+        {category:categorySelect.value, question:lab.getCurrentQuestion()?.id});
+
+      const q1a = questions.find(question => question.id === 'nzqa-2025-bach-analysis');
+      const pivotSlot = q1a.interaction.slots.find(slot => slot.allowDualAnalysis);
+      const normalSlot = q1a.interaction.slots.find(slot => !slot.allowDualAnalysis);
+      const twoAnalyses = {analyses:[
+        {degree:'V', quality:'major', extent:'triad', inversion:'root'},
+        {degree:'I', quality:'major', extent:'triad', inversion:'root'},
+      ]};
+      let romanState = structured.create(q1a);
+      romanState = structured.setSlot(romanState, pivotSlot.id, twoAnalyses);
+      assert('pivot-slot-allows-two-analyses', romanState.slots[pivotSlot.id].analyses.length === 2);
+      romanState = structured.setSlot(romanState, normalSlot.id, twoAnalyses);
+      assert('ordinary-roman-slot-is-limited-to-one-analysis', romanState.slots[normalSlot.id].analyses.length === 1);
+      const halfDiminished = structured.setSlot(structured.create(q1a), normalSlot.id, {analyses:[{
+        degree:'II', quality:'half-diminished', extent:'triad', inversion:'d'
+      }]});
+      assert('half-diminished-is-normalised-as-a-seventh', halfDiminished.slots[normalSlot.id].analyses[0].extent === 'seventh');
+      const initialRoman = structured.create(q1a);
+      const firstSlot = q1a.interaction.slots[0];
+      const secondSlot = q1a.interaction.slots[1];
+      const placedRoman = structured.setSlot(initialRoman, firstSlot.id, {analyses:[{degree:'I',quality:'major',extent:'triad',inversion:'root'}]});
+      const advancedRoman = structured.advanceToNextUnanswered(placedRoman, q1a.interaction.slots.map(slot => slot.id));
+      assert('roman-entry-auto-advances-to-next-unanswered-position', advancedRoman.activeSlotId === secondSlot.id, advancedRoman.activeSlotId);
+
+      const relationshipChecks = [
+        ['G minor','B♭ major','relative major'],
+        ['G minor','E♭ major','submediant'],
+        ['B♭ major','E♭ major','subdominant'],
+        ['A major','F♯ minor','relative minor'],
+      ];
+      assert('semantic-key-relationships-remain-correct', relationshipChecks.every(([home, local, expected]) => {
+        const result = relationships.relationshipBetween(home, local);
+        return result.canonical === expected || result.acceptedLabels.includes(expected);
+      }), relationshipChecks.map(([home,local]) => relationships.relationshipBetween(home,local)));
+
+      const authoredJazz = questions.filter(question => question.interaction?.type === 'jazz-chord-placement');
+      const unsupportedJazz = [];
+      authoredJazz.forEach(question => question.interaction.slots.forEach(slot =>
+        slot.acceptedAnswers.forEach(answer => {
+          try { structured.parseJazzChordSymbol(answer.label); }
+          catch (error) { unsupportedJazz.push({question:question.id, label:answer.label, error:error.message}); }
+        })
+      ));
+      assert('every-authored-jazz-answer-is-constructible-by-standard-builder', unsupportedJazz.length === 0, unsupportedJazz);
+
+      const contextual = questions.find(question => question.interaction?.type === 'contextual-analysis' && question.interaction?.reflectionOnly);
+      assert('reflection-only-contextual-question-exists', Boolean(contextual));
+      if (contextual) {
+        lab.showQuestion(contextual.id);
+        assert('contextual-submit-succeeds', lab.submit({skipConfirmation:true,noScroll:true}) === true);
+        await nextTurn(w);
+        const comparisonText = d.querySelector('#student-comparison')?.textContent || '';
+        assert('contextual-writing-is-self-checked-against-schedule-evidence', comparisonText.includes('Schedule evidence') && !comparisonText.includes('different from model'), comparisonText);
       }
 
-      function expectedError(callback, code, message) {
-        try {
-          callback();
-          return false;
-        } catch (error) {
-          return error.code === code && (!message || error.message === message);
+      const paperQuestions = questions.filter(question => question.interaction?.type === 'paper-completion');
+      assert('paper-completion-taxonomy-is-only-satb-or-piano', paperQuestions.length > 0 && paperQuestions.every(question =>
+        ['satb','piano'].includes(question.category) && question.interaction.completionType === question.category &&
+        !question.interaction.editableRegions && !question.score.harmonicEvents.some(event => event.answerRole === 'editable')
+      ));
+      const playbackProblems = [];
+      let hiddenModelNoteEvidence = false;
+      paperQuestions.forEach(question => {
+        const originalSnapshot = JSON.stringify(question.score);
+        const questionOnly = playback.questionOnlyScore(question.score);
+        const questionTimeline = playback.buildTimeline(questionOnly, 88);
+        const modelTimeline = playback.buildTimeline(question.score, 88);
+        if (modelTimeline.notes.length < questionTimeline.notes.length) {
+          playbackProblems.push({question:question.id, questionNotes:questionTimeline.notes.length, modelNotes:modelTimeline.notes.length});
+        }
+        if (modelTimeline.notes.length > questionTimeline.notes.length) hiddenModelNoteEvidence = true;
+        if (JSON.stringify(question.score) !== originalSnapshot) playbackProblems.push({question:question.id, kind:'questionOnlyScore-mutated-model'});
+      });
+      assert('paper-question-playback-never-adds-hidden-model-notes', playbackProblems.length === 0 && hiddenModelNoteEvidence, playbackProblems);
+
+      const paper = paperQuestions.find(question => question.id === 'nzqa-2025-bach-satb') || paperQuestions[0];
+      lab.showQuestion(paper.id);
+      let permissions = lab.getPlaybackPermissions();
+      assert('paper-workflow-allows-supplied-playback-before-reveal', permissions.question === true && permissions.model === false, permissions);
+      assert('paper-model-cannot-print-before-reveal', lab.print('model') === false);
+      assert('paper-submit-reveals-separate-model', lab.submit({skipConfirmation:true,noScroll:true}) === true);
+      await nextTurn(w);
+      permissions = lab.getPlaybackPermissions();
+      assert('paper-model-playback-unlocks-after-reveal', permissions.model === true && d.querySelector('#model-score-wrap')?.hidden === false, permissions);
+      let paperPrintSnapshot = null;
+      const realPrint = w.print;
+      w.print = () => {
+        paperPrintSnapshot = {
+          mode: d.body.dataset.printMode,
+          mainScoreMode: d.querySelector('#score')?.dataset.scoreMode,
+          modelHidden: d.querySelector('#model-score-wrap')?.hidden,
+        };
+      };
+      assert('paper-model-print-is-available-after-reveal', lab.print('model') === true && paperPrintSnapshot?.mode === 'model' && paperPrintSnapshot?.modelHidden === false, paperPrintSnapshot);
+      w.print = realPrint;
+
+      lab.showQuestion('nzqa-2025-bach-analysis');
+      assert('analysis-score-starts-with-visible-blank-boxes', d.querySelector('#score')?.dataset.blankEditableAnalysisBoxCount === '12' && d.querySelector('#score')?.dataset.barNumbers === '[5,6,7,8,9]');
+      assert('analysis-submit-reveals', lab.submit({skipConfirmation:true,noScroll:true}) === true);
+      await nextTurn(w);
+      assert('analysis-reveal-uses-one-score-not-a-duplicate', d.querySelector('#score')?.dataset.scoreMode === 'model' && d.querySelector('#model-score-wrap')?.hidden === true && !d.querySelector('#model-score')?.childNodes.length);
+      let questionPrintSnapshot = null;
+      const realPrint2 = w.print;
+      w.print = () => {
+        questionPrintSnapshot = {
+          mode: d.body.dataset.printMode,
+          mainScoreMode: d.querySelector('#score')?.dataset.scoreMode,
+        };
+      };
+      assert('question-print-after-reveal-still-prints-question-state', lab.print('question') === true && questionPrintSnapshot?.mode === 'question' && questionPrintSnapshot?.mainScoreMode === 'question', questionPrintSnapshot);
+      w.print = realPrint2;
+      await nextTurn(w);
+      assert('analysis-model-restores-after-question-print', d.querySelector('#score')?.dataset.scoreMode === 'model');
+      assert('browser-analysis-has-no-separate-model-print', lab.print('model') === false);
+
+      const generatorProblems = [];
+      for (let index = 0; index < 120; index += 1) {
+        const generated = generator.create(`interaction-smoke-${index}`);
+        if (!generator.validateVariant(generated)) {
+          generatorProblems.push({index, kind:'invalid-variant'});
+          continue;
+        }
+        const recreated = generator.createFromVariantId(generated.variantId);
+        if (recreated.variantId !== generated.variantId ||
+            JSON.stringify(recreated.score.measures) !== JSON.stringify(generated.score.measures) ||
+            JSON.stringify(recreated.interaction.slots.map(slot => slot.acceptedAnswers)) !== JSON.stringify(generated.interaction.slots.map(slot => slot.acceptedAnswers))) {
+          generatorProblems.push({index, kind:'variant-round-trip'});
         }
       }
+      assert('generated-chord-variants-remain-valid-and-reproducible', generatorProblems.length === 0, generatorProblems.slice(0,10));
+      const ambiguity = generator.intentionalAmbiguityFixture;
+      assert('intentional-generated-ambiguity-remains-explicit-only', ambiguity?.harmonicIdentity?.acceptedAlternatives?.length === 1 && ambiguity.harmonicIdentity.contextualStrength === 'deliberately-ambiguous', ambiguity);
 
-      function finish(error = null) {
-        if (error) details.runtimeError = error.stack || String(error);
-        const passed = !error && Object.values(assertions).every(Boolean);
-        document.body.dataset.status = passed ? "pass" : "fail";
-        results.textContent = JSON.stringify({ passed, assertions, details }, null, 2);
-      }
-
-      window.addEventListener("error", (event) => finish(event.error || event.message));
-      window.addEventListener("unhandledrejection", (event) => finish(event.reason));
-
-      document.querySelector("#app-frame").addEventListener("load", () => {
-        try {
-          const questions = window.CadenceData.questions;
-          const structured = window.CadenceStructuredAnswer;
-          const chordGenerator = window.CadenceChordGenerator;
-          const keyRelationships = window.CadenceKeyRelationships;
-          const playback = window.CadencePlayback;
-          const renderer = window.CadenceScoreRenderer;
-          const report = window.CadenceQuestionValidator.report;
-          const frame = document.querySelector("#app-frame");
-          const appWindow = frame.contentWindow;
-          const appDocument = frame.contentDocument;
-
-          assert("learnerTargetSelectorAndBadgeAreRemoved",
-            !appDocument.querySelector("#difficulty") &&
-            !appDocument.querySelector("#difficulty-chip") &&
-            !appDocument.body.textContent.includes("Target: Merit")
-          );
-
-          assert("allQuestionsHaveSpoilerAuditMetadata",
-            questions.length > 0 && questions.every((question) =>
-              question.internalTitle && question.studentTitle &&
-              question.studentContext && question.score.studentCaption &&
-              Array.isArray(question.hiddenConceptTerms)
-            )
-          );
-          assert("validatorAcceptsStudentPresentation",
-            report.valid && report.spoilerAuditErrors.length === 0,
-            report.spoilerAuditErrors
-          );
-          const referenceQuestions = questions.filter((question) =>
-            ["nzqa-reference", "practice-assessment-reference"].includes(question.sourceType)
-          );
-          const adapted2025Ids = [
-            "nzqa-2025-bach-analysis", "nzqa-2025-bach-modulation", "nzqa-2025-bach-satb",
-            "nzqa-2025-schubert-analysis", "nzqa-2025-schubert-feature", "nzqa-2025-schubert-piano",
-            "nzqa-2025-joel-chords", "nzqa-2025-joel-context", "nzqa-2025-joel-piano",
-          ];
-          const contextualQuestions = questions.filter((question) =>
-            question.interaction?.type === "contextual-analysis"
-          );
-          assert("referenceTaxonomyAndProvenanceAreExplicit",
-            window.CadenceData.sourceTypes["nzqa-reference"] === "NZQA examination reference" &&
-            window.CadenceData.sourceTypes["practice-assessment-reference"] === "Practice assessment reference" &&
-            window.CadenceData.sourceTypes["original-practice"] === "Original Cadence Lab practice" &&
-            referenceQuestions.every((question) =>
-              question.source.provider && question.source.sourceKind && question.source.location &&
-              question.source.acknowledgement
-            ) &&
-            referenceQuestions.length === 5 &&
-            referenceQuestions.every((question) =>
-              question.sourceSpec.transcriptionMode === "exact"
-            ) &&
-            !questions.some((question) =>
-              question.sourceType === "practice-assessment-reference"
-            )
-          );
-          assert("allNine2025StudiesAreRetainedAsAdaptedOriginalPractice",
-            adapted2025Ids.every((id) => {
-              const question = questions.find((candidate) => candidate.id === id);
-              return question?.sourceType === "original-practice" &&
-                question.source.adaptedFrom &&
-                /^Adapted:/.test(question.studentTitle);
-            }) &&
-            !questions.some((question) =>
-              question.sourceType === "nzqa-reference" && question.source.year === 2025
-            )
-          );
-          const practiceReferenceOption = appDocument.querySelector(
-            '#source-type option[value="practice-assessment-reference"]'
-          );
-          const referenceYear2025Option = appDocument.querySelector(
-            '#source-year option[value="2025"]'
-          );
-          assert("emptyReferenceFiltersAreDisabled",
-            practiceReferenceOption.disabled && referenceYear2025Option.disabled
-          );
-          const sourceSelect = appDocument.querySelector("#source-type");
-          const yearSelect = appDocument.querySelector("#source-year");
-          const yearField = appDocument.querySelector("#source-year-field");
-          const yearLabel = appDocument.querySelector("#source-year-label");
-          const categorySelect = appDocument.querySelector("#category");
-          const changeFilter = (control, value) => {
-            control.value = value;
-            control.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
-          };
-
-          yearSelect.value = "2024";
-          changeFilter(sourceSelect, "mixed");
-          assert("mixedSourcesHideAndClearReferenceYear",
-            yearField.hidden && yearSelect.value === "" && yearLabel.textContent === ""
-          );
-          changeFilter(sourceSelect, "original-practice");
-          assert("originalPracticeHidesReferenceYear",
-            yearField.hidden && yearSelect.value === ""
-          );
-          changeFilter(sourceSelect, "generated-practice");
-          assert("generatedPracticeHidesReferenceYear",
-            yearField.hidden && yearSelect.value === ""
-          );
-          changeFilter(sourceSelect, "nzqa-reference");
-          assert("nzqaReferencesShowExaminationYearWithSourceCounts",
-            !yearField.hidden && yearLabel.textContent === "Examination year" &&
-            yearSelect.options[0].textContent === "All years (5)" &&
-            [...yearSelect.options].find((option) => option.value === "2021").textContent === "2021 (1)" &&
-            [...yearSelect.options].find((option) => option.value === "2024").textContent === "2024 (2)"
-          );
-          assert("zeroCount2025ReferenceYearRemainsDisabled",
-            referenceYear2025Option.disabled && referenceYear2025Option.textContent === "2025"
-          );
-
-          const allNzqaReferences = appWindow.CadenceLab.filterQuestions({
-            category: "mixed", sourceType: "nzqa-reference", sourceYear: "",
-          });
-          const nzqa2024References = appWindow.CadenceLab.filterQuestions({
-            category: "mixed", sourceType: "nzqa-reference", sourceYear: "2024",
-          });
-          assert("nzqaAllYearsPoolContainsOnlyNzqaReferences",
-            allNzqaReferences.length === 5 &&
-            allNzqaReferences.every((question) => question.sourceType === "nzqa-reference")
-          );
-          assert("nzqa2024PoolContainsOnlyExact2024References",
-            nzqa2024References.length === 2 &&
-            nzqa2024References.every((question) =>
-              question.sourceType === "nzqa-reference" &&
-              question.source.year === 2024 &&
-              question.sourceSpec.transcriptionMode === "exact"
-            )
-          );
-          assert("adaptedProvenanceYearsNeverEnterReferencePools",
-            !allNzqaReferences.some((question) => question.sourceType === "original-practice") &&
-            !nzqa2024References.some((question) => question.sourceType === "original-practice") &&
-            !appWindow.CadenceLab.filterQuestions({
-              category: "mixed", sourceType: "nzqa-reference", sourceYear: "2025",
-            }).length
-          );
-
-          const syntheticExact2025 = {
-            ...referenceQuestions[0],
-            id: "synthetic-exact-2025",
-            source: { ...referenceQuestions[0].source, year: 2025 },
-          };
-          const futureNzqaState = appWindow.CadenceLab.referenceYearState(
-            "nzqa-reference",
-            [...questions, syntheticExact2025]
-          );
-          const syntheticPractice2025 = {
-            ...referenceQuestions[0],
-            id: "synthetic-practice-2025",
-            sourceType: "practice-assessment-reference",
-            source: { ...referenceQuestions[0].source, year: 2025 },
-          };
-          const futurePracticeState = appWindow.CadenceLab.referenceYearState(
-            "practice-assessment-reference",
-            [...questions, syntheticPractice2025]
-          );
-          assert("referenceYearAvailabilityUpdatesFromBankData",
-            futureNzqaState.total === 6 && futureNzqaState.counts[2025] === 1 &&
-            futurePracticeState.visible && futurePracticeState.label === "Assessment year" &&
-            futurePracticeState.total === 1 && futurePracticeState.counts[2025] === 1
-          );
-
-          changeFilter(yearSelect, "2024");
-          changeFilter(categorySelect, "piano");
-          const fallbackQuestion = appWindow.CadenceLab.getCurrentQuestion();
-          assert("categoryFallbackPreservesReferenceSourceAndYear",
-            categorySelect.value === "mixed" &&
-            sourceSelect.value === "nzqa-reference" && yearSelect.value === "2024" &&
-            fallbackQuestion?.sourceType === "nzqa-reference" &&
-            fallbackQuestion?.source?.year === 2024
-          );
-          changeFilter(yearSelect, "2025");
-          assert("emptyReferencePoolDoesNotEscapeSelectedConstraints",
-            sourceSelect.value === "nzqa-reference" && yearSelect.value === "2025" &&
-            appWindow.CadenceLab.getCurrentQuestion() === null &&
-            appDocument.querySelector("#question-title").textContent ===
-              "No question matches these filters"
-          );
-          appWindow.CadenceLab.showQuestion("satb-f-c");
-          assert("showingOriginalQuestionClearsReferenceYearSemantics",
-            sourceSelect.value === "original-practice" && yearField.hidden && yearSelect.value === ""
-          );
-          assert("contextualAnalysisUsesScaffoldedReflectionOnlyFields",
-            contextualQuestions.length >= 4 && contextualQuestions.every((question) =>
-              question.interaction.reflectionOnly === true &&
-              question.interaction.fields.length >= 3 &&
-              question.interaction.fields.some((field) => field.kind === "text")
-            )
-          );
-          assert("allQuestionsHaveUniversalAnswerInteraction",
-            questions.every((question) => question.interaction) &&
-            questions.some((question) => question.interaction?.type === "paper-completion") &&
-            questions.filter((question) => question.score.completion)
-              .every((question) => question.interaction?.type === "paper-completion") &&
-            questions.every((question) => question.interaction?.type !== "notation-completion") &&
-            !window.CadenceStudentAnswer
-          );
-          assert("harmonicAnswerRolesAreExplicitAndOneToOne",
-            questions.every((question) =>
-              question.score.harmonicEvents.every((event) =>
-                ["supplied", "editable", "none"].includes(event.answerRole)
-              ) &&
-              question.score.harmonicEvents.filter((event) => event.answerRole === "editable").length ===
-                (["roman-analysis", "jazz-chord-placement"].includes(question.interaction.type)
-                  ? question.interaction.slots.length
-                  : 0)
-            )
-          );
-
-          const completionQuestions = questions.filter((question) =>
-            question.interaction.type === "paper-completion"
-          );
-          const satbQuestion = questions.find((question) => question.id === "satb-f-c");
-          const pianoQuestion = questions.find((question) => question.id === "piano-d-f");
-          const bachQuestion = questions.find((question) => question.id === "nzqa-2024-bach-satb");
-          const bach2025Completion = questions.find(
-            (question) => question.id === "nzqa-2025-bach-satb"
-          );
-          assert("allCompletionsUseSemanticPaperContracts",
-            completionQuestions.some((question) => question.category === "satb") &&
-            completionQuestions.some((question) => question.category === "piano") &&
-            completionQuestions.every((question) =>
-              question.interaction.completionType === question.category &&
-              question.interaction.completionRequirements &&
-              question.interaction.selfCheck.length >= 5 &&
-              !question.interaction.editableRegions
-            )
-          );
-          assert("adapted2025SatbPreservesFourSuppliedAndSixChoiceContract",
-            bach2025Completion.sourceType === "original-practice" &&
-            bach2025Completion.score.harmonicEvents.length === 10 &&
-            JSON.stringify(bach2025Completion.score.harmonicEvents
-              .filter((event) => event.questionLabel)
-              .map((event) => event.questionLabel)) ===
-              JSON.stringify(["I", "Ib", "IV⁹–⁸", "I"]) &&
-            bach2025Completion.score.harmonicEvents
-              .filter((event) => event.analysisBox !== false && !event.questionLabel)
-              .length === 6 &&
-            bach2025Completion.interaction.completionRequirements.totalChordMoments === 10 &&
-            bach2025Completion.interaction.completionRequirements.suppliedChordMoments === 4 &&
-            bach2025Completion.interaction.completionRequirements.learnerChosenChordMoments === 6 &&
-            bach2025Completion.interaction.completionRequirements.minimumPassingNotes === 2 &&
-            bach2025Completion.interaction.completionRequirements.requiredSuspension === true &&
-            JSON.stringify(bach2025Completion.interaction.completionRequirements.allowedRomanChords) ===
-              JSON.stringify(["I", "ii", "V", "V7", "vi"])
-          );
-          const suppliedPlaybackFailures = completionQuestions.flatMap((question) => {
-            const before = JSON.stringify(question.score);
-            const questionTimeline = playback.buildTimeline(
-              playback.questionOnlyScore(question.score), 88
-            );
-            const modelTimeline = playback.buildTimeline(question.score, 88);
-            const valid = questionTimeline.notes.length > 0 &&
-              questionTimeline.notes.length < modelTimeline.notes.length &&
-              questionTimeline.totalBeats === modelTimeline.totalBeats &&
-              JSON.stringify(question.score) === before;
-            return valid ? [] : [question.id];
-          });
-          assert("everyPaperPlaybackContainsOnlyAuthoredVisibleNotes",
-            suppliedPlaybackFailures.length === 0,
-            suppliedPlaybackFailures
-          );
-          assert("paperContractDoesNotCreateAJazzRealisationCategory",
-            questions.every((question) =>
-              question.interaction.type !== "jazz-realisation" &&
-              question.category !== "jazz-realisation"
-            )
-          );
-          const bachQuestionScore = playback.questionOnlyScore(bachQuestion.score);
-          const bachQuestionTimeline = playback.buildTimeline(bachQuestionScore, 88);
-          const bachModelTimeline = playback.buildTimeline(bachQuestion.score, 88);
-          assert("questionOnlyPlaybackContainsNoHiddenBachCompletion",
-            bachQuestionTimeline.notes.length > 0 &&
-            bachQuestionTimeline.notes.every((note) => note.measure === 1) &&
-            bachModelTimeline.notes.some((note) => note.measure > 1)
-          );
-          const pianoQuestionScore = playback.questionOnlyScore(pianoQuestion.score);
-          const pianoQuestionTimeline = playback.buildTimeline(pianoQuestionScore, 88);
-          const pianoModelTimeline = playback.buildTimeline(pianoQuestion.score, 88);
-          assert("questionOnlyPlaybackUsesVisiblePianoPartsWithoutInference",
-            pianoQuestionTimeline.notes.length < pianoModelTimeline.notes.length &&
-            pianoQuestionTimeline.notes.filter((note) => note.measure > 1)
-              .every((note) => note.staff === "treble") &&
-            pianoQuestionTimeline.totalBeats === pianoModelTimeline.totalBeats
-          );
-          const timelineFixture = {
-            timeSignature: "4/4",
-            measures: [{ events: [
-              { treble: ["C4", "E4"], bass: ["C3"], duration: "qd" },
-              { treble: [], trebleRest: true, bass: [], bassRest: true, duration: "8" },
-              { treble: ["G4"], bass: ["G2"], duration: "h" },
-            ] }],
-          };
-          const timeline = playback.buildTimeline(timelineFixture, 80);
-          assert("authoredPlaybackRetainsChordsRestsAndDottedDurations",
-            timeline.notes.length === 5 &&
-            timeline.notes.filter((note) => note.startBeat === 0)
-              .every((note) => note.durationBeats === 1.5) &&
-            timeline.notes.filter((note) => note.startBeat === 2).length === 2 &&
-            timeline.totalBeats === 4
-          );
-
-          const analysisQuestion = questions.find((question) => question.id === "analysis-c-g");
-          let analysisState = structured.create(analysisQuestion);
-          const analysisSlot = analysisQuestion.interaction.slots[0];
-          analysisState = structured.setSlot(analysisState, analysisSlot.id, {
-            analyses: [{
-              key: { root: "C", mode: "major" }, degree: "IV",
-              quality: "major", extent: "triad", inversion: "root",
-            }],
-          });
-          const responseScore = structured.scoreWithResponses(analysisQuestion, analysisState);
-          assert("romanResponsesRemainSeparateAndRenderIntoTheirExactSlot",
-            analysisQuestion.score.harmonicEvents[analysisSlot.harmonicIndex].questionLabel == null &&
-            responseScore.harmonicEvents[analysisSlot.harmonicIndex].questionLabel === "C: IV" &&
-            analysisQuestion.score.harmonicEvents[2].modelLabel === "C: I / G: IV"
-          );
-          const pivotValue = {
-            analyses: [
-              { key: { root: "C", mode: "major" }, degree: "I", quality: "major", extent: "triad", inversion: "root" },
-              { key: { root: "G", mode: "major" }, degree: "IV", quality: "major", extent: "triad", inversion: "root" },
-            ],
-          };
-          assert("romanBuilderSupportsDualPivotAnalysisAndNzqaInversions",
-            structured.formatValue(pivotValue, "roman-analysis") === "C: I / G: IV" &&
-            structured.formatRomanAnalysis({ degree: "V", quality: "major", extent: "seventh", inversion: "d" }) === "V⁷d"
-          );
-          const ordinaryRomanSlot = analysisQuestion.interaction.slots.find(
-            (slot) => !slot.allowDualAnalysis
-          );
-          const pivotRomanSlot = analysisQuestion.interaction.slots.find(
-            (slot) => slot.allowDualAnalysis
-          );
-          let constrainedRomanState = structured.create(analysisQuestion);
-          constrainedRomanState = structured.setSlot(constrainedRomanState, ordinaryRomanSlot.id, {
-            analyses: [
-              { degree: "V", quality: "major", extent: "triad", inversion: "d" },
-              { degree: "IV", quality: "major", extent: "triad", inversion: "root" },
-            ],
-          });
-          assert("ordinaryRomanSlotsRejectDualAnalysisAndTriadD",
-            constrainedRomanState.slots[ordinaryRomanSlot.id].analyses.length === 1 &&
-            constrainedRomanState.slots[ordinaryRomanSlot.id].analyses[0].inversion === "root"
-          );
-          constrainedRomanState = structured.setSlot(constrainedRomanState, pivotRomanSlot.id, pivotValue);
-          assert("pivotRomanSlotsRetainTwoAnalyses",
-            constrainedRomanState.slots[pivotRomanSlot.id].analyses.length === 2
-          );
-          constrainedRomanState = structured.setSlot(constrainedRomanState, ordinaryRomanSlot.id, {
-            analyses: [{ degree: "V", quality: "major", extent: "seventh", inversion: "d" }],
-          });
-          assert("seventhChordsCanStoreInversionD",
-            constrainedRomanState.slots[ordinaryRomanSlot.id].analyses[0].inversion === "d"
-          );
-          constrainedRomanState = structured.setSlot(constrainedRomanState, ordinaryRomanSlot.id, {
-            analyses: [{ degree: "V", quality: "major", extent: "triad", inversion: "d" }],
-          });
-          assert("switchingSeventhToTriadSanitisesInversionD",
-            constrainedRomanState.slots[ordinaryRomanSlot.id].analyses[0].inversion === "root"
-          );
-          constrainedRomanState = structured.setSlot(constrainedRomanState, ordinaryRomanSlot.id, {
-            analyses: [{ degree: "II", quality: "half-diminished", extent: "triad", inversion: "d" }],
-          });
-          assert("halfDiminishedTriadsAreSanitisedToSevenths",
-            constrainedRomanState.slots[ordinaryRomanSlot.id].analyses[0].extent === "seventh" &&
-            constrainedRomanState.slots[ordinaryRomanSlot.id].analyses[0].inversion === "d"
-          );
-          assert("halfDiminishedFormatsWithASeventh",
-            structured.formatRomanAnalysis({
-              degree: "II", quality: "half-diminished", extent: "triad", inversion: "root",
-            }) === "iiø⁷"
-          );
-          constrainedRomanState = structured.setSlot(constrainedRomanState, ordinaryRomanSlot.id, {
-            analyses: [{ degree: "VII", quality: "diminished", extent: "triad", inversion: "root" }],
-          });
-          assert("diminishedTriadsRemainAllowed",
-            constrainedRomanState.slots[ordinaryRomanSlot.id].analyses[0].extent === "triad" &&
-            structured.formatValue(constrainedRomanState.slots[ordinaryRomanSlot.id], "roman-analysis") === "vii°"
-          );
-          let advancingRomanState = structured.create(analysisQuestion);
-          const romanSlotIds = analysisQuestion.interaction.slots.map((slot) => slot.id);
-          advancingRomanState = structured.setSlot(advancingRomanState, romanSlotIds[0], {
-            analyses: [{ degree: "I", quality: "major", extent: "triad", inversion: "root" }],
-          });
-          advancingRomanState = structured.advanceToNextUnanswered(advancingRomanState, romanSlotIds);
-          assert("romanAutoAdvanceSelectsNextUnansweredSlot",
-            advancingRomanState.activeSlotId === romanSlotIds[1]
-          );
-          const semanticJazzExamples = [
-            [{ root: "C", formula: "major" }, "C"],
-            [{ root: "C", formula: "minor-ninth" }, "Cm9"],
-            [{ root: "C", formula: "minor-add-nine" }, "Cm(add9)"],
-            [{ root: "C", formula: "minor-ninth-major-seventh" }, "Cm9(maj7)"],
-            [{ root: "C", formula: "minor-nine-add-six" }, "Cm9(add6)"],
-            [{ root: "C♯", formula: "dominant-seven-sus-four" }, "C♯7sus4"],
-            [{ root: "C", formula: "six-add-nine", bass: "E" }, "C6(add9)/E"],
-            [{ root: "D", formula: "dominant-thirteenth", bass: "F♯" }, "D13/F♯"],
-            [{ root: "E", formula: "dominant-sharp-nine", bass: "G♯" }, "E7♯9/G♯"],
-            [{ root: "B", formula: "half-diminished", bass: "D" }, "Bm7♭5/D"],
-          ];
-          assert("semanticJazzFormatterAvoidsInvalidConcatenation",
-            semanticJazzExamples.every(([value, expected]) =>
-              structured.formatJazzChord(value) === expected
-            ) && structured.JAZZ_FORMULAS.length >= 27
-          );
-          const authoredJazzQuestions = questions.filter((question) =>
-            question.interaction.type === "jazz-chord-placement"
-          );
-          const authoredJazzAnswers = authoredJazzQuestions.flatMap((question) =>
-            question.interaction.slots.flatMap((slot) =>
-              slot.acceptedAnswers.map((answer) => ({
-                questionId: question.id,
-                slotId: slot.id,
-                label: typeof answer === "string" ? answer : answer.label,
-              }))
-            )
-          );
-          const unrepresentableJazzAnswers = authoredJazzAnswers.filter(({ label }) => {
-            const parsed = structured.parseJazzChordSymbol(label);
-            return !parsed || structured.formatJazzChord(parsed) !== label;
-          });
-          assert("everyAuthoredJazzAnswerHasAnExactSemanticRepresentation",
-            unrepresentableJazzAnswers.length === 0,
-            unrepresentableJazzAnswers
-          );
-          assert("adapted2021And2024SourceSymbolsRemainSemanticAcceptanceCases",
-            ["nzqa-2021-valentine-techniques", "nzqa-2024-commercial-chromatic-bass"]
-              .flatMap((questionId) => questions.find((question) =>
-                question.id === questionId
-              ).sourceSpec.chordSymbols)
-              .every((label) => {
-                const parsed = structured.parseJazzChordSymbol(label);
-                return parsed && structured.formatJazzChord(parsed) === label;
-              }) &&
-            ["Cm9(maj7)", "Cm9(add6)", "C♯m(add9)", "C♯7sus4", "Dm7(♭5)"]
-              .every((label) => ["nzqa-2021-valentine-techniques", "nzqa-2024-commercial-chromatic-bass"]
-                .flatMap((questionId) => questions.find((question) =>
-                  question.id === questionId
-                ).sourceSpec.chordSymbols)
-                .includes(label))
-          );
-
-          const generatedEntry = (key, root, formula) => chordGenerator.catalog.find(
-            (entry) => entry.key === key && entry.root === root && entry.formula === formula
-          );
-          const identityFixture = (key, root, formula, bass) => {
-            const entry = generatedEntry(key, root, formula);
-            return chordGenerator.createIdentityFixture(entry, {
-              bass,
-              seed: `${key}-${root}-${formula}-${bass}`,
-            });
-          };
-          const pitchSpellings = (event) => [...event.treble, ...event.bass].map(
-            (pitch) => pitch.replace(/-?\d+$/, "")
-          );
-          const identityIsValid = (fixture) => chordGenerator.validateHarmonicIdentity(
-            fixture.event,
-            { key: fixture.key, keySignature: fixture.keySignature }
-          ).valid;
-          const cSixth = identityFixture("C major", "C", "sixth", "C");
-          const dMinorSixth = identityFixture("D minor", "D", "minor-sixth", "D");
-          const bHalfDiminished = identityFixture("A minor", "B", "half-diminished", "D");
-          const eSuspended = identityFixture("G major", "E", "suspended-four", "E");
-          const gSuspended = identityFixture("C major", "G", "suspended-four", "D");
-          assert("generatedSixthAndMinorSeventhIdentitiesAreNotAutomaticallyInterchangeable",
-            JSON.stringify(cSixth.acceptedAnswers) === JSON.stringify(["C6"]) &&
-            !cSixth.acceptedAnswers.includes("Am7/C") &&
-            JSON.stringify(dMinorSixth.acceptedAnswers) === JSON.stringify(["Dm6"]) &&
-            !dMinorSixth.acceptedAnswers.includes("Bm7♭5/D") &&
-            [cSixth, dMinorSixth].every(identityIsValid)
-          );
-          assert("generatedHalfDiminishedIdentityDoesNotAutomaticallyAcceptMinorSixth",
-            JSON.stringify(bHalfDiminished.acceptedAnswers) === JSON.stringify(["Bm7♭5/D"]) &&
-            !bHalfDiminished.acceptedAnswers.includes("Dm6") &&
-            identityIsValid(bHalfDiminished)
-          );
-          assert("generatedSuspensionsDoNotAcceptAutomaticAlternateRoots",
-            JSON.stringify(eSuspended.acceptedAnswers) === JSON.stringify(["Esus4"]) &&
-            !eSuspended.acceptedAnswers.includes("Asus2/E") &&
-            JSON.stringify(gSuspended.acceptedAnswers) === JSON.stringify(["Gsus4/D"]) &&
-            !gSuspended.acceptedAnswers.includes("Csus2/D") &&
-            [eSuspended, gSuspended].every(identityIsValid)
-          );
-          assert("constrainedGeneratedVoicingsEmphasiseTheIntendedRoot",
-            [cSixth, dMinorSixth, bHalfDiminished, eSuspended, gSuspended].every((fixture) => {
-              const spellings = pitchSpellings(fixture.event);
-              const identity = fixture.entry.harmonicIdentity;
-              const rootCount = spellings.filter((pitch) => pitch === fixture.entry.root).length;
-              return rootCount >= identity.minRootOccurrences &&
-                identity.competingRoots.every((root) =>
-                  rootCount > spellings.filter((pitch) => pitch === root).length
-                );
-            })
-          );
-          const competitorHeavyIdentity = structuredClone(cSixth.event);
-          competitorHeavyIdentity.treble.push("A5");
-          competitorHeavyIdentity.generatedSourceSpec.voicing.treble.push("A5");
-          competitorHeavyIdentity.generatedSourceSpec.voicing.competingRootOccurrences.A = 2;
-          const competitorHeavyValidation = chordGenerator.validateHarmonicIdentity(
-            competitorHeavyIdentity,
-            { key: cSixth.key, keySignature: cSixth.keySignature }
-          );
-          assert("harmonicIdentityRejectsAnEquallyEmphasisedCompetingRoot",
-            !competitorHeavyValidation.valid &&
-            competitorHeavyValidation.errors.some((error) =>
-              error.includes("not stronger than competing root A")
-            )
-          );
-          const misspelledIdentity = structuredClone(cSixth.event);
-          misspelledIdentity.treble[0] = "B#4";
-          assert("harmonicIdentityValidationPreservesExactSpelling",
-            !chordGenerator.validateHarmonicIdentity(misspelledIdentity, {
-              key: cSixth.key,
-              keySignature: cSixth.keySignature,
-            }).valid
-          );
-
-          const generatedVariants = Array.from({ length: 500 }, (_, index) =>
-            chordGenerator.create(`smoke-${index}`)
-          );
-          const generatedKeys = new Set(
-            chordGenerator.catalog.map((entry) => entry.key)
-          );
-          const generatedSymbols = chordGenerator.catalog.map((entry) =>
-            structured.formatJazzChord({ root: entry.root.replaceAll("#", "♯").replaceAll("b", "♭"), formula: entry.formula })
-          );
-          assert("seededChordGeneratorValidatesHundredsOfVariants",
-            generatedVariants.every((question) => chordGenerator.validateVariant(question)) &&
-            chordGenerator.catalog.every((entry) => chordGenerator.validateCatalogEntry(entry)) &&
-            generatedKeys.size === 8 &&
-            generatedVariants.every((question) =>
-              question.sourceType === "generated-practice" &&
-              question.category === "chord-identification" &&
-              question.interaction.slots.length === 4 &&
-              question.interaction.slots.every((slot) => slot.acceptedAnswers.length === 1) &&
-              question.score.measures.every((measure) =>
-                Boolean(measure.keySignature) && Boolean(measure.keyLabel)
-              ) &&
-              question.variantId.startsWith("CID-") &&
-              !/NZQA reference/i.test(question.source.acknowledgement)
-            )
-          );
-          const roundTripOriginal = chordGenerator.create("visible-variant-round-trip");
-          const roundTripRestored = chordGenerator.createFromVariantId(roundTripOriginal.variantId);
-          assert("visibleVariantIdRecreatesIdenticalQuestionData",
-            JSON.stringify(roundTripOriginal) === JSON.stringify(roundTripRestored) &&
-            JSON.stringify(roundTripOriginal.score.measures.map((measure) => ({
-              keySignature: measure.keySignature,
-              keyLabel: measure.keyLabel,
-              treble: measure.events[0].treble,
-              bass: measure.events[0].bass,
-              voicing: measure.events[0].generatedSourceSpec.voicing,
-              accepted: measure.events[0].acceptableChordSymbols,
-            }))) === JSON.stringify(roundTripRestored.score.measures.map((measure) => ({
-              keySignature: measure.keySignature,
-              keyLabel: measure.keyLabel,
-              treble: measure.events[0].treble,
-              bass: measure.events[0].bass,
-              voicing: measure.events[0].generatedSourceSpec.voicing,
-              accepted: measure.events[0].acceptableChordSymbols,
-            })))
-          );
-          const deliberateAmbiguity = chordGenerator.createIdentityFixture(
-            chordGenerator.intentionalAmbiguityFixture,
-            { bass: "A", seed: "intentional-ambiguity" }
-          );
-          const deliberateAmbiguityQuestion = {
-            id: "intentional-ambiguity-fixture",
-            interaction: {
-              type: "jazz-chord-placement",
-              slots: [{
-                id: "ambiguous-chord",
-                label: "Ambiguous chord",
-                acceptedAnswers: deliberateAmbiguity.acceptedAnswers.map((label) => ({ label })),
-              }],
-              bank: [],
-            },
-          };
-          let alternativeState = structured.create(deliberateAmbiguityQuestion);
-          alternativeState = structured.setSlot(alternativeState, "ambiguous-chord", {
-            label: deliberateAmbiguity.acceptedAnswers[1],
-            source: "builder",
-          });
-          assert("intentionalAmbiguityFixtureSupportsEveryExplicitlyDeclaredAnalysis",
-            deliberateAmbiguity.acceptedAnswers.length === 2 &&
-            deliberateAmbiguity.acceptedAnswers.includes("Dm6/A") &&
-            deliberateAmbiguity.acceptedAnswers.includes("Bm7♭5/A") &&
-            identityIsValid(deliberateAmbiguity) &&
-            structured.comparison(deliberateAmbiguityQuestion, alternativeState).slots[0].status === "matches"
-          );
-          assert("generatedVocabularyIncludesAdvancedRequiredChords",
-            ["D13", "G7♭9", "C6", "C6(add9)", "Fmaj9", "Bm7♭5", "E7♯9", "Esus4", "Gsus4"]
-              .every((symbol) => generatedSymbols.includes(symbol))
-          );
-          const requiredSlashExamples = [
-            ["D", "dominant-thirteenth", "F#", "D13/F♯"],
-            ["C", "sixth", "E", "C6/E"],
-            ["F", "major-ninth", "A", "Fmaj9/A"],
-            ["B", "half-diminished", "D", "Bm7♭5/D"],
-            ["E", "dominant-sharp-nine", "G#", "E7♯9/G♯"],
-          ];
-          assert("generatedVocabularyIncludesRequestedHighComplexitySlashChords",
-            requiredSlashExamples.every(([root, formula, bass, symbol]) => {
-              const entry = chordGenerator.catalog.find((candidate) =>
-                candidate.root === root && candidate.formula === formula && candidate.allowedBasses.includes(bass)
-              );
-              return entry && structured.formatJazzChord({
-                root: root.replaceAll("#", "♯").replaceAll("b", "♭"),
-                formula,
-                bass: bass.replaceAll("#", "♯").replaceAll("b", "♭"),
-              }) === symbol;
-            })
-          );
-          assert("alteredDominantUsesExactTheoreticalSharpNineSpelling",
-            chordGenerator.catalog.find((entry) =>
-              entry.root === "E" && entry.formula === "dominant-sharp-nine"
-            )?.tones.includes("F##")
-          );
-
-          const modulationQuestion = questions.find((question) => question.id === "nzqa-2023-bach-key-regions");
-          let modulationState = structured.create(modulationQuestion);
-          modulationState = structured.setField(modulationState, "x-key", { label: "E♭ major" });
-          modulationState = structured.setField(modulationState, "x-relationship", { label: "relative major of the subdominant" });
-          modulationState = structured.setEvidence(modulationState, "B♭7–E♭ cadence");
-          assert("modulationUsesStructuredKeyRelationshipAndEvidenceState",
-            modulationState.fields["x-key"].label === "E♭ major" &&
-            modulationState.fields["x-relationship"].label === "relative major of the subdominant" &&
-            modulationState.evidence === "B♭7–E♭ cadence"
-          );
-          const requiredKeyRelationshipCases = [
-            ["B♭ major", "E♭ major", "subdominant", "IV"],
-            ["B♭ major", "F major", "dominant", "V"],
-            ["G minor", "B♭ major", "relative major", "III"],
-            ["G minor", "C minor", "subdominant", "iv"],
-            ["G minor", "E♭ major", "submediant", "VI"],
-            ["G minor", "F major", "subtonic", "VII"],
-            ["A major", "F♯ minor", "relative minor", "vi"],
-            ["A major", "D major", "subdominant", "IV"],
-            ["A major", "E major", "dominant", "V"],
-            ["C minor", "E♭ major", "relative major", "III"],
-            ["C minor", "F minor", "subdominant", "iv"],
-            ["C minor", "G minor", "dominant minor", "v"],
-            ["E major", "C♯ minor", "relative minor", "vi"],
-            ["E major", "A major", "subdominant", "IV"],
-            ["E major", "B major", "dominant", "V"],
-          ];
-          assert("semanticKeyRelationshipEngineCoversFlatSharpMajorAndMinorKeys",
-            requiredKeyRelationshipCases.every(([homeKey, localKey, canonical, degree]) => {
-              const relationship = keyRelationships.relationshipBetween(homeKey, localKey);
-              return relationship.canonical === canonical &&
-                relationship.degree === degree &&
-                relationship.acceptedLabels.includes(canonical) &&
-                relationship.acceptedLabels.includes(degree);
-            })
-          );
-          const gMinorToEFlat = keyRelationships.relationshipBetween("G minor", "E♭ major");
-          const gMinorToF = keyRelationships.relationshipBetween("G minor", "F major");
-          const bFlatToEFlat = keyRelationships.relationshipBetween("B♭ major", "E♭ major");
-          assert("compoundKeyRelationshipsAreDerivedForTheExactSemanticPairOnly",
-            gMinorToEFlat.acceptedLabels.includes("relative major of the subdominant") &&
-            !gMinorToEFlat.acceptedLabels.includes("relative major") &&
-            gMinorToF.acceptedLabels.includes("relative major of the dominant") &&
-            bFlatToEFlat.acceptedLabels.includes("subdominant") &&
-            !bFlatToEFlat.acceptedLabels.includes("relative major of the subdominant")
-          );
-          const reportedQuestion = questions.find((question) =>
-            question.id === "modulation-gminor-eb-f"
-          );
-          const reportedXRelationship = reportedQuestion.interaction.fields.find(
-            (field) => field.id === "x-relationship"
-          );
-          let incorrectRelativeState = structured.create(reportedQuestion);
-          incorrectRelativeState = structured.setField(
-            incorrectRelativeState,
-            "x-relationship",
-            { label: "relative major" }
-          );
-          let incorrectSubdominantState = structured.create(reportedQuestion);
-          incorrectSubdominantState = structured.setField(
-            incorrectSubdominantState,
-            "x-relationship",
-            { label: "subdominant" }
-          );
-          let correctSubmediantState = structured.create(reportedQuestion);
-          correctSubmediantState = structured.setField(
-            correctSubmediantState,
-            "x-relationship",
-            { label: "submediant / VI" }
-          );
-          assert("reportedGMinorPromptNowSuppliesTheHomeTonic",
-            reportedQuestion.studentContext ===
-              "The passage begins in G minor and moves through two related key regions. Identify X and Y, give musical evidence for each key, and describe each relationship to G minor."
-          );
-          assert("gMinorToEFlatUsesSubmediantRatherThanRelativeMajor",
-            reportedXRelationship.modelRelationship === "submediant" &&
-            reportedXRelationship.acceptedAnswers[0].label === "submediant" &&
-            reportedXRelationship.acceptedAnswers.some((answer) =>
-              answer.label === "submediant / VI"
-            ) &&
-            reportedXRelationship.choices.includes("submediant") &&
-            !reportedXRelationship.choices.includes("submediant / VI") &&
-            !reportedXRelationship.acceptedAnswers.some((answer) =>
-              answer.label === "relative major" || answer.label === "subdominant"
-            ) &&
-            structured.comparison(reportedQuestion, incorrectRelativeState).fields.find(
-              (field) => field.id === "x-relationship"
-            ).status === "different" &&
-            structured.comparison(reportedQuestion, incorrectSubdominantState).fields.find(
-              (field) => field.id === "x-relationship"
-            ).status === "different" &&
-            structured.comparison(reportedQuestion, correctSubmediantState).fields.find(
-              (field) => field.id === "x-relationship"
-            ).status === "matches"
-          );
-          const modulationQuestions = questions.filter((question) =>
-            question.category === "modulation"
-          );
-          const relationshipFields = modulationQuestions.flatMap((question) =>
-            question.interaction.fields
-              .filter((field) => field.kind === "relationship")
-              .map((field) => ({ question, field }))
-          );
-          const isRomanRelationshipLabel = (label) =>
-            /^(?:I|II|III|IV|V|VI|VII|i|ii|iii|iv|v|vi|vii)$/.test(label) ||
-            /\/[ ]*(?:I|II|III|IV|V|VI|VII|i|ii|iii|iv|v|vi|vii)$/.test(label);
-          assert("relationshipDropdownsUseSmallFieldSpecificChoiceSets",
-            relationshipFields.length >= 12 && relationshipFields.every(({ question, field }) =>
-              !question.interaction.relationshipChoices &&
-              field.choices.length >= 4 && field.choices.length <= 6 &&
-              field.choices.length < keyRelationships.relationshipChoices.length
-            )
-          );
-          assert("relationshipDropdownsContainOnePreferredAnswerAndIncorrectDistractors",
-            relationshipFields.every(({ question, field }) => {
-              const semantic = keyRelationships.relationshipBetween(
-                question.homeKey,
-                field.localKey
-              );
-              const visibleCorrect = field.choices.filter((label) =>
-                semantic.acceptedLabels.includes(label)
-              );
-              return field.choices.includes(field.modelRelationship) &&
-                visibleCorrect.length === 1 &&
-                visibleCorrect[0] === field.modelRelationship &&
-                new Set(field.choices).size === field.choices.length;
-            })
-          );
-          assert("ordinaryRelationshipDropdownsDoNotMixRomanDegreeLabels",
-            relationshipFields.every(({ field }) =>
-              field.choices.every((label) => !isRomanRelationshipLabel(label))
-            )
-          );
-          const expectedNzqaRelationshipChoices = {
-            "x-relationship": [
-              "relative major", "subdominant", "relative major of the subdominant",
-              "relative major of the dominant", "relative minor",
-            ],
-            "y-relationship": [
-              "relative major", "subdominant", "dominant minor",
-              "relative major of the dominant", "tonic minor",
-            ],
-            "z-relationship": [
-              "relative major of the dominant", "relative major", "dominant",
-              "subdominant", "relative major of the subdominant",
-            ],
-          };
-          assert("nzqaRelationshipDropdownsPreserveAuthoredSourceTerminologyAndDistractors",
-            modulationQuestion.interaction.fields
-              .filter((field) => field.kind === "relationship")
-              .every((field) =>
-                JSON.stringify(field.choices) ===
-                  JSON.stringify(expectedNzqaRelationshipChoices[field.id])
-              )
-          );
-          const originalRelationshipFields = relationshipFields.filter(({ question }) =>
-            question.sourceType === "original-practice"
-          );
-          const iframeQuestions = appWindow.CadenceLab.questions;
-          assert("originalRelationshipDistractorsAreDeterministicAcrossIndependentLoads",
-            originalRelationshipFields.every(({ question, field }) => {
-              const iframeQuestion = iframeQuestions.find((candidate) =>
-                candidate.id === question.id
-              );
-              const iframeField = iframeQuestion.interaction.fields.find((candidate) =>
-                candidate.id === field.id
-              );
-              return JSON.stringify(iframeField.choices) === JSON.stringify(field.choices);
-            })
-          );
-          assert("acceptedRelationshipAlternativesNeedNotAllBeVisible",
-            reportedXRelationship.acceptedAnswers.some((answer) =>
-              answer.label === "submediant / VI"
-            ) &&
-            !reportedXRelationship.choices.includes("submediant / VI") &&
-            reportedXRelationship.acceptedAnswers.length >
-              reportedXRelationship.choices.filter((choice) =>
-                reportedXRelationship.acceptedAnswers.some((answer) =>
-                  answer.label === choice
-                )
-              ).length
-          );
-          appWindow.CadenceLab.showQuestion("nzqa-2023-bach-key-regions");
-          const renderedRelationshipChoices = [...appDocument.querySelectorAll(
-            "[data-field-id$='-relationship']"
-          )].map((select) => [...select.options]
-            .filter((option) => option.value)
-            .map((option) => option.value));
-          assert("renderedRelationshipSelectsUseOnlyTheirFieldChoices",
-            JSON.stringify(renderedRelationshipChoices) === JSON.stringify([
-              expectedNzqaRelationshipChoices["x-relationship"],
-              expectedNzqaRelationshipChoices["y-relationship"],
-              expectedNzqaRelationshipChoices["z-relationship"],
-            ])
-          );
-          const normalizeKeyContext = (value) => String(value)
-            .replace(/[‐‑–—-]/g, " ")
-            .replaceAll(/\s+/g, " ")
-            .toLocaleLowerCase("en-NZ");
-          assert("allModulationRelationshipsCarryAuditedSemanticKeyMetadata",
-            modulationQuestions.length > 0 && modulationQuestions.every((question) =>
-              question.homeKey && question.keyRegions.length &&
-              question.interaction.homeKey === question.homeKey &&
-              normalizeKeyContext(question.studentContext).includes(
-                normalizeKeyContext(question.homeKey)
-              ) &&
-              question.keyRegions.every((region) => {
-                const relationship = keyRelationships.relationshipBetween(
-                  question.homeKey,
-                  region.localKey
-                );
-                const field = question.interaction.fields.find((candidate) =>
-                  candidate.id === `${region.section.toLowerCase()}-relationship`
-                );
-                return field && field.homeKey === question.homeKey &&
-                  field.localKey === region.localKey &&
-                  field.acceptedAnswers.every((answer) =>
-                    relationship.acceptedLabels.includes(answer.label)
-                  );
-              })
-            )
-          );
-          const romanAndRegionKeyLabels = questions.flatMap((question) => [
-            ...(question.category === "modulation"
-              ? [question.homeKey, ...question.keyRegions.map((region) => region.localKey)]
-              : []),
-            ...((question.score.harmonicEvents || []).map((event) => event.localKey)),
-          ]).filter(Boolean);
-          assert("romanAnalysisAndKeyRegionSpellingsPassSemanticAudit",
-            romanAndRegionKeyLabels.every((label) => {
-              try {
-                return keyRelationships.formatKey(label) === label;
-              } catch (_error) {
-                return false;
-              }
-            })
-          );
-          assert("nzqaRelationshipTerminologyRemainsSourceExactAndSemanticallyValid",
-            JSON.stringify(modulationQuestion.sourceSpec.keyRelationships) === JSON.stringify([
-              { section: "X", homeKey: "G minor", localKey: "E♭ major", acceptedLabels: ["relative major of the subdominant"] },
-              { section: "Y", homeKey: "G minor", localKey: "C minor", acceptedLabels: ["subdominant"] },
-              { section: "Z", homeKey: "G minor", localKey: "F major", acceptedLabels: ["relative major of the dominant"] },
-            ]) && modulationQuestion.keyRegions.every((region) =>
-              region.acceptedRelationshipLabels.every((label) =>
-                keyRelationships.relationshipBetween(
-                  modulationQuestion.homeKey,
-                  region.localKey
-                ).acceptedLabels.includes(label)
-              )
-            )
-          );
-
-          const commercial = questions.find((question) => question.id === "nzqa-2024-commercial-chromatic-bass");
-          const commercialStateA = structured.create(commercial);
-          const commercialStateB = structured.create(commercial);
-          const commercialExpected = commercial.interaction.slots.map((slot) => slot.acceptedAnswers[0].label);
-          const commercialBank = commercial.interaction.bank.map((token) => token.label);
-          const multiplicity = (items, value) => items.filter((item) => item === value).length;
-          assert("jazzBankIsDeterministicWithExactAnswerMultiplicityAndDistractors",
-            commercialStateA.bank.map((token) => token.id).join(",") === commercialStateB.bank.map((token) => token.id).join(",") &&
-            [...new Set(commercialExpected)].every((label) => multiplicity(commercialBank, label) === multiplicity(commercialExpected, label)) &&
-            commercialBank.length > commercialExpected.length && commercialBank.includes("F♯dim7/F")
-          );
-          let jazzState = commercialStateA;
-          const firstJazzSlot = commercial.interaction.slots[0].id;
-          const secondJazzSlot = commercial.interaction.slots[1].id;
-          const firstToken = jazzState.bank.find((token) => token.label === commercialExpected[0]);
-          const secondToken = jazzState.bank.find((token) => token.label === commercialExpected[1]);
-          jazzState = structured.placeToken(jazzState, firstJazzSlot, firstToken.id);
-          jazzState = structured.placeToken(jazzState, secondJazzSlot, secondToken.id);
-          jazzState = structured.placeToken(jazzState, secondJazzSlot, firstToken.id);
-          const swapped = jazzState.slots[firstJazzSlot]?.tokenId === secondToken.id &&
-            jazzState.slots[secondJazzSlot]?.tokenId === firstToken.id;
-          jazzState = structured.returnToken(jazzState, secondJazzSlot);
-          assert("jazzPlacementSupportsReplaceSwapReturnAndReset",
-            swapped && jazzState.slots[secondJazzSlot] === null &&
-            Object.values(structured.reset(jazzState).slots).every((value) => value === null)
-          );
-          const acceptedJazzState = structured.setSlot(
-            commercialStateA, firstJazzSlot, { label: commercialExpected[0], source: "builder" }
-          );
-          const acceptedComparison = structured.comparison(commercial, acceptedJazzState);
-          const differentJazzState = structured.setSlot(
-            commercialStateA, firstJazzSlot, { label: "C7", source: "builder" }
-          );
-          const differentComparison = structured.comparison(commercial, differentJazzState);
-          assert("comparisonUsesOnlyAuthoredAcceptedAnswers",
-            acceptedComparison.slots[0].status === "matches" &&
-            differentComparison.slots[0].status === "different" &&
-            acceptedComparison.slots[1].status === "unanswered"
-          );
-          const valentine = questions.find((question) => question.id === "nzqa-2021-valentine-techniques");
-          const nhtChoices = [
-            "passing note", "accented passing note", "auxiliary / neighbour note",
-            "suspension", "appoggiatura",
-          ];
-          const valentineFields = Object.fromEntries(
-            valentine.interaction.fields.map((field) => [field.id, field])
-          );
-          assert("valentineUsesDedicatedNhtAndTechniqueChoiceSets",
-            ["x", "y", "z"].every((id) =>
-              valentineFields[id].choices.join("|") === nhtChoices.join("|")
-            ) &&
-            ["technique-1", "technique-2"].every((id) =>
-              valentineFields[id].choices.includes("tonic pedal") &&
-              valentineFields[id].choices.includes("descending chromatic inner line") &&
-              !valentineFields[id].choices.includes("appoggiatura")
-            )
-          );
-          let valentineState = structured.create(valentine);
-          valentineState = structured.setField(valentineState, "technique-1", { label: "tonic pedal" });
-          valentineState = structured.setField(valentineState, "technique-2", { label: "descending chromatic inner line" });
-          const valentineComparison = structured.comparison(valentine, valentineState);
-          let duplicateTechniqueState = structured.create(valentine);
-          duplicateTechniqueState = structured.setField(duplicateTechniqueState, "technique-1", { label: "tonic pedal" });
-          duplicateTechniqueState = structured.setField(duplicateTechniqueState, "technique-2", { label: "tonic pedal" });
-          assert("valentineTechniqueComparisonIsOrderInsensitive",
-            valentineComparison.fields.find((field) => field.id === "harmonic-techniques").status === "matches" &&
-            !valentineComparison.fields.some((field) => ["technique-1", "technique-2"].includes(field.id)) &&
-            structured.comparison(valentine, duplicateTechniqueState).fields
-              .find((field) => field.id === "harmonic-techniques").status === "different"
-          );
-          const featureChoiceQuestions = [
-            "nzqa-2023-poulenc-pedal", "feature-diminished", "feature-pedal",
-            "feature-chromatic-bass", "feature-nonharmonic", "feature-harmonic-rhythm",
-          ].map((id) => questions.find((question) => question.id === id));
-          assert("featureFieldsDeclarePlausibleFieldSpecificChoices",
-            featureChoiceQuestions.every((question) =>
-              question.interaction.fields.every((field) =>
-                Array.isArray(field.choices) && field.choices.length >= 4 &&
-                field.acceptedAnswers.every((answer) => field.choices.includes(answer.label))
-              )
-            ) &&
-            !questions.find((question) => question.id === "feature-nonharmonic")
-              .interaction.fields[0].choices.includes("creates momentum") &&
-            !questions.find((question) => question.id === "feature-pedal")
-              .interaction.fields[1].choices.includes("F♯ diminished seventh")
-          );
-          const lockedStructured = structured.setSubmitted(acceptedJazzState);
-          assert("structuredSubmissionSnapshotsAreLocked",
-            lockedStructured.submitted && (() => {
-              try {
-                structured.setSlot(lockedStructured, firstJazzSlot, null);
-                return false;
-              } catch (error) {
-                return error.message.includes("locked after submission");
-              }
-            })()
-          );
-
-          assert("completionScoresOnlyExposeAuthoredSuppliedHarmonicLabels",
-            completionQuestions.every((question) =>
-              question.score.harmonicEvents.every((event) => event.answerRole !== "editable") &&
-              question.score.harmonicEvents.filter((event) => event.answerRole === "supplied").length ===
-                question.score.harmonicEvents.filter((event) => event.questionLabel).length
-            ) &&
-            questions.find((question) => question.id === "piano-bflat-gminor")
-              .score.harmonicEvents.every((event) => event.answerRole === "supplied")
-          );
-          assert("featureAndModulationLayoutAnchorsDoNotCreateAnswerBoxes",
-            questions.filter((question) => ["features", "modulation"].includes(question.category))
-              .every((question) => question.score.harmonicEvents.every((event) => event.answerRole === "none"))
-          );
-
-          const preRevealLeaks = [];
-          questions.forEach((question) => {
-            appWindow.CadenceLab.showQuestion(question.id);
-            const expectedTaskCount = ["A", "M", "E"].reduce(
-              (count, level) => count + (question.tasks[level] || []).length,
-              0
-            );
-            if (appDocument.querySelectorAll("#task-list li").length !== expectedTaskCount) {
-              preRevealLeaks.push(`${question.id}: full Excellence task contract is not visible`);
-            }
-            const promptNodes = [
-              appDocument.querySelector("#question-title"),
-              appDocument.querySelector("#question-context"),
-              appDocument.querySelector("#source-attribution"),
-              appDocument.querySelector("#task-list"),
-              appDocument.querySelector("#score"),
-            ].filter(Boolean);
-            const promptText = promptNodes.map((node) => node.innerText || node.textContent)
-              .join(" ").toLocaleLowerCase("en-NZ");
-            const exposedPromptAttributes = promptNodes.flatMap((node) => [node, ...node.querySelectorAll("*")])
-              .flatMap((element) => [...element.attributes]
-                .filter((attribute) =>
-                  attribute.name === "aria-label" ||
-                  attribute.name === "title" ||
-                  attribute.name.startsWith("data-")
-                )
-                .map((attribute) => attribute.value)
-              )
-              .filter(Boolean)
-              .join(" ")
-              .toLocaleLowerCase("en-NZ");
-            question.hiddenConceptTerms.forEach((term) => {
-              const normalized = term.toLocaleLowerCase("en-NZ");
-              if (
-                promptText.includes(normalized) ||
-                exposedPromptAttributes.includes(normalized)
-              ) {
-                preRevealLeaks.push(`${question.id}: ${term}`);
-              }
-            });
-            if (
-              appDocument.querySelector("#answer-heading").textContent ||
-              appDocument.querySelector("#answer-copy").children.length ||
-              appDocument.querySelector("#criteria-grid").children.length ||
-              appDocument.querySelector("#model-score").children.length ||
-              appDocument.querySelector("#model-score").hasAttribute("aria-label")
-            ) {
-              preRevealLeaks.push(`${question.id}: prebuilt answer DOM`);
-            }
-            const permissions = appWindow.CadenceLab.getPlaybackPermissions();
-            const paper = question.interaction.type === "paper-completion";
-            if (permissions.question !== paper || permissions.context || permissions.model) {
-              preRevealLeaks.push(`${question.id}: locked playback exposed`);
-            }
-            if (permissions.student) {
-              preRevealLeaks.push(`${question.id}: removed student playback is still available`);
-            }
-          });
-          assert("allQuestionsAreSpoilerSafeBeforeReveal",
-            preRevealLeaks.length === 0,
-            preRevealLeaks
-          );
-
-          appWindow.CadenceLab.showQuestion("analysis-c-g");
-          const editableScoreBoxes = [...appDocument.querySelectorAll(".analysis-box-editable")];
-          assert("ordinaryRomanSlotsDoNotExposeSecondAnalysisControls",
-            !appDocument.querySelector("#structured-builder summary") &&
-            ![...appDocument.querySelectorAll('[data-part="inversion"] option')]
-              .some((option) => option.value === "d")
-          );
-          const romanExtent = appDocument.querySelector('[data-part="extent"]');
-          const romanInversion = appDocument.querySelector('[data-part="inversion"]');
-          romanExtent.value = "seventh";
-          romanExtent.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
-          const seventhIncludesD = [...romanInversion.options].some((option) => option.value === "d");
-          romanInversion.value = "d";
-          romanExtent.value = "triad";
-          romanExtent.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
-          assert("romanInversionControlsFollowChordSize",
-            seventhIncludesD && romanInversion.value === "root" &&
-            ![...romanInversion.options].some((option) => option.value === "d")
-          );
-          const romanQuality = appDocument.querySelector('[data-part="quality"]');
-          romanQuality.value = "half-diminished";
-          romanQuality.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
-          const halfDiminishedForcesSeventh = romanExtent.value === "seventh" &&
-            romanExtent.disabled &&
-            [...romanInversion.options].some((option) => option.value === "d") &&
-            ![...romanExtent.options].some((option) => option.value === "triad");
-          romanQuality.value = "diminished";
-          romanQuality.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
-          assert("halfDiminishedUiForcesSeventhAndRestoresNormalChoices",
-            halfDiminishedForcesSeventh && !romanExtent.disabled &&
-            ["triad", "seventh"].every((value) =>
-              [...romanExtent.options].some((option) => option.value === value)
-            )
-          );
-          appDocument.querySelectorAll(".structured-slot")[1].click();
-          assert("pivotRomanSlotsExposeSecondAnalysisControls",
-            appDocument.querySelector("#structured-builder summary")?.textContent.includes("second / pivot")
-          );
-          appDocument.querySelectorAll(".structured-slot")[0].click();
-          editableScoreBoxes[1].dispatchEvent(new appWindow.MouseEvent("click", {
-            bubbles: true,
-          }));
-          assert("clickingBlankScoreBoxOpensItsStructuredBuilder",
-            editableScoreBoxes.length === 4 &&
-            appDocument.querySelector(".structured-slot.is-active small").textContent === "Bar 2, beat 1" &&
-            !appDocument.querySelector("#structured-builder").hidden
-          );
-          appDocument.querySelector("[data-save-roman]").click();
-          assert("placingRomanAnalysisAutoAdvancesAcrossEditableBoxes",
-            appDocument.querySelector(".structured-slot.is-active small").textContent === "Bar 2, beat 3"
-          );
-
-          appWindow.CadenceLab.showQuestion("satb-f-c");
-          const paperPrePermissions = appWindow.CadenceLab.getPlaybackPermissions();
-          assert("paperSatbUsesSimpleCompletionInstructionAndSuppliedPlayback",
-            !appDocument.querySelector("#paper-completion-panel").hidden &&
-            appDocument.querySelector("#paper-completion-instruction").textContent ===
-              "Complete this harmony on paper or on a printed copy of the score." &&
-            appDocument.querySelector("#reveal-answer").textContent.includes("I’ve finished") &&
-            paperPrePermissions.question && !paperPrePermissions.student &&
-            !paperPrePermissions.context && !paperPrePermissions.model &&
-            !appDocument.querySelector('[data-playback-mode="question"]').hidden &&
-            appDocument.querySelector('[data-playback-mode="question"]').textContent ===
-              "Hear supplied passage"
-          );
-          assert("browserNotationEditorAndStudentPlaybackAreAbsent",
-            !appDocument.querySelector("#editor-panel") &&
-            !appDocument.querySelector("#voice-controls") &&
-            !appDocument.querySelector("#duration-controls") &&
-            !appDocument.querySelector("#add-to-chord") &&
-            !appDocument.querySelector("#undo-edit") &&
-            !appDocument.querySelector(".editor-hit-target") &&
-            !appDocument.querySelector('[data-playback-mode="student"]') &&
-            !appDocument.querySelector('[data-playback-mode="context"]')
-          );
-
-          appWindow.CadenceLab.showQuestion("piano-d-f");
-          assert("originalPianoUsesPaperCompletionInstruction",
-            appDocument.querySelector("#paper-completion-instruction").textContent ===
-              "Complete this piano part on paper or on a printed copy of the score." &&
-            appDocument.querySelector("#score").dataset.scoreMode === "question"
-          );
-          appWindow.CadenceLab.showQuestion("piano-bflat-gminor");
-          appWindow.CadenceLab.submit({ skipConfirmation: true, noScroll: true });
-          assert("bFlatToGMinorHasQuestionAwarePaperChecklist",
-            appDocument.querySelector("#criteria-grid").textContent.includes("dotted-quarter–quaver") &&
-            appDocument.querySelector("#criteria-grid").textContent.includes("F♯ leads to G") &&
-            appDocument.querySelector("#result-badge").textContent.includes("0 of") &&
-            appDocument.querySelector("#judgement-note").textContent.includes("not grading")
-          );
-          const portraitPrintCalls = [];
-          appWindow.print = () => portraitPrintCalls.push({
-            mode: appDocument.body.dataset.printMode,
-            orientation: appDocument.body.dataset.printOrientation,
-          });
-          appWindow.CadenceLab.print("question");
-          appWindow.CadenceLab.print("model");
-          assert("originalPaperCompletionsPrintAsSeparatePortraitA4Sheets",
-            portraitPrintCalls.length === 2 &&
-            portraitPrintCalls[0].mode === "question" &&
-            portraitPrintCalls[1].mode === "model" &&
-            portraitPrintCalls.every((call) => call.orientation === "portrait")
-          );
-
-          appWindow.CadenceLab.showQuestion("nzqa-2024-bach-satb");
-          assert("bachQuestionStartsBlankWithoutModelDom",
-            appDocument.querySelector("#score").dataset.scoreMode === "question" &&
-            !appDocument.querySelector("#model-score").children.length &&
-            appDocument.querySelector("#print-model").hidden &&
-            appWindow.getComputedStyle(appDocument.querySelector("#print-model")).display === "none" &&
-            appWindow.CadenceLab.print("model") === false
-          );
-          appWindow.CadenceLab.submit({ skipConfirmation: true, noScroll: true });
-          const bachChecklistText = appDocument.querySelector("#criteria-grid").textContent;
-          const bachPostPermissions = appWindow.CadenceLab.getPlaybackPermissions();
-          assert("bachRevealKeepsBlankQuestionAndShowsSeparateModel",
-            appDocument.querySelector("#score").dataset.scoreMode === "question" &&
-            appDocument.querySelector("#model-score").dataset.scoreMode === "model" &&
-            !appDocument.querySelector("#model-score-wrap").hidden &&
-            !appDocument.querySelector("#print-model").hidden &&
-            bachPostPermissions.question && bachPostPermissions.model &&
-            !bachPostPermissions.student && !bachPostPermissions.context
-          );
-          assert("bachChecklistNamesTwoPassingNotesAndOneV43Span",
-            bachChecklistText.includes("at least two passing notes") &&
-            bachChecklistText.includes("eight chord moments") &&
-            bachChecklistText.includes("V⁴–³ treated as one dominant span") &&
-            bachQuestion.interaction.completionRequirements.minimumPassingNotes === 2 &&
-            bachQuestion.interaction.completionRequirements.suspension === "V⁴–³"
-          );
-          const printCalls = [];
-          appWindow.print = () => printCalls.push({
-            mode: appDocument.body.dataset.printMode,
-            orientation: appDocument.body.dataset.printOrientation,
-            questionMode: appDocument.querySelector("#score").dataset.scoreMode,
-            modelMode: appDocument.querySelector("#model-score").dataset.scoreMode,
-          });
-          appWindow.CadenceLab.print("question");
-          appWindow.CadenceLab.print("model");
-          const printCss = [...appDocument.styleSheets]
-            .flatMap((sheet) => [...sheet.cssRules])
-            .map((rule) => rule.cssText)
-            .join(" ")
-            .toLocaleLowerCase("en-NZ");
-          assert("paperPrintModesSeparateBlankQuestionAndModelOnA4",
-            printCalls.length === 2 &&
-            printCalls[0].mode === "question" &&
-            printCalls[0].questionMode === "question" &&
-            printCalls[1].mode === "model" &&
-            printCalls[1].modelMode === "model" &&
-            printCalls.every((call) => call.orientation === "landscape") &&
-            printCss.includes("@page cadence-portrait { size: a4;") &&
-            printCss.includes("size: a4 landscape") &&
-            printCss.includes('body[data-print-mode="question"] .answer-panel') &&
-            printCss.includes('body[data-print-mode="model"] .score-frame') &&
-            !appDocument.body.dataset.printMode &&
-            !appDocument.body.dataset.printOrientation
-          );
-
-          const revealedConcepts = [
-            ["feature-pedal", "tonic pedal"],
-            ["feature-diminished", "diminished seventh"],
-            ["feature-chromatic-bass", "chromatic bass"],
-            ["feature-harmonic-rhythm", "harmonic-rhythm"],
-            ["feature-nonharmonic", "passing note"],
-          ];
-          const missingPostRevealConcepts = [];
-          revealedConcepts.forEach(([questionId, term]) => {
-            appWindow.CadenceLab.showQuestion(questionId);
-            appWindow.CadenceLab.submit({ skipConfirmation: true, noScroll: true });
-            if (!appDocument.body.innerText.toLocaleLowerCase("en-NZ").includes(term)) {
-              missingPostRevealConcepts.push(`${questionId}: ${term}`);
-            }
-          });
-          assert("auditedConceptLanguageAppearsAfterSubmission",
-            missingPostRevealConcepts.length === 0,
-            missingPostRevealConcepts
-          );
-
-          appWindow.CadenceLab.showQuestion("feature-diminished");
-          const beforeRevealAnswerText = appDocument.querySelector("#answer-copy").textContent.toLocaleLowerCase("en-NZ");
-          const submitted = appWindow.CadenceLab.submit({
-            skipConfirmation: true,
-            noScroll: true,
-          });
-          const afterRevealText = appDocument.body.innerText.toLocaleLowerCase("en-NZ");
-          const afterPermissions = appWindow.CadenceLab.getPlaybackPermissions();
-          assert("answerLanguageAppearsOnlyAfterSubmission",
-            submitted && !beforeRevealAnswerText.includes("diminished seventh") &&
-            afterRevealText.includes("diminished seventh")
-          );
-          assert("submissionBuildsModelDOMAndUnlocksComparisonPlayback",
-            appDocument.querySelector("#answer-copy").children.length > 0 &&
-            appDocument.querySelector("#model-score").children.length > 0 &&
-            afterPermissions.question && !afterPermissions.model && !afterPermissions.context &&
-            !appDocument.querySelector('[data-playback-mode="question"]').hidden
-          );
-
-          const authoredBuilderFailures = [];
-          const chooseBuilderValue = (selector, value, context) => {
-            const select = appDocument.querySelector(selector);
-            if (!select || ![...select.options].some((option) => option.value === value)) {
-              authoredBuilderFailures.push(`${context}: ${selector} cannot select ${value}`);
-              return false;
-            }
-            select.value = value;
-            select.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
-            return true;
-          };
-          authoredJazzQuestions.forEach((question) => {
-            appWindow.CadenceLab.showQuestion(question.id);
-            question.interaction.slots.forEach((slot) => {
-              slot.acceptedAnswers.forEach((answer) => {
-                const label = typeof answer === "string" ? answer : answer.label;
-                const chord = structured.parseJazzChordSymbol(label);
-                const context = `${question.id}/${slot.id}/${label}`;
-                const slotButton = appDocument.querySelector(`[data-slot-id="${slot.id}"]`);
-                if (!slotButton || !chord) {
-                  authoredBuilderFailures.push(`${context}: slot or semantic chord unavailable`);
-                  return;
-                }
-                slotButton.click();
-                const rootMatch = /^([A-G])([♯♭]?)$/.exec(chord.root);
-                if (!rootMatch ||
-                    !chooseBuilderValue("[data-chord-root]", rootMatch[1], context) ||
-                    !chooseBuilderValue("[data-chord-root-accidental]", rootMatch[2], context) ||
-                    !chooseBuilderValue("[data-chord-quality]", chord.quality, context) ||
-                    !chooseBuilderValue("[data-chord-extension]", chord.extension, context)) return;
-                if (chord.alteration && chord.quality === "dominant") {
-                  if (!chooseBuilderValue("[data-chord-alteration]", chord.alteration, context)) return;
-                }
-                if (chord.addition) {
-                  if (!chooseBuilderValue("[data-chord-addition]", chord.addition, context)) return;
-                }
-                if (chord.suspension) {
-                  if (!chooseBuilderValue("[data-chord-suspension]", chord.suspension, context)) return;
-                }
-                if (!chooseBuilderValue("[data-chord-bass]", chord.bass, context)) return;
-                const preview = appDocument.querySelector("[data-jazz-preview]").textContent;
-                if (preview !== label) {
-                  authoredBuilderFailures.push(`${context}: preview formatted ${preview}`);
-                  return;
-                }
-                appDocument.querySelector("[data-place-built]").click();
-                const state = appWindow.CadenceLab.getStructuredAnswer();
-                const placed = structured.formatValue(
-                  state.slots[slot.id], question.interaction.type
-                );
-                const status = structured.comparison(question, state).slots.find(
-                  (candidate) => candidate.id === slot.id
-                )?.status;
-                if (placed !== label || status !== "matches") {
-                  authoredBuilderFailures.push(`${context}: placed ${placed}, status ${status}`);
-                }
-              });
-            });
-          });
-          assert("standardBuilderProducesEveryAuthoredAcceptedJazzAnswer",
-            authoredBuilderFailures.length === 0,
-            authoredBuilderFailures
-          );
-          appWindow.CadenceLab.showQuestion("nzqa-2024-commercial-chromatic-bass");
-          chooseBuilderValue("[data-chord-root]", "C", "C♯m(add9)");
-          chooseBuilderValue("[data-chord-root-accidental]", "♯", "C♯m(add9)");
-          chooseBuilderValue("[data-chord-quality]", "minor", "C♯m(add9)");
-          chooseBuilderValue("[data-chord-extension]", "triad", "C♯m(add9)");
-          chooseBuilderValue("[data-chord-addition]", "add9", "C♯m(add9)");
-          assert("standardBuilderAlsoConstructsTheSupplied2024MinorAddNine",
-            appDocument.querySelector("[data-jazz-preview]").textContent === "C♯m(add9)"
-          );
-
-          appWindow.CadenceLab.showGeneratedQuestion("ui-generated-smoke");
-          const generatedQuestionAtLoad = appWindow.CadenceLab.getCurrentQuestion();
-          const renderedMeasureKeyLabels = [...appDocument.querySelectorAll(
-            "#score .measure-key-label"
-          )].map((label) => label.textContent);
-          assert("generatedPracticeHasFourIndependentChordBoxesAndVariantId",
-            appDocument.querySelector("#category").value === "chord-identification" &&
-            appDocument.querySelector("#source-type").value === "generated-practice" &&
-            appDocument.querySelector("#variant-chip").textContent.startsWith("CID-") &&
-            appDocument.querySelectorAll(".analysis-box-editable").length === 4
-          );
-          assert("everyGeneratedMeasureShowsItsOwnKeyContext",
-            JSON.stringify(renderedMeasureKeyLabels) === JSON.stringify(
-              generatedQuestionAtLoad.score.measures.map((measure) => measure.keyLabel)
-            ) &&
-            JSON.stringify(JSON.parse(appDocument.querySelector("#score").dataset.measureKeyLabels)) ===
-              JSON.stringify(renderedMeasureKeyLabels) &&
-            generatedQuestionAtLoad.score.measures.every((measure) =>
-              Boolean(measure.keySignature)
-            )
-          );
-          assert("semanticJazzBuilderIsPrimaryAndHintBankStartsClosed",
-            appDocument.querySelector("[data-chord-quality]") &&
-            appDocument.querySelector("[data-chord-extension]") &&
-            appDocument.querySelector("[data-chord-alteration]") &&
-            appDocument.querySelector("[data-chord-suspension]") &&
-            !appDocument.querySelector(".hint-bank").open &&
-            appDocument.querySelector(".hint-bank summary").textContent.includes("Need a hint")
-          );
-          const jazzRoot = appDocument.querySelector("[data-chord-root]");
-          const jazzQuality = appDocument.querySelector("[data-chord-quality]");
-          const jazzExtension = appDocument.querySelector("[data-chord-extension]");
-          const jazzAlteration = appDocument.querySelector("[data-chord-alteration]");
-          const jazzBass = appDocument.querySelector("[data-chord-bass]");
-          jazzRoot.value = "C";
-          jazzRoot.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
-          jazzQuality.value = "dominant";
-          jazzQuality.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
-          jazzExtension.value = "7";
-          jazzExtension.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
-          jazzAlteration.value = "b9";
-          jazzAlteration.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
-          jazzBass.value = "B♭";
-          jazzBass.dispatchEvent(new appWindow.Event("change", { bubbles: true }));
-          assert("semanticJazzBuilderFormatsCompatibleChordParts",
-            appDocument.querySelector("[data-jazz-preview]").textContent === "C7♭9/B♭"
-          );
-          appDocument.querySelector("[data-place-built]").click();
-          const builtJazzAnswer = appWindow.CadenceLab.getStructuredAnswer().slots["generated-chord-1"];
-          assert("semanticJazzBuilderStoresStructuredChordAndAutoAdvances",
-            builtJazzAnswer.chord.formula === "dominant-flat-nine" &&
-            builtJazzAnswer.chord.root === "C" && builtJazzAnswer.chord.bass === "B♭" &&
-            appWindow.CadenceLab.getStructuredAnswer().activeSlotId === "generated-chord-2"
-          );
-          const generatedStateBeforeHint = JSON.stringify(appWindow.CadenceLab.getStructuredAnswer().slots);
-          appDocument.querySelector(".hint-bank summary").click();
-          assert("openingJazzHintBankDoesNotResetAnswers",
-            JSON.stringify(appWindow.CadenceLab.getStructuredAnswer().slots) === generatedStateBeforeHint
-          );
-          const generatedQuestionForComparison = appWindow.CadenceLab.getCurrentQuestion();
-          const acceptedFirstLabel = generatedQuestionForComparison.interaction.slots[0].acceptedAnswers[0].label;
-          appDocument.querySelector('[data-slot-id="generated-chord-1"]').click();
-          [...appDocument.querySelectorAll("[data-token-id]")].find(
-            (button) => button.textContent === acceptedFirstLabel && !button.disabled
-          )?.click();
-          appWindow.CadenceLab.submit({ skipConfirmation: true, noScroll: true });
-          assert("singleIdentityGeneratedComparisonUsesIntendedAnalysisLanguage",
-            appDocument.querySelector("#student-comparison").textContent.includes("matches intended analysis") &&
-            appDocument.querySelector("#student-comparison").textContent.includes("Intended analysis") &&
-            !appDocument.querySelector("#student-comparison").textContent.includes("Accepted analyses")
-          );
-
-          appWindow.CadenceLab.showQuestion("practice-2025-integrated-tonality");
-          const contextualTextarea = appDocument.querySelector(
-            '[data-field-id="tonal-route"]'
-          );
-          contextualTextarea.value = "A supported tonal route with evidence.";
-          contextualTextarea.dispatchEvent(new appWindow.Event("input", { bubbles: true }));
-          appWindow.CadenceLab.submit({ skipConfirmation: true, noScroll: true });
-          assert("contextualWritingUsesRecordedSelfCheckNotAutomatedGrade",
-            appDocument.querySelector("#student-comparison").textContent.includes(
-              "does not assign an automatic NCEA grade"
-            ) &&
-            appDocument.querySelectorAll(
-              '#student-comparison .comparison-item[data-status="recorded"]'
-            ).length === appWindow.CadenceLab.getCurrentQuestion().interaction.fields.length &&
-            !appDocument.querySelector("#student-comparison").textContent.includes("matches model")
-          );
-
-          appWindow.CadenceLab.showQuestion("nzqa-2024-commercial-chromatic-bass");
-          assert("loveIsCommercialKeepsStructuredJazzInteraction",
-            appDocument.querySelector("#paper-completion-panel").hidden &&
-            !appDocument.querySelector("#structured-response-panel").hidden &&
-            appDocument.querySelector("[data-chord-quality]") &&
-            appDocument.querySelectorAll(".analysis-box-editable").length === 10 &&
-            appDocument.querySelector(".hint-bank")
-          );
-
-          finish();
-        } catch (error) {
-          finish(error);
-        }
-      }, { once: true });
-    </script>
-  </body>
+      finish();
+    } catch (error) {
+      finish(error);
+    }
+  });
+</script>
+</body>
 </html>
