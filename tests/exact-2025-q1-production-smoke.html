@@ -2,7 +2,7 @@
 <html lang="en-NZ">
 <head><meta charset="utf-8"><title>2025 Q1 production-loading smoke test</title></head>
 <body data-status="running">
-<iframe id="app" title="Cadence Lab production frame" src="../index.html?question=nzqa-2025-bach-analysis" style="width:1100px;height:950px"></iframe>
+<iframe id="app" title="Cadence Lab production frame" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-21" style="width:1100px;height:950px"></iframe>
 <pre id="results">Running…</pre>
 <script>
   const frame = document.querySelector('#app');
@@ -21,14 +21,18 @@
   }
   window.addEventListener('error', event => finish(event.error || event.message));
   window.addEventListener('unhandledrejection', event => finish(event.reason));
-  frame.addEventListener('load', () => {
+  const nextTurn = w => new Promise(resolve => w.setTimeout(resolve, 0));
+
+  frame.addEventListener('load', async () => {
     try {
       const w = frame.contentWindow;
       const d = frame.contentDocument;
       const lab = w.CadenceLab;
       const validator = w.CadenceQuestionValidator?.report;
+      const displayAudit = w.CadenceScoreDisplay?.initialAudit;
       assert('production-app-loaded', Boolean(lab));
       assert('production-validator-valid', validator?.valid === true, validator?.errors);
+      assert('production-display-audit-valid', displayAudit?.valid === true, displayAudit?.errors);
       assert('production-has-eight-exact-nzqa-references', validator?.referenceCount === 8, validator?.referenceCount);
       const yearState = lab.referenceYearState('nzqa-reference');
       assert('production-has-three-2025-references', yearState.counts?.[2025] === 3, yearState);
@@ -37,20 +41,31 @@
       let current = lab.getCurrentQuestion();
       assert('q1a-request-loads-exact-reference', current?.id === 'nzqa-2025-bach-analysis' && current.sourceSpec?.transcriptionMode === 'exact');
       assert('q1a-production-score-is-satb', d.querySelector('#score')?.dataset.layout === 'satb');
+      assert('q1a-score-bars-are-5-through-9', d.querySelector('#score')?.dataset.barNumbers === '[5,6,7,8,9]' && d.querySelectorAll('#score .measure-bar-number').length === 5, d.querySelector('#score')?.dataset.barNumbers);
       assert('q1a-production-has-twelve-editable-boxes', d.querySelectorAll('#score .analysis-box-editable').length === 12);
+      assert('q1a-twelve-blank-boxes-are-visible-before-submit', d.querySelector('#score')?.dataset.blankEditableAnalysisBoxCount === '12');
       const q1aPivot = current.interaction?.slots?.find(slot => slot.label === 'Bar 8, beat 4');
       assert('q1a-production-response-slot-has-correct-return-pivot', Boolean(q1aPivot) && q1aPivot.harmonicIndex === 11, current.interaction?.slots);
+
+      assert('q1a-submit-succeeds', lab.submit({skipConfirmation:true, noScroll:true}) === true);
+      await nextTurn(w);
+      assert('q1a-model-reveals-on-original-score', d.querySelector('#score')?.dataset.scoreMode === 'model');
+      assert('q1a-no-duplicate-model-extract-below', d.querySelector('#model-score-wrap')?.hidden === true && !d.querySelector('#model-score')?.childNodes.length);
+      assert('q1a-model-shows-all-analysis-labels-on-main-score', d.querySelectorAll('#score .analysis-box-group').length === 15 && d.querySelectorAll('#score .analysis-box-label').length === 15);
+      assert('q1a-bar-numbers-remain-visible-after-reveal', d.querySelector('#score')?.dataset.barNumbers === '[5,6,7,8,9]');
 
       lab.showQuestion('nzqa-2025-bach-modulation');
       current = lab.getCurrentQuestion();
       assert('q1b-production-loads-exact-reference', current?.id === 'nzqa-2025-bach-modulation' && current.sourceSpec?.transcriptionMode === 'exact');
       assert('q1b-production-renders-three-brackets', d.querySelectorAll('#score .analysis-bracket').length >= 3);
       assert('q1b-production-has-full-twelve-measure-surface', d.querySelector('#score')?.dataset.measureCount === '12');
+      assert('q1b-score-bars-are-9-through-20', d.querySelector('#score')?.dataset.barNumbers === '[9,10,11,12,13,14,15,16,17,18,19,20]' && d.querySelectorAll('#score .measure-bar-number').length === 12, d.querySelector('#score')?.dataset.barNumbers);
       assert('q1b-production-source-brackets-xyz', current.score.brackets.map(item => item.label).join('') === 'XYZ');
 
       lab.showQuestion('nzqa-2025-bach-satb');
       current = lab.getCurrentQuestion();
       assert('q1c-production-loads-paper-reference', current?.id === 'nzqa-2025-bach-satb' && current.interaction?.type === 'paper-completion');
+      assert('q1c-score-bars-are-21-through-24', d.querySelector('#score')?.dataset.barNumbers === '[21,22,23,24]' && d.querySelectorAll('#score .measure-bar-number').length === 4, d.querySelector('#score')?.dataset.barNumbers);
       assert('q1c-production-paper-panel-visible', d.querySelector('#paper-completion-panel')?.hidden === false);
       assert('q1c-production-no-structured-answer-state', lab.getStructuredAnswer() == null);
       assert('q1c-production-ten-visible-paper-boxes', d.querySelectorAll('#score .analysis-box-group').length === 10);
@@ -61,8 +76,11 @@
       assert('q1c-supplied-playback-available-before-reveal', permissionsBefore.question === true && permissionsBefore.model === false, permissionsBefore);
 
       assert('q1c-submit-succeeds', lab.submit({skipConfirmation:true, noScroll:true}) === true);
+      await nextTurn(w);
       assert('q1c-submitted', lab.isSubmitted() === true);
-      assert('q1c-model-renders-ten-labelled-boxes', d.querySelectorAll('#model-score .analysis-box-group').length === 10 && d.querySelectorAll('#model-score .analysis-box-label').length === 10);
+      assert('q1c-paper-question-stays-on-main-score', d.querySelector('#score')?.dataset.scoreMode === 'question');
+      assert('q1c-separate-model-remains-for-paper-completion', d.querySelector('#model-score-wrap')?.hidden === false && d.querySelectorAll('#model-score .analysis-box-group').length === 10);
+      assert('q1c-model-renders-ten-labelled-boxes', d.querySelectorAll('#model-score .analysis-box-label').length === 10);
       assert('q1c-model-print-becomes-available', d.querySelector('#print-model')?.hidden === false);
       const permissionsAfter = lab.getPlaybackPermissions();
       assert('q1c-model-playback-unlocks-after-reveal', permissionsAfter.model === true, permissionsAfter);
