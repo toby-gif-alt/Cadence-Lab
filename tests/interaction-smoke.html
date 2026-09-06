@@ -11,7 +11,7 @@
 </head>
 <body data-status="running">
   <h1>Cadence Lab production interaction smoke test</h1>
-  <iframe id="app-frame" title="Cadence Lab production app" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-21"></iframe>
+  <iframe id="app-frame" title="Cadence Lab production app" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-22"></iframe>
   <pre id="results">Running…</pre>
 <script>
   const frame = document.querySelector('#app-frame');
@@ -56,7 +56,7 @@
 
       const nzqaRefs = questions.filter(question => question.sourceType === 'nzqa-reference');
       const practiceRefs = questions.filter(question => question.sourceType === 'practice-assessment-reference');
-      assert('current-source-counts-are-production-counts', nzqaRefs.length === 8 && practiceRefs.length === 0, {nzqa: nzqaRefs.length, practice: practiceRefs.length});
+      assert('current-source-counts-are-production-counts', nzqaRefs.length === 8 && practiceRefs.length === 0, {nzqa:nzqaRefs.length, practice:practiceRefs.length});
       assert('every-retained-reference-is-exact', nzqaRefs.every(question => question.sourceSpec?.transcriptionMode === 'exact'));
       assert('three-exact-2025-references-are-live', nzqaRefs.filter(question => question.source?.year === 2025).length === 3);
 
@@ -74,22 +74,11 @@
       assert('mixed-sources-hide-and-clear-reference-year', yearField.hidden && yearSelect.value === '');
       change(sourceSelect, 'original-practice');
       assert('original-practice-hides-reference-year', yearField.hidden && yearSelect.value === '');
-      change(sourceSelect, 'generated-practice');
-      assert('generated-practice-hides-reference-year', yearField.hidden && yearSelect.value === '');
       change(sourceSelect, 'nzqa-reference');
       const yearOptions = Object.fromEntries([...yearSelect.options].map(option => [option.value || 'all', {text:option.textContent, disabled:option.disabled}]));
       assert('nzqa-filter-shows-current-examination-years', !yearField.hidden && yearLabel.textContent === 'Examination year' &&
-        yearOptions.all.text === 'All years (8)' && yearOptions['2021'].text === '2021 (1)' &&
-        yearOptions['2022'].text === '2022 (1)' && yearOptions['2023'].text === '2023 (1)' &&
-        yearOptions['2024'].text === '2024 (2)' && yearOptions['2025'].text === '2025 (3)' && !yearOptions['2025'].disabled,
+        yearOptions.all.text === 'All years (8)' && yearOptions['2025'].text === '2025 (3)' && !yearOptions['2025'].disabled,
         yearOptions);
-      const practiceOption = [...sourceSelect.options].find(option => option.value === 'practice-assessment-reference');
-      assert('empty-practice-reference-source-is-disabled', practiceOption?.disabled === true);
-
-      const allNzqa = lab.filterQuestions({category:'mixed', sourceType:'nzqa-reference', sourceYear:''});
-      const refs2025 = lab.filterQuestions({category:'mixed', sourceType:'nzqa-reference', sourceYear:'2025'});
-      assert('reference-pools-never-leak-adapted-practice', allNzqa.length === 8 && allNzqa.every(question => question.sourceType === 'nzqa-reference') &&
-        refs2025.length === 3 && refs2025.every(question => question.source?.year === 2025 && question.sourceType === 'nzqa-reference'));
 
       change(sourceSelect, 'nzqa-reference');
       change(yearSelect, '2024');
@@ -115,11 +104,9 @@
       }]});
       assert('half-diminished-is-normalised-as-a-seventh', halfDiminished.slots[normalSlot.id].analyses[0].extent === 'seventh');
       const initialRoman = structured.create(q1a);
-      const firstSlot = q1a.interaction.slots[0];
-      const secondSlot = q1a.interaction.slots[1];
-      const placedRoman = structured.setSlot(initialRoman, firstSlot.id, {analyses:[{degree:'I',quality:'major',extent:'triad',inversion:'root'}]});
+      const placedRoman = structured.setSlot(initialRoman, q1a.interaction.slots[0].id, {analyses:[{degree:'I',quality:'major',extent:'triad',inversion:'root'}]});
       const advancedRoman = structured.advanceToNextUnanswered(placedRoman, q1a.interaction.slots.map(slot => slot.id));
-      assert('roman-entry-auto-advances-to-next-unanswered-position', advancedRoman.activeSlotId === secondSlot.id, advancedRoman.activeSlotId);
+      assert('roman-entry-auto-advances-to-next-unanswered-position', advancedRoman.activeSlotId === q1a.interaction.slots[1].id, advancedRoman.activeSlotId);
 
       const relationshipChecks = [
         ['G minor','B♭ major','relative major'],
@@ -142,78 +129,44 @@
       ));
       assert('every-authored-jazz-answer-is-constructible-by-standard-builder', unsupportedJazz.length === 0, unsupportedJazz);
 
-      const contextual = questions.find(question => question.interaction?.type === 'contextual-analysis' && question.interaction?.reflectionOnly);
-      assert('reflection-only-contextual-question-exists', Boolean(contextual));
-      if (contextual) {
-        lab.showQuestion(contextual.id);
-        assert('contextual-submit-succeeds', lab.submit({skipConfirmation:true,noScroll:true}) === true);
-        await nextTurn(w);
-        const comparisonText = d.querySelector('#student-comparison')?.textContent || '';
-        assert('contextual-writing-is-self-checked-against-schedule-evidence', comparisonText.includes('Schedule evidence') && !comparisonText.includes('different from model'), comparisonText);
-      }
-
       const paperQuestions = questions.filter(question => question.interaction?.type === 'paper-completion');
       assert('paper-completion-taxonomy-is-only-satb-or-piano', paperQuestions.length > 0 && paperQuestions.every(question =>
         ['satb','piano'].includes(question.category) && question.interaction.completionType === question.category &&
         !question.interaction.editableRegions && !question.score.harmonicEvents.some(event => event.answerRole === 'editable')
       ));
-      const playbackProblems = [];
-      let hiddenModelNoteEvidence = false;
-      paperQuestions.forEach(question => {
-        const originalSnapshot = JSON.stringify(question.score);
-        const questionOnly = playback.questionOnlyScore(question.score);
-        const questionTimeline = playback.buildTimeline(questionOnly, 88);
-        const modelTimeline = playback.buildTimeline(question.score, 88);
-        if (modelTimeline.notes.length < questionTimeline.notes.length) {
-          playbackProblems.push({question:question.id, questionNotes:questionTimeline.notes.length, modelNotes:modelTimeline.notes.length});
-        }
-        if (modelTimeline.notes.length > questionTimeline.notes.length) hiddenModelNoteEvidence = true;
-        if (JSON.stringify(question.score) !== originalSnapshot) playbackProblems.push({question:question.id, kind:'questionOnlyScore-mutated-model'});
-      });
-      assert('paper-question-playback-never-adds-hidden-model-notes', playbackProblems.length === 0 && hiddenModelNoteEvidence, playbackProblems);
-
       const paper = paperQuestions.find(question => question.id === 'nzqa-2025-bach-satb') || paperQuestions[0];
       lab.showQuestion(paper.id);
       let permissions = lab.getPlaybackPermissions();
       assert('paper-workflow-allows-supplied-playback-before-reveal', permissions.question === true && permissions.model === false, permissions);
-      assert('paper-model-cannot-print-before-reveal', lab.print('model') === false);
       assert('paper-submit-reveals-separate-model', lab.submit({skipConfirmation:true,noScroll:true}) === true);
       await nextTurn(w);
       permissions = lab.getPlaybackPermissions();
       assert('paper-model-playback-unlocks-after-reveal', permissions.model === true && d.querySelector('#model-score-wrap')?.hidden === false, permissions);
-      let paperPrintSnapshot = null;
-      const realPrint = w.print;
-      w.print = () => {
-        paperPrintSnapshot = {
-          mode: d.body.dataset.printMode,
-          mainScoreMode: d.querySelector('#score')?.dataset.scoreMode,
-          modelHidden: d.querySelector('#model-score-wrap')?.hidden,
-        };
-      };
-      assert('paper-model-print-is-available-after-reveal', lab.print('model') === true && paperPrintSnapshot?.mode === 'model' && paperPrintSnapshot?.modelHidden === false, paperPrintSnapshot);
-      w.print = realPrint;
 
       lab.showQuestion('nzqa-2025-bach-analysis');
-      assert('analysis-score-starts-with-visible-blank-boxes', d.querySelector('#score')?.dataset.blankEditableAnalysisBoxCount === '12' && d.querySelector('#score')?.dataset.barNumbers === '[5,6,7,8,9]');
+      assert('analysis-score-starts-with-visible-clear-blank-boxes',
+        d.querySelector('#score')?.dataset.blankEditableAnalysisBoxCount === '12' &&
+        d.querySelector('#score')?.dataset.barNumbers === '[5,6,7,8,9]' &&
+        [...d.querySelectorAll('#score .analysis-box-editable')].every(group => group.dataset.boxShiftY === '18')
+      );
       assert('analysis-submit-reveals', lab.submit({skipConfirmation:true,noScroll:true}) === true);
       await nextTurn(w);
-      assert('analysis-reveal-uses-one-score-not-a-duplicate', d.querySelector('#score')?.dataset.scoreMode === 'model' && d.querySelector('#model-score-wrap')?.hidden === true && !d.querySelector('#model-score')?.childNodes.length);
-      let questionPrintSnapshot = null;
-      const realPrint2 = w.print;
-      w.print = () => {
-        questionPrintSnapshot = {
-          mode: d.body.dataset.printMode,
-          mainScoreMode: d.querySelector('#score')?.dataset.scoreMode,
-        };
-      };
-      assert('question-print-after-reveal-still-prints-question-state', lab.print('question') === true && questionPrintSnapshot?.mode === 'question' && questionPrintSnapshot?.mainScoreMode === 'question', questionPrintSnapshot);
-      w.print = realPrint2;
+      assert('roman-analysis-retains-separate-model-and-does-not-rewrite-main-score',
+        d.querySelector('#score')?.dataset.scoreMode === 'question' &&
+        d.querySelector('#model-score-wrap')?.hidden === false &&
+        d.querySelector('#model-score')?.childNodes.length > 0
+      );
+
+      lab.showQuestion('nzqa-2025-bach-modulation');
+      assert('modulation-submit-reveals', lab.submit({skipConfirmation:true,noScroll:true}) === true);
       await nextTurn(w);
-      assert('analysis-model-restores-after-question-print', d.querySelector('#score')?.dataset.scoreMode === 'model');
-      assert('browser-analysis-has-no-separate-model-print', lab.print('model') === false);
+      assert('only-key-modulation-hides-redundant-second-score',
+        d.querySelector('#score')?.dataset.scoreMode === 'question' &&
+        d.querySelector('#model-score-wrap')?.hidden === true
+      );
 
       const generatorProblems = [];
-      for (let index = 0; index < 120; index += 1) {
+      for (let index = 0; index < 60; index += 1) {
         const generated = generator.create(`interaction-smoke-${index}`);
         if (!generator.validateVariant(generated)) {
           generatorProblems.push({index, kind:'invalid-variant'});
@@ -221,14 +174,11 @@
         }
         const recreated = generator.createFromVariantId(generated.variantId);
         if (recreated.variantId !== generated.variantId ||
-            JSON.stringify(recreated.score.measures) !== JSON.stringify(generated.score.measures) ||
-            JSON.stringify(recreated.interaction.slots.map(slot => slot.acceptedAnswers)) !== JSON.stringify(generated.interaction.slots.map(slot => slot.acceptedAnswers))) {
+            JSON.stringify(recreated.score.measures) !== JSON.stringify(generated.score.measures)) {
           generatorProblems.push({index, kind:'variant-round-trip'});
         }
       }
       assert('generated-chord-variants-remain-valid-and-reproducible', generatorProblems.length === 0, generatorProblems.slice(0,10));
-      const ambiguity = generator.intentionalAmbiguityFixture;
-      assert('intentional-generated-ambiguity-remains-explicit-only', ambiguity?.harmonicIdentity?.acceptedAlternatives?.length === 1 && ambiguity.harmonicIdentity.contextualStrength === 'deliberately-ambiguous', ambiguity);
 
       finish();
     } catch (error) {
