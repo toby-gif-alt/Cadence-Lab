@@ -296,13 +296,13 @@ const studentPresentationById = {
   "nzqa-2021-valentine-techniques": {
     title: "Adapted: chord and harmonic-feature analysis",
     context:
-      "Complete the chord boxes above bars 21–29, classify the marked X, Y and Z melody notes, and explain the two harmonic techniques operating in bars 21–25.",
+      "Complete the chord boxes above displayed bars 1–9, classify the marked X, Y and Z melody notes, and explain the two harmonic techniques operating in displayed bars 1–5.",
     hiddenConceptTerms: ["tonic pedal", "pedal point", "minor-line harmony"],
   },
   "nzqa-2024-commercial-chromatic-bass": {
     title: "Adapted: chord and bass-line analysis",
     context:
-      "Analyse the eleven boxed positions in bars 19–28, including both sonorities in bar 23, then explain the bass movement and rate of harmonic change in bars 24–28.",
+      "Analyse the eleven boxed positions in displayed bars 1–10, including both sonorities in displayed bar 5, then explain the bass movement and rate of harmonic change in displayed bars 6–10.",
     hiddenConceptTerms: ["chromatic bass", "one chord per bar"],
   },
   "jazz-c-turnaround": {
@@ -392,7 +392,7 @@ const completionInteractions = {
     requiredParts: ["bass line", "two inner parts"],
     texture: "Beethoven legato piano texture",
     selfCheck: [
-      "Bars 10–13 retain the printed melody and all eight Roman-numeral indications.",
+      "The displayed completion region retains the melody and all eight Roman-numeral indications.",
       "The bass line and two inner parts continue the first chord's spacing and legato texture.",
       "The harmonic route moves from B♭ major through F major to C major without changing the supplied melody.",
     ],
@@ -404,8 +404,8 @@ const completionInteractions = {
     requiredParts: ["bass line", "two inner parts"],
     texture: "flowing 3/8 piano texture",
     selfCheck: [
-      "Bars 21–24 retain the printed melody and all seven Roman-numeral indications.",
-      "The bass line and two inner parts continue the rhythmic texture established in bar 20.",
+      "Displayed bars 2–5 retain the melody and all seven Roman-numeral indications.",
+      "The bass line and two inner parts continue the rhythmic texture established in displayed bar 1.",
       "The chromatic iv chord and diminished-seventh harmony resolve convincingly into the final first-inversion tonic.",
     ],
   }, { printOrientation: "landscape" }),
@@ -441,8 +441,8 @@ const completionInteractions = {
     requiredParts: ["bass line", "two inner parts"],
     texture: "Schubert two-part melodic and quaver-bass piano texture",
     selfCheck: [
-      "Bars 20–24 retain the printed melody and all eight Roman-numeral indications.",
-      "The bass line and two inner parts continue the piano writing established in bars 19–20.",
+      "Displayed bars 2–6 retain the melody and all eight Roman-numeral indications.",
+      "The bass line and two inner parts continue the piano writing established in displayed bar 1.",
       "The final V7–I motion is clear and the added notes remain playable and stylistically consistent.",
     ],
   }, { printOrientation: "landscape" }),
@@ -453,7 +453,7 @@ const completionInteractions = {
     requiredParts: ["bass line", "two inner parts"],
     texture: "Billy Joel piano accompaniment pattern",
     selfCheck: [
-      "Bars 15–22 preserve the supplied melody and all ten printed chord indications.",
+      "Displayed bars 2–8 preserve the supplied melody and all ten printed chord indications.",
       "The bass line and two inner parts continue the opening pop-piano texture.",
       "Added sevenths, ninths and inversions are voiced cleanly without obscuring the melody.",
     ],
@@ -835,9 +835,9 @@ function jazzInteraction(config, score) {
   };
   if (config.id === "nzqa-2021-valentine-techniques") {
     interaction.fields = [
-      { id: "x", label: "X", kind: "classification", choices: nonHarmonicToneChoices, acceptedAnswers: [{ label: "auxiliary / neighbour note" }] },
+      { id: "x", label: "X", kind: "classification", choices: nonHarmonicToneChoices, acceptedAnswers: [{ label: "appoggiatura" }] },
       { id: "y", label: "Y", kind: "classification", choices: nonHarmonicToneChoices, acceptedAnswers: [{ label: "accented passing note" }] },
-      { id: "z", label: "Z", kind: "classification", choices: nonHarmonicToneChoices, acceptedAnswers: [{ label: "appoggiatura" }] },
+      { id: "z", label: "Z", kind: "classification", choices: nonHarmonicToneChoices, acceptedAnswers: [{ label: "passing note" }] },
       { id: "technique-1", label: "Harmonic technique 1", kind: "classification", choices: harmonicTechniqueChoices, acceptedAnswers: [{ label: "descending chromatic inner line" }, { label: "tonic pedal" }] },
       { id: "technique-2", label: "Harmonic technique 2", kind: "classification", choices: harmonicTechniqueChoices, acceptedAnswers: [{ label: "descending chromatic inner line" }, { label: "tonic pedal" }] },
     ];
@@ -1074,6 +1074,7 @@ function createAdaptedQuestion(config) {
     `“${reference.title}”`,
   ].filter(Boolean).join(" · ");
   const basePresentation = config.presentation || studentPresentationById[config.id];
+  const measureCount = config.score?.measures?.length || 0;
   return createQuestion({
     ...config,
     sourceType: "original-practice",
@@ -1083,8 +1084,13 @@ function createAdaptedQuestion(config) {
       ...basePresentation,
       title: adaptedLabel(basePresentation?.title || config.title),
     },
+    sourceSpec: config.sourceSpec ? {
+      ...config.sourceSpec,
+      displayedBars: measureCount ? `1–${measureCount}` : undefined,
+    } : undefined,
     score: {
       ...config.score,
+      barNumbers: Array.from({ length: measureCount }, (_, index) => index + 1),
       caption: `Original Cadence Lab adaptation • informed by ${provenance}`,
     },
   });
@@ -2057,8 +2063,8 @@ const questionBank = [
         harmonicBox(3, 3, null, "I", { questionLabel: "I", chordSymbol: "C" }),
       ],
       nonHarmonicNotes: [
-        { measure: 2, event: 1, pitch: "G4", chordSymbol: "F", type: "passing note" },
-        { measure: 2, event: 3, pitch: "E4", chordSymbol: "F/A", type: "passing note" },
+        { measure: 2, event: 1, voice: "alto", pitch: "G4", chordSymbol: "F", type: "passing note" },
+        { measure: 2, event: 3, voice: "alto", pitch: "E4", chordSymbol: "G7", type: "passing note" },
       ],
     }),
     answerHeading: "One possible model completion",
@@ -2085,17 +2091,17 @@ const questionBank = [
       caption: "Original practice • SATB in F major and C major",
       measures: [
         { events: [
-          { voices: { soprano: "A4", alto: "F4", tenor: "C3", bass: "F2" }, questionVoices: { soprano: "A4", bass: "F2" }, duration: "q" },
-          { voices: { soprano: "Bb4", alto: "F4", tenor: "D3", bass: "Bb2" }, questionVoices: { soprano: "Bb4", bass: "Bb2" }, duration: "q" },
-          { voices: { soprano: "Bb4", alto: "E4", tenor: "G3", bass: "C3" }, questionVoices: { soprano: "Bb4", bass: "C3" }, duration: "q" },
-          { voices: { soprano: "A4", alto: "F4", tenor: "C3", bass: "F2" }, questionVoices: { soprano: "A4", bass: "F2" }, duration: "q" },
+          { voices: { soprano: "A4", alto: "F4", tenor: "C4", bass: "F2" }, questionVoices: { soprano: "A4", bass: "F2" }, duration: "q" },
+          { voices: { soprano: "Bb4", alto: "F4", tenor: "D4", bass: "Bb2" }, questionVoices: { soprano: "Bb4", bass: "Bb2" }, duration: "q" },
+          { voices: { soprano: "G4", alto: "E4", tenor: "Bb3", bass: "C3" }, questionVoices: { soprano: "G4", bass: "C3" }, duration: "q" },
+          { voices: { soprano: "C5", alto: "F4", tenor: "A3", bass: "F2" }, questionVoices: { soprano: "C5", bass: "F2" }, duration: "q" },
         ] },
         { events: [
-          { voices: { soprano: "C5", alto: "F4", tenor: "A3", bass: "C3" }, questionVoices: { soprano: "C5", bass: "C3" }, duration: "h" },
-          { voices: { soprano: "B4", alto: "F4", tenor: "D3", bass: "G2" }, questionVoices: { soprano: "B4", bass: "G2" }, duration: "h" },
+          { voices: { soprano: "F5", alto: "A4", tenor: "A3", bass: "C3" }, questionVoices: { soprano: "F5", bass: "C3" }, duration: "h" },
+          { voices: { soprano: "F5", alto: "B4", tenor: "D4", bass: "G3" }, questionVoices: { soprano: "F5", bass: "G3" }, duration: "h" },
         ] },
         { endBarline: "final", events: [
-          { voices: { soprano: "C5", alto: "G4", tenor: "E3", bass: "C3" }, questionVoices: { soprano: "C5", bass: "C3" }, duration: "w" },
+          { voices: { soprano: "E5", alto: "C5", tenor: "G4", bass: "C3" }, questionVoices: { soprano: "E5", bass: "C3" }, duration: "w" },
         ] },
       ],
       harmonicEvents: [
@@ -2131,17 +2137,17 @@ const questionBank = [
       caption: "Original practice • SATB cadence in G minor",
       measures: [
         { events: [
-          { voices: { soprano: "G5", alto: "Bb4", tenor: "D3", bass: "G2" }, questionVoices: { soprano: "G5", bass: "G2" }, duration: "h" },
-          { voices: { soprano: "G5", alto: "C5", tenor: "Eb3", bass: "C3" }, questionVoices: { soprano: "G5", bass: "C3" }, duration: "h" },
+          { voices: { soprano: "G5", alto: "Bb4", tenor: "D4", bass: "G2" }, questionVoices: { soprano: "G5", bass: "G2" }, duration: "h" },
+          { voices: { soprano: "Eb5", alto: "G4", tenor: "C4", bass: "C3" }, questionVoices: { soprano: "Eb5", bass: "C3" }, duration: "h" },
         ] },
         { events: [
-          { voices: { soprano: "F#5", alto: "C5", tenor: "A3", bass: "D3" }, questionVoices: { soprano: "F#5", bass: "D3" }, duration: "h" },
-          { voices: { soprano: "G5", alto: "Bb4", tenor: "D3", bass: "G2" }, questionVoices: { soprano: "G5", bass: "G2" }, duration: "h" },
+          { voices: { soprano: "C5", alto: "F#4", tenor: "A3", bass: "D3" }, questionVoices: { soprano: "C5", bass: "D3" }, duration: "h" },
+          { voices: { soprano: "Bb4", alto: "G4", tenor: "D4", bass: "G2" }, questionVoices: { soprano: "Bb4", bass: "G2" }, duration: "h" },
         ] },
         { endBarline: "final", events: [
-          { voices: { soprano: "Eb5", alto: "G4", tenor: "C3", bass: "C3" }, questionVoices: { soprano: "Eb5", bass: "C3" }, duration: "q" },
+          { voices: { soprano: "Eb5", alto: "G4", tenor: "C4", bass: "C3" }, questionVoices: { soprano: "Eb5", bass: "C3" }, duration: "q" },
           { voices: { soprano: "D5", alto: "F#4", tenor: "A3", bass: "D3" }, questionVoices: { soprano: "D5", bass: "D3" }, duration: "q" },
-          { voices: { soprano: "G5", alto: "Bb4", tenor: "D3", bass: "G2" }, questionVoices: { soprano: "G5", bass: "G2" }, duration: "h" },
+          { voices: { soprano: "D5", alto: "G4", tenor: "Bb3", bass: "G2" }, questionVoices: { soprano: "D5", bass: "G2" }, duration: "h" },
         ] },
       ],
       harmonicEvents: [
@@ -2177,17 +2183,17 @@ const questionBank = [
       caption: "Original practice • SATB in C major and A minor",
       measures: [
         { events: [
-          { voices: { soprano: "G4", alto: "E4", tenor: "C3", bass: "C3" }, questionVoices: { soprano: "G4", bass: "C3" }, duration: "q" },
-          { voices: { soprano: "A4", alto: "F4", tenor: "C3", bass: "F2" }, questionVoices: { soprano: "A4", bass: "F2" }, duration: "q" },
-          { voices: { soprano: "B4", alto: "F4", tenor: "D3", bass: "G2" }, questionVoices: { soprano: "B4", bass: "G2" }, duration: "q" },
+          { voices: { soprano: "G4", alto: "E4", tenor: "C4", bass: "C3" }, questionVoices: { soprano: "G4", bass: "C3" }, duration: "q" },
+          { voices: { soprano: "C5", alto: "F4", tenor: "A3", bass: "F2" }, questionVoices: { soprano: "C5", bass: "F2" }, duration: "q" },
+          { voices: { soprano: "B4", alto: "F4", tenor: "D4", bass: "G2" }, questionVoices: { soprano: "B4", bass: "G2" }, duration: "q" },
           { voices: { soprano: "C5", alto: "E4", tenor: "A3", bass: "A2" }, questionVoices: { soprano: "C5", bass: "A2" }, duration: "q" },
         ] },
         { events: [
-          { voices: { soprano: "D5", alto: "A4", tenor: "F3", bass: "D3" }, questionVoices: { soprano: "D5", bass: "D3" }, duration: "h" },
+          { voices: { soprano: "D5", alto: "F4", tenor: "A3", bass: "D3" }, questionVoices: { soprano: "D5", bass: "D3" }, duration: "h" },
           { voices: { soprano: "B4", alto: "G#4", tenor: "D4", bass: "E3" }, questionVoices: { soprano: "B4", bass: "E3" }, duration: "h" },
         ] },
         { endBarline: "final", events: [
-          { voices: { soprano: "A4", alto: "E4", tenor: "C3", bass: "A2" }, questionVoices: { soprano: "A4", bass: "A2" }, duration: "w" },
+          { voices: { soprano: "E5", alto: "A4", tenor: "C4", bass: "A2" }, questionVoices: { soprano: "E5", bass: "A2" }, duration: "w" },
         ] },
       ],
       harmonicEvents: [
@@ -2412,21 +2418,21 @@ const questionBank = [
     family: "Jazz / rock notation",
     title: "Adapted: minor-line harmony and tonic pedal",
     context:
-      "Complete the chord boxes above bars 21–29, classify the marked X, Y and Z melody notes, and explain the two harmonic techniques operating in bars 21–25.",
+      "Complete the chord boxes above displayed bars 1–9, classify the marked X, Y and Z melody notes, and explain the two harmonic techniques operating in displayed bars 1–5.",
     sourceSpec: {
       year: 2021, provider: "NZQA", question: "Question Three", part: "(a)", bars: "21–29",
+      displayedBars: "1–9",
       chordSymbols: ["Cm", "Cm9(maj7)", "Cm7", "Cm9(add6)", "Fm/C", "Fm", "Dm7(♭5)", "G7", "Fm/A♭", "G7", "Cm"],
       analysisPositions: 11,
       suppliedLabels: ["Cm", "Fm"],
       keyCentres: ["C minor"],
-      noteAnnotationLabels: ["Y", "X", "Y", "X", "Y", "Z"],
+      noteAnnotationLabels: ["X", "Y", "X", "Y", "Z"],
       noteAnnotations: [
-        { measure: 1, beat: 3, staff: "treble", pitch: "D5", label: "Y" },
-        { measure: 2, beat: 2.5, staff: "treble", pitch: "F5", label: "X" },
+        { measure: 2, beat: 3, staff: "treble", pitch: "F5", label: "X" },
         { measure: 3, beat: 3, staff: "treble", pitch: "D5", label: "Y" },
-        { measure: 4, beat: 2.5, staff: "treble", pitch: "F5", label: "X" },
+        { measure: 4, beat: 3, staff: "treble", pitch: "F5", label: "X" },
         { measure: 5, beat: 3, staff: "treble", pitch: "G4", label: "Y" },
-        { measure: 6, beat: 3, staff: "treble", pitch: "G4", label: "Z" },
+        { measure: 6, beat: 2, staff: "treble", pitch: "G4", label: "Z" },
       ],
       measureCount: 9,
     },
@@ -2438,12 +2444,11 @@ const questionBank = [
       labelPosition: "top",
       caption: "Original Cadence Lab adaptation • minor-line harmony and tonic-pedal study",
       noteAnnotations: [
-        { measure: 1, beat: 3, staff: "treble", pitch: "D5", label: "Y" },
-        { measure: 2, beat: 2.5, staff: "treble", pitch: "F5", label: "X" },
+        { measure: 2, beat: 3, staff: "treble", pitch: "F5", label: "X" },
         { measure: 3, beat: 3, staff: "treble", pitch: "D5", label: "Y" },
-        { measure: 4, beat: 2.5, staff: "treble", pitch: "F5", label: "X" },
+        { measure: 4, beat: 3, staff: "treble", pitch: "F5", label: "X" },
         { measure: 5, beat: 3, staff: "treble", pitch: "G4", label: "Y" },
-        { measure: 6, beat: 3, staff: "treble", pitch: "G4", label: "Z" },
+        { measure: 6, beat: 2, staff: "treble", pitch: "G4", label: "Z" },
       ],
       measures: [
         { events: [
@@ -2452,9 +2457,9 @@ const questionBank = [
           { treble: ["Eb5"], bass: ["C3"], duration: "q" },
         ] },
         { events: [
-          { treble: ["Eb4", "G4", "B4", "D5"], bass: ["C3"], duration: "qd" },
-          { treble: ["F5"], bass: [], bassRest: true, duration: "8" },
-          { treble: ["Eb5"], bass: ["C3"], duration: "h" },
+          { treble: ["Eb4", "G4", "B4", "D5"], bass: ["C3"], duration: "h" },
+          { treble: ["F5"], bass: [], bassRest: true, duration: "q" },
+          { treble: ["Eb5"], bass: ["C3"], duration: "q" },
         ] },
         { events: [
           { treble: ["Eb4", "G4", "Bb4", "C5"], bass: ["C3"], duration: "h" },
@@ -2462,19 +2467,19 @@ const questionBank = [
           { treble: ["Eb5"], bass: ["C3"], duration: "q" },
         ] },
         { events: [
-          { treble: ["D4", "Eb4", "G4", "A4"], bass: ["C3"], duration: "qd" },
-          { treble: ["F5"], bass: [], bassRest: true, duration: "8" },
-          { treble: ["Eb5"], bass: ["C3"], duration: "h" },
+          { treble: ["D4", "Eb4", "G4", "A4"], bass: ["C3"], duration: "h" },
+          { treble: ["F5"], bass: [], bassRest: true, duration: "q" },
+          { treble: ["Eb5"], bass: ["C3"], duration: "q" },
         ] },
         { events: [
-          { treble: ["F4", "Ab4", "C5"], bass: ["C3"], duration: "h" },
+          { treble: ["Ab3", "C4", "F4"], bass: ["C3"], duration: "h" },
           { treble: ["G4"], bass: ["C3"], duration: "q" },
           { treble: ["Ab4"], bass: ["C3"], duration: "q" },
         ] },
         { events: [
-          { treble: ["F4", "Ab4", "C5"], bass: ["F2"], duration: "h" },
-          { treble: ["G4"], bass: ["C3"], duration: "q" },
-          { treble: ["Ab4"], bass: ["F2"], duration: "q" },
+          { treble: ["Ab3", "C4", "F4"], bass: ["F2"], duration: "q" },
+          { treble: ["G4"], bass: ["F2"], duration: "q" },
+          { treble: ["Ab4"], bass: ["F2"], duration: "h" },
         ] },
         { events: [
           { treble: ["F4", "Ab4", "C5"], bass: ["D3"], duration: "h" },
@@ -2505,18 +2510,17 @@ const questionBank = [
         harmonicBox(9, 1, 0, "Cm", { chordSymbol: "Cm" }),
       ],
       nonHarmonicNotes: [
-        { measure: 1, event: 1, pitch: "D5", chordSymbol: "Cm", type: "accented passing note" },
-        { measure: 2, event: 1, pitch: "F5", chordSymbol: "Cm9(maj7)", type: "auxiliary note" },
-        { measure: 3, event: 1, pitch: "D5", chordSymbol: "Cm7", type: "accented passing note" },
-        { measure: 4, event: 1, pitch: "F5", chordSymbol: "Cm9(add6)", type: "auxiliary note" },
-        { measure: 5, event: 1, pitch: "G4", chordSymbol: "Fm/C", type: "accented passing note" },
-        { measure: 6, event: 1, pitch: "G4", chordSymbol: "Fm", type: "appoggiatura" },
+        { measure: 2, event: 1, staff: "treble", pitch: "F5", chordSymbol: "Cm9(maj7)", type: "appoggiatura" },
+        { measure: 3, event: 1, staff: "treble", pitch: "D5", chordSymbol: "Cm7", type: "accented passing note" },
+        { measure: 4, event: 1, staff: "treble", pitch: "F5", chordSymbol: "Cm9(add6)", type: "appoggiatura" },
+        { measure: 5, event: 1, staff: "treble", pitch: "G4", chordSymbol: "Fm/C", type: "accented passing note" },
+        { measure: 6, event: 1, staff: "treble", pitch: "G4", chordSymbol: "Fm", type: "passing note" },
       ],
     }),
     answerHeading: "Reference harmonic techniques",
     answer: [
       "<strong>Published chord route:</strong> Cm–Cm9(maj7)–Cm7–Cm9(add6)–Fm/C–Fm–Dm7(♭5)–G7–Fm/A♭–G7–Cm. Accepted alternatives should be credited when the displayed pitches and bass support them.",
-      "X is an auxiliary note (bars 22 and 24), Y is an accented passing note (bars 21, 23 and 25), and Z is an appoggiatura (bar 26). The descending chromatic inner line creates movement and interest against the repeated melody, while the C tonic pedal in bars 21–25 provides stability.",
+      "X is an appoggiatura (displayed bars 2 and 4), Y is an accented passing note (displayed bars 3 and 5), and Z is the unaccented G passing note on beat 2 of displayed bar 6. The descending chromatic inner line creates movement and interest against the repeated melody, while the C tonic pedal in displayed bars 1–5 provides stability.",
     ],
   }),
   createQuestion({
@@ -2530,13 +2534,14 @@ const questionBank = [
     family: "Jazz / rock notation",
     title: "Adapted: chromatic-bass chord analysis",
     context:
-      "Analyse the eleven boxed positions in bars 19–28, including both sonorities in bar 23, then explain the descending bass and one-chord-per-bar harmonic rhythm in bars 24–28.",
+      "Analyse the eleven boxed positions in displayed bars 1–10, including both sonorities in displayed bar 5, then explain the descending bass and rate of harmonic change in displayed bars 6–10.",
     sourceSpec: {
       year: 2024, provider: "NZQA", question: "Question Three", part: "(a)", bars: "16–28",
+      displayedBars: "1–10",
       chordSymbols: ["C♯m(add9)", "Dmaj7", "Bm9", "G♯dim/B", "C♯7sus4", "C♯7", "F♯m", "E♯dim7", "F♯m/E", "D♯m7(♭5)", "Dmaj7"],
       analysisPositions: 11,
       suppliedLabels: ["C♯m(add9)"],
-      sections: ["bars 24–28"],
+      sections: ["displayed bars 6–10"],
       measureCount: 10,
       requiredPitchSpellings: ["E#2", "E#4"],
     },
@@ -2546,7 +2551,7 @@ const questionBank = [
       layout: "piano",
       labelPosition: "top",
       caption: "Original Cadence Lab adaptation • chromatic-bass chord study",
-      brackets: [{ start: 18, end: 40, label: "bars 24–28" }],
+      brackets: [{ start: 18, end: 40, label: "chromatic bass • displayed bars 6–10", repeatLabel: false }],
       measures: [
         { events: [
           { treble: ["E4", "G#4", "C#5", "D#5"], bass: ["C#3"], duration: "qd" },
@@ -2627,7 +2632,7 @@ const questionBank = [
     answerHeading: "Reference chord analysis and effect",
     answer: [
       "<strong>Published analysis:</strong> C♯m(add9)–Dmaj7–Bm9–G♯dim/B–C♯7sus4–C♯7–F♯m–E♯dim7–F♯m/E–D♯m7(♭5)–Dmaj7. Credit alternatives only where the published score and schedule support them.",
-      "In bars 24–28, the bass descends F♯–E♯–E–D♯–D and contrasts with the earlier more static bass. One chord per bar slows and regularises the harmonic rhythm while the chromatic descent creates momentum and forward direction.",
+      "In displayed bars 6–10, the bass descends F♯–E♯–E–D♯–D and contrasts with the earlier more static bass. The regular harmonic changes and chromatic descent create momentum and forward direction.",
     ],
   }),
   createQuestion({
@@ -3215,7 +3220,7 @@ const questionBank = [
     source: nzqaSource(2021, "Question Two", "(b)", "Extract Five", "Ludwig van Beethoven", "Bagatelle, Op. 119, No. 8", "bars 9–14, exam p.7; schedule p.6", "9–14"),
     family: "Piano completion",
     title: "Reference: continue Beethoven's piano texture",
-    context: "The passage begins in B♭ major, modulates to F major and then C major. Complete bars 10–13 by adding a bass line and two inner parts in the style of the first chord in bar 10.",
+    context: "The passage begins in B♭ major, modulates to F major and then C major. Complete the displayed target region by adding a bass line and two inner parts in the style of the opening supplied chord.",
     presentation: { title: "Reference: Beethoven piano completion", hiddenConceptTerms: [] },
     sourceSpec: {
       year: 2021, provider: "NZQA", question: "Question Two", part: "(b)", bars: "9–14",
@@ -3275,7 +3280,7 @@ const questionBank = [
     source: nzqaSource(2023, "Question Two", "(c)", "Extract Six", "Francis Poulenc, arranged", "Novelette No. 1 in C minor", "bars 20–24, exam p.7; schedule p.7", "20–24"),
     family: "Piano completion",
     title: "Reference: continue the Novelette piano texture",
-    context: "The extract is in C major. Complete bars 21–24 from the seven supplied Roman-numeral indications by adding a bass line and two inner parts in the style of bar 20.",
+    context: "The extract is in C major. Complete displayed bars 2–5 from the seven supplied Roman-numeral indications by adding a bass line and two inner parts in the style of displayed bar 1.",
     presentation: { title: "Reference: C-major piano completion", hiddenConceptTerms: [] },
     sourceSpec: {
       year: 2023, provider: "NZQA", question: "Question Two", part: "(c)", bars: "20–24",
@@ -3504,11 +3509,11 @@ const questionBank = [
     source: nzqaSource(2025, "Question Two", "(b)", "Extract Five", "Franz Schubert", "Adagio and Rondo in E Major, D 506 Op. 145", "bars 7–8, exam p.6; schedule p.6", "7–8"),
     family: "Harmonic or tonal feature",
     title: "Reference: feature, evidence, function and effect",
-    context: "Identify a harmonic or tonal feature in bars 7–8, locate precise score evidence, and explain its function and effect in the phrase.",
+    context: "Identify a harmonic or tonal feature in displayed bars 1–2, locate precise score evidence, and explain its function and effect in the phrase.",
     presentation: { title: "Reference: contextual harmonic feature", hiddenConceptTerms: ["contrary chromatic motion", "sequence"] },
     contextualFields: [
       { id: "feature", label: "Feature", kind: "classification", choices: ["chromatic semitone movement", "melodic repetition / imitation / sequence", "tonic pedal", "circle-of-fifths motion", "harmonic-rhythm change"], acceptedAnswers: [{ label: "chromatic semitone movement" }, { label: "melodic repetition / imitation / sequence" }] },
-      { id: "location", label: "Score evidence / location", kind: "text", prompt: "Name the bar, beat, voices and pitch direction.", acceptedAnswers: [{ label: "Bar 7 beat 3: contrary chromatic semitone motion, descending in one part and ascending in another." }] },
+      { id: "location", label: "Score evidence / location", kind: "text", prompt: "Name the displayed bar, beat, voices and pitch direction.", acceptedAnswers: [{ label: "Displayed bar 1 beat 3: contrary chromatic semitone motion, descending in one part and ascending in another." }] },
       { id: "function", label: "Function", kind: "text", prompt: "Explain what the feature does harmonically or melodically.", acceptedAnswers: [{ label: "It decorates the cadence point and emphasises the imperfect cadence / dominant harmony; alternatively, repetition develops the melody and provides continuity." }] },
       { id: "effect", label: "Effect", kind: "text", prompt: "Connect the device to the listener's sense of motion or continuity.", acceptedAnswers: [{ label: "It creates variety and interest and momentum back to the tonic; the melodic alternative provides continuity." }] },
     ],
@@ -3521,7 +3526,7 @@ const questionBank = [
       ], harmonicEvents: [],
     }),
     answerHeading: "Schedule-derived contextual evidence",
-    answer: ["One response identifies contrary chromatic semitone motion at bar 7 beat 3: one part descends while another ascends. It decorates the cadence point, emphasises the imperfect cadence/dominant and creates variety, interest and momentum back to tonic. The schedule also allows repetition, imitation or sequence in the melody when its developmental and continuity function is explained."],
+    answer: ["One response identifies contrary chromatic semitone motion at displayed bar 1 beat 3: one part descends while another ascends. It decorates the cadence point, emphasises the imperfect cadence/dominant and creates variety, interest and momentum back to tonic. The schedule also allows repetition, imitation or sequence in the melody when its developmental and continuity function is explained."],
   }),
   createAdaptedQuestion({
     id: "nzqa-2025-schubert-piano",
@@ -3530,7 +3535,7 @@ const questionBank = [
     source: nzqaSource(2025, "Question Two", "(c)", "Extract Six", "Franz Schubert", "Adagio and Rondo in E Major, D 506 Op. 145", "bars 19–24, exam p.7; schedule p.7", "19–24"),
     family: "Piano completion",
     title: "Reference: continue Schubert's piano texture",
-    context: "The Rondo extract is in E major. Continue the piano writing of bars 19–20 by adding a bass line and two inner parts in bars 20–24, using all eight supplied Roman-numeral indications.",
+    context: "The Rondo extract is in E major. Continue the piano writing after displayed bar 1 by adding a bass line and two inner parts in displayed bars 2–6, using all eight supplied Roman-numeral indications.",
     presentation: { title: "Reference: Schubert piano completion", hiddenConceptTerms: [] },
     sourceSpec: { year: 2025, provider: "NZQA", question: "Question Two", part: "(c)", bars: "19–24", suppliedLabels: ["V", "ii", "iib", "vii°⁷", "V", "I", "V⁷", "I"], analysisPositions: 8, expectedChordCount: 8, measureCount: 6, expectedCompletionType: "piano", completionContract: { targetMeasures: [2, 3, 4, 5, 6], chordsToRealise: 8, harmonicIndications: 8 } },
     score: measuredScore({
@@ -3556,7 +3561,7 @@ const questionBank = [
     source: nzqaSource(2025, "Question Three", "(a)", "Extract Seven", "Billy Joel", "New York State of Mind", "bars 5–13, exam p.9; schedule p.9", "5–13"),
     family: "Jazz / rock notation",
     title: "Reference: extended pop-jazz chord analysis",
-    context: "C is supplied at bar 5. Analyse the 10 chord positions in bars 6–13 using jazz / rock notation. Where a bar contains one chord, use the harmony of the whole bar.",
+    context: "C is supplied at displayed bar 1. Analyse the remaining 10 chord positions in displayed bars 2–9 using jazz / rock notation. Where a displayed bar contains one chord, use the harmony of the whole bar.",
     presentation: { title: "Reference: identify ten jazz / rock chords", hiddenConceptTerms: [] },
     sourceSpec: { year: 2025, provider: "NZQA", question: "Question Three", part: "(a)", bars: "5–13", chordSymbols: ["C", "E7", "Am7", "Gm(add4)", "C7", "F", "A7", "Dm7", "B♭9", "B♭7", "C"], analysisPositions: 11, answerPositions: 10, suppliedLabels: ["C"], keyCentres: ["C major"], measureCount: 9 },
     score: measuredScore({
@@ -3614,7 +3619,7 @@ const questionBank = [
     source: nzqaSource(2025, "Question Three", "(c)", "Extract Nine", "Billy Joel", "New York State of Mind", "bars 14–22, exam p.12; schedule p.10", "14–22"),
     family: "Piano completion",
     title: "Reference: continue Billy Joel's piano accompaniment",
-    context: "Continue the harmony of the piano part in bars 15–22 from the printed jazz/rock chord indications, preserving the opening accompaniment style and supplied melody.",
+    context: "Continue the harmony of the piano part through displayed bars 2–8 from the supplied jazz/rock chord indications, preserving the opening accompaniment style and supplied melody.",
     presentation: { title: "Reference: pop-piano completion", hiddenConceptTerms: [] },
     sourceSpec: { year: 2025, provider: "NZQA", question: "Question Three", part: "(c)", bars: "14–22", suppliedLabels: ["Cmaj7/G", "F", "C/E", "D9", "F9", "G9", "Am7", "D7", "Am7", "G"], analysisPositions: 10, expectedChordCount: 10, measureCount: 8, expectedCompletionType: "piano", completionContract: { targetMeasures: [2, 3, 4, 5, 6, 7, 8], chordsToRealise: 10, harmonicIndications: 10 } },
     score: measuredScore({
@@ -3680,8 +3685,8 @@ const questionBank = [
     presentation: { title: "Practice reference: integrated classical analysis", hiddenConceptTerms: ["relative major", "dominant major", "accented passing"] },
     contextualFields: [
       { id: "roman-route", label: "Roman progression", kind: "text", prompt: "Record the eight indicated Roman-numeral answers in order.", acceptedAnswers: [{ label: "Use the eight Roman labels printed in the practice answer schedule, relative to the active local keys." }] },
-      { id: "f-region", label: "F-major modulation", kind: "text", prompt: "State relationship, location and evidence.", acceptedAnswers: [{ label: "F major is the relative major, established in bars 4–5 by E♭ and a perfect cadence." }] },
-      { id: "a-region", label: "A-major modulation", kind: "text", prompt: "State relationship, location and evidence.", acceptedAnswers: [{ label: "A major is the dominant major, established in bars 6–8 by G♯/B♮ and a perfect cadence." }] },
+      { id: "f-region", label: "F-major modulation", kind: "text", prompt: "State relationship, location and evidence.", acceptedAnswers: [{ label: "F major is the relative major, established in the first local-key region by E♭ and a perfect cadence." }] },
+      { id: "a-region", label: "A-major modulation", kind: "text", prompt: "State relationship, location and evidence.", acceptedAnswers: [{ label: "A major is the dominant major, established in the second local-key region by G♯/B♮ and a perfect cadence." }] },
       { id: "nht-1", label: "NHT marker 1", kind: "classification", choices: ["passing note", "auxiliary / neighbour note", "accented passing note", "suspension", "appoggiatura"], acceptedAnswers: [{ label: "passing note" }] },
       { id: "nht-2", label: "NHT marker 2", kind: "classification", choices: ["passing note", "auxiliary / neighbour note", "accented passing note", "suspension", "appoggiatura"], acceptedAnswers: [{ label: "auxiliary / neighbour note" }] },
       { id: "nht-3", label: "NHT marker 3", kind: "classification", choices: ["passing note", "auxiliary / neighbour note", "accented passing note", "suspension", "appoggiatura"], acceptedAnswers: [{ label: "accented passing note" }] },
@@ -3697,7 +3702,7 @@ const questionBank = [
       ], harmonicEvents: [],
     }),
     answerHeading: "Practice-schedule integrated evidence",
-    answer: ["The answer schedule combines the eight Roman answers with two evidence-based modulations: F major, the relative major, in bars 4–5; and A major, the dominant major, in bars 6–8. Its marked NHT evidence includes passing notes, auxiliary notes and accented passing notes."],
+    answer: ["The answer schedule combines the eight Roman answers with two evidence-based modulations: F major, the relative major, in the first local-key region; and A major, the dominant major, in the second. Its marked NHT evidence includes passing notes, auxiliary notes and accented passing notes."],
   }),
   createAdaptedQuestion({
     id: "practice-2023-tonality-harmony",
@@ -3709,9 +3714,9 @@ const questionBank = [
     context: "Analyse the tonality and harmony across the whole extract. Use several connected points to explain the overall key, opening ambiguity, temporary centres and the final return.",
     presentation: { title: "Practice reference: analyse tonality and harmony", hiddenConceptTerms: ["E♭ major", "ii–V–I", "diminished ii"] },
     contextualFields: [
-      { id: "overall-key", label: "Overall key and first confirmation", kind: "text", prompt: "Name the home key and the cadence/bar evidence.", acceptedAnswers: [{ label: "E♭ major, first established by B♭7–E♭ in bars 7–8." }] },
+      { id: "overall-key", label: "Overall key and first confirmation", kind: "text", prompt: "Name the home key and cadence evidence.", acceptedAnswers: [{ label: "E♭ major, first established by the displayed B♭7–E♭ cadence." }] },
       { id: "opening", label: "Opening tonal ambiguity", kind: "text", prompt: "Explain the opening IV to iv motion.", acceptedAnswers: [{ label: "The piece starts on IV and moves to iv minor, delaying a clear tonic and creating tonal ambiguity." }] },
-      { id: "temporary-centres", label: "Temporary centres", kind: "text", prompt: "Trace the minor ii–V7–i progressions.", acceptedAnswers: [{ label: "After vi in bar 13, minor ii–V7–i progressions tonicise G minor in bars 14–15 and F minor in bars 16–17." }] },
+      { id: "temporary-centres", label: "Temporary centres", kind: "text", prompt: "Trace the minor ii–V7–i progressions.", acceptedAnswers: [{ label: "After vi, the displayed minor ii–V7–i progressions tonicise G minor and then F minor." }] },
       { id: "final-return", label: "Return and unusual chord", kind: "text", prompt: "Explain the final cadence and altered ii quality.", acceptedAnswers: [{ label: "A final perfect cadence returns to E♭; its ii–V–I unusually uses a diminished ii instead of the expected minor ii." }] },
     ],
     sourceSpec: { year: 2023, provider: "Learning Ideas", question: "Question Three", part: "(a)", bars: "1–18", keyCentres: ["E♭ major", "G minor", "F minor"], expectedChordCount: 0, measureCount: 5 },
@@ -3726,7 +3731,7 @@ const questionBank = [
       ], harmonicEvents: [],
     }),
     answerHeading: "Practice-schedule tonal analysis",
-    answer: ["The overall key is E♭ major, confirmed by B♭7–E♭ in bars 7–8 after an ambiguous IV–iv opening. Bar 13 moves to vi; minor ii–V7–i progressions briefly establish G minor and then F minor before a final perfect cadence returns to E♭. The last ii–V–I unusually uses diminished ii."],
+    answer: ["The overall key is E♭ major, confirmed by the displayed B♭7–E♭ cadence after an ambiguous IV–iv opening. The following minor ii–V7–i progressions briefly establish G minor and then F minor before a final perfect cadence returns to E♭. The last ii–V–I unusually uses diminished ii."],
   }),
   createAdaptedQuestion({
     id: "practice-2024-two-devices",
@@ -3764,14 +3769,14 @@ const questionBank = [
     source: practiceSource(2024, "Question Three", "(a)", "Extract Seven", "George and Ira Gershwin", "Our Love Is Here to Stay", "questions pp.8–9; answers p.9", "4–14"),
     family: "Jazz / rock notation and contextual tonality",
     title: "Practice reference: jazz symbols, key and tonal movement",
-    context: "Analyse the 14 blank chord positions in bars 4–8 and 12–14 using jazz / rock notation. Then identify the key and explain the tonal changes with specific chord and cadence evidence.",
+    context: "Analyse the 14 blank chord positions across displayed bars 1–10 using jazz / rock notation. Then identify the key and explain the tonal changes with specific chord and cadence evidence.",
     presentation: { title: "Practice reference: jazz chords and tonality", hiddenConceptTerms: ["F major", "D minor", "secondary dominant"] },
     reflectionOnly: true,
     analysisFields: [
       { id: "key", label: "Overall key", kind: "classification", choices: ["F major", "D minor", "B♭ major", "C major", "G minor"], acceptedAnswers: [{ label: "F major" }] },
-      { id: "tonal-evidence", label: "Key and cadence evidence", kind: "text", prompt: "Use the key signature and specific bar/cadence evidence.", acceptedAnswers: [{ label: "F major is supported by the B♭ key signature and perfect cadences in bars 3–4 and 11–12." }] },
-      { id: "modulation", label: "Modulation", kind: "text", prompt: "Name the local key, bars and progression.", acceptedAnswers: [{ label: "Bars 13–14 move to D minor through a minor ii–V7–i progression." }] },
-      { id: "secondary-dominants", label: "Secondary-dominant evidence", kind: "text", prompt: "Name the extended dominants and where they occur.", acceptedAnswers: [{ label: "G9 and G13 act as secondary dominants in bars 2, 7 and 15." }] },
+      { id: "tonal-evidence", label: "Key and cadence evidence", kind: "text", prompt: "Use the key signature and displayed cadence evidence.", acceptedAnswers: [{ label: "F major is supported by the B♭ key signature and displayed perfect cadences." }] },
+      { id: "modulation", label: "Modulation", kind: "text", prompt: "Name the local key and progression.", acceptedAnswers: [{ label: "The final two displayed bars move to D minor through a minor ii–V7–i progression." }] },
+      { id: "secondary-dominants", label: "Secondary-dominant evidence", kind: "text", prompt: "Name the displayed extended dominants.", acceptedAnswers: [{ label: "G9 and G13 act as secondary dominants in the displayed progression." }] },
     ],
     sourceSpec: { year: 2024, provider: "Learning Ideas", question: "Question Three", part: "(a)", bars: "4–14", chordSymbols: ["Gm7", "C7", "F6", "Gm11", "C9", "G13", "Gm7", "C7", "D9", "Fmaj7", "B♭maj9", "Eø7", "A7", "Dm"], analysisPositions: 14, answerPositions: 14, keyCentres: ["F major", "D minor"], measureCount: 10 },
     score: measuredScore({
@@ -3793,7 +3798,7 @@ const questionBank = [
       ],
     }),
     answerHeading: "Practice-schedule chord and tonal evidence",
-    answer: ["The 14 assessed symbols are Gm7, C7, F6, Gm11, C9, G13, Gm7, C7, D9, Fmaj7, B♭maj9, Eø7, A7 and Dm. The overall key is F major, supported by the one-flat signature and perfect cadences in bars 3–4 and 11–12. Bars 13–14 tonicise D minor through a minor ii–V7–i, while G9 and G13 act as secondary dominants."],
+    answer: ["The 14 assessed symbols are Gm7, C7, F6, Gm11, C9, G13, Gm7, C7, D9, Fmaj7, B♭maj9, Eø7, A7 and Dm. The overall key is F major, supported by the one-flat signature and displayed perfect cadences. The final two displayed bars tonicise D minor through a minor ii–V7–i, while G9 and G13 act as secondary dominants."],
   }),
   createAdaptedQuestion({
     id: "practice-2025-integrated-tonality",

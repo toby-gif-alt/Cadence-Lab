@@ -9,6 +9,7 @@ These load the real `../index.html`, so they exercise the same script order and 
 - `interaction-smoke.html` — current production interaction suite: source/year filters, paper completion and playback, Roman pivot semantics and auto-advance, semantic key relationships, authored jazz-builder coverage, generated variants, current exact-reference counts, and the scoped reveal rule (Roman/jazz keep their model score; key/modulation suppresses only the redundant duplicate extract).
 - `score-display-consistency-smoke.html` — repo-wide bar-number mapping, Roman/jazz answer-box/location consistency, lower clearance for bottom answer-entry boxes, original SATB model checks for consecutive perfect fifths/octaves, scoped key/modulation duplicate suppression, and separate-model reveal for Roman/jazz and paper completions.
 - `exact-2025-q1-production-smoke.html` — focused 2025 Q1(a–c) production regression, including 2025 (3), exact source bars, Q1(a) blank Roman boxes and separate model, Q1(b) X/Y/Z with no duplicate second extract, and the Q1(c) paper workflow.
+- `integrity-correction-smoke.html` — production-order corrective audit for the 2025 Q1 transcriptions, geometry-positioned analysis boxes, submit/reveal stability, complete original-SATB counterpoint checks, adapted bar numbering, and the Valentine/Commercial content contracts.
 
 ## Lower-level renderer fixtures
 

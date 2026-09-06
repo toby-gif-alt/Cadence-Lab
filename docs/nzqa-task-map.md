@@ -21,7 +21,7 @@ The in-app checklists use these observable progressions. They deliberately avoid
 | Q1(c) chorale realisation | Bach continuation; exam p.4 | 11-chord sample realisation; schedule p.4 | SATB family and explicit four-voice completion contract. |
 | Q2(a) classical analysis and tonal comment | Beethoven, *Bagatelle*, Op. 119 No. 8, bars 1–8; exam p.6 | Consecutive Roman-numeral analysis, modulation evidence, chromatic function; schedule pp.6–7 | Classical piano-analysis family and chromatic-function prompts. |
 | Q2(b) piano completion | Beethoven continuation; exam p.7 | Eight-chord sample realisation; schedule p.7 | Piano-completion family. |
-| Q3 jazz analysis, non-harmonic notes and devices | Rodgers/Hart, *My Funny Valentine*, bars 21–29; exam pp.8–9 | Chord analysis across bars 21–29; auxiliary, accented passing and appoggiatura examples; chromatic inner line and tonic pedal; schedule pp.8–9 | Adapted original chromatic/pedal study; exact vocal/piano reference deferred. |
+| Q3 jazz analysis, non-harmonic notes and devices | Rodgers/Hart, *My Funny Valentine*, bars 21–29; exam pp.8–9 | Chord analysis across bars 21–29; X at bars 22 and 24 is an auxiliary note, Y at bars 21, 23 and 25 is an accented passing note, and Z at bar 26 is an appoggiatura; chromatic inner line and tonic pedal; schedule pp.8–9 | Exact vocal/piano source deferred. The retained Cadence Lab adaptation uses its own displayed practice examples: X = appoggiatura, Y = accented passing note, Z = passing note. |
 | Q3(b) jazz completion | Song continuation; exam p.10 | Eight-chord sample realisation; schedule p.9 | Jazz-completion practice. |
 
 ## 2022
@@ -62,11 +62,11 @@ The in-app checklists use these observable progressions. They deliberately avoid
 
 ## 2025
 
-All nine official 2025 subquestions are mapped in the manifest and their semantic exercises remain available as adapted Cadence Lab practice. None currently counts as an official reference because the reduced notation does not reproduce the full learner-visible page. In particular, Q1(c) now preserves the paper contract of four supplied indications—`I`, `Ib`, `IV9–8`, `I`—followed by six learner-choice boxes, while exact 2025 score transcriptions remain deferred.
+All nine official 2025 subquestions are mapped in the manifest. Question 1(a–c) now uses exact independently rhythmic SATB transcriptions checked against the paper and schedule; Question 2 and Question 3 remain adapted Cadence Lab practice and therefore do not count as references. Q1(c) preserves the paper contract of four supplied indications—`I`, `Ib`, `IV9–8`, `I`—followed by six learner-choice boxes, with the D–C suspension resolution shown inside the IV9–8 span.
 
 ## Reference set in the bank
 
-Cadence Lab currently includes five official reference transcriptions:
+Cadence Lab currently includes eight official reference transcriptions:
 
 - 2021: Bach Q1(a)
 - 2022: Bach Q1(a)
