@@ -34,11 +34,14 @@ try {
   const b = byId('nzqa-2025-bach-modulation');
   const c = byId('nzqa-2025-bach-satb');
   const refs2025 = qs.filter(q => q.sourceType === 'nzqa-reference' && q.source?.year === 2025);
+  const bar8ReturnPivot = a.score.harmonicEvents.find(e => String(e.modelLabel).includes('G: V⁷d'));
   assert('validator-valid', window.CadenceQuestionValidator.report.valid);
   assert('eight-exact-nzqa-references', window.CadenceQuestionValidator.report.referenceCount === 8);
   assert('three-2025-references', refs2025.length === 3);
   assert('q1a-exact-satb-five-measures', a.sourceSpec.transcriptionMode === 'exact' && a.score.layout === 'satb' && a.score.measures.length === 5);
   assert('q1a-twelve-editable-analyses', a.score.harmonicEvents.filter(e => e.answerRole === 'editable').length === 12);
+  assert('q1a-cropped-bar5-is-one-beat', a.score.measures[0].expectedBeats === 1 && a.sourceSpec.partialMeasures?.[0]?.bar === 5 && a.sourceSpec.partialMeasures?.[0]?.expectedBeats === 1);
+  assert('q1a-bar8-return-pivot-is-beat4', bar8ReturnPivot?.measure === 4 && bar8ReturnPivot?.beat === 4);
   assert('q1b-full-twelve-measure-surface', b.sourceSpec.transcriptionMode === 'exact' && b.score.measures.length === 12 && b.score.brackets.map(x => x.label).join('') === 'XYZ');
   assert('q1b-cropped-bar9-alto-is-g-a', b.score.measures[0].voices.alto.map(e => e.pitch).join(',') === 'G4,A4');
   assert('q1b-y-bracket-ends-bar13-beat3', b.score.brackets[1].end.measure === 5 && b.score.brackets[1].end.beat === 3);
