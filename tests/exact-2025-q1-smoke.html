@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en-NZ">
+<head><meta charset="utf-8"><title>2025 Q1 exact-source smoke test</title></head>
+<body data-status="running">
+<div id="q1a" style="width:1000px"></div>
+<div id="q1b" style="width:1000px"></div>
+<div id="q1c" style="width:1000px"></div>
+<pre id="results">Running…</pre>
+<script>
+  const results = document.querySelector('#results');
+  const assertions = {};
+  const assert = (name, condition) => assertions[name] = Boolean(condition);
+  function finish(error) {
+    const passed = !error && Object.values(assertions).every(Boolean);
+    document.body.dataset.status = passed ? 'pass' : 'fail';
+    results.textContent = JSON.stringify({passed, assertions, error: error?.stack || String(error || '')}, null, 2);
+  }
+  addEventListener('error', event => finish(event.error || event.message));
+  addEventListener('unhandledrejection', event => finish(event.reason));
+</script>
+<script src="../vendor/vexflow-bravura-4.2.5.js"></script>
+<script src="../key-relationships.js?v=2026-09-source-bank-18"></script>
+<script src="../question-bank.js?v=2026-09-source-bank-18"></script>
+<script src="../exact-2025-q1-a.js?v=2026-09-exact-q1-20"></script>
+<script src="../exact-2025-q1-b.js?v=2026-09-exact-q1-20"></script>
+<script src="../score-renderer.js?v=2026-09-source-bank-18"></script>
+<script src="../exact-2025-q1-c.js?v=2026-09-exact-q1-20"></script>
+<script src="../question-validator.js?v=2026-09-source-bank-18"></script>
+<script>
+try {
+  const qs = window.CadenceData.questions;
+  const byId = id => qs.find(q => q.id === id);
+  const a = byId('nzqa-2025-bach-analysis');
+  const b = byId('nzqa-2025-bach-modulation');
+  const c = byId('nzqa-2025-bach-satb');
+  const refs2025 = qs.filter(q => q.sourceType === 'nzqa-reference' && q.source?.year === 2025);
+  assert('validator-valid', window.CadenceQuestionValidator.report.valid);
+  assert('eight-exact-nzqa-references', window.CadenceQuestionValidator.report.referenceCount === 8);
+  assert('three-2025-references', refs2025.length === 3);
+  assert('q1a-exact-satb-five-measures', a.sourceSpec.transcriptionMode === 'exact' && a.score.layout === 'satb' && a.score.measures.length === 5);
+  assert('q1a-twelve-editable-analyses', a.score.harmonicEvents.filter(e => e.answerRole === 'editable').length === 12);
+  assert('q1b-full-twelve-measure-surface', b.sourceSpec.transcriptionMode === 'exact' && b.score.measures.length === 12 && b.score.brackets.map(x => x.label).join('') === 'XYZ');
+  assert('q1c-four-plus-six-contract', c.score.harmonicEvents.filter(e => e.questionLabel).length === 4 && c.score.harmonicEvents.filter(e => e.analysisBox !== false && !e.questionLabel).length === 6);
+  assert('q1c-two-passing-notes', c.interaction.completionRequirements.minimumPassingNotes === 2);
+  window.CadenceScoreRenderer.render(document.querySelector('#q1a'), a.score, {width:1000, showAnswer:false});
+  window.CadenceScoreRenderer.render(document.querySelector('#q1b'), b.score, {width:1000, showAnswer:false});
+  window.CadenceScoreRenderer.render(document.querySelector('#q1c'), c.score, {width:1000, showAnswer:false});
+  assert('q1a-independent-voices-render', document.querySelector('#q1a').dataset.independentVoiceMeasureCount === '5');
+  assert('q1b-independent-voices-render', document.querySelector('#q1b').dataset.independentVoiceMeasureCount === '12');
+  assert('q1c-rhythm-cues-render', document.querySelector('#q1c').dataset.sourceRhythmCueCount === '4');
+  finish();
+} catch (error) { finish(error); }
+</script>
+</body></html>
