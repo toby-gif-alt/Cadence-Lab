@@ -15,4 +15,6 @@ q.score={key:"G major → D major → G major",keySignature:"G",timeSignature:"4
 {measure:4,beat:4,modelLabel:"I / G: V⁷d",localKey:"D major",romanNumeral:"I / G: V⁷d",analysisBox:true,answerRole:"editable",answerSlotId:"nzqa-2025-bach-analysis-h12"},
 {measure:5,beat:1,modelLabel:"Ib",localKey:"G major",romanNumeral:"Ib",analysisBox:true,answerRole:"editable",answerSlotId:"nzqa-2025-bach-analysis-h13"},
 {measure:5,beat:2,modelLabel:"vii°b",localKey:"G major",romanNumeral:"vii°b",analysisBox:true,answerRole:"editable",answerSlotId:"nzqa-2025-bach-analysis-h14"},
-{measure:5,beat:3,modelLabel:"I",localKey:"G major",romanNumeral:"I",analysisBox:true,answerRole:"editable",answerSlotId:"nzqa-2025-bach-analysis-h15"}]};})();
+{measure:5,beat:3,modelLabel:"I",localKey:"G major",romanNumeral:"I",analysisBox:true,answerRole:"editable",answerSlotId:"nzqa-2025-bach-analysis-h15"}]};
+if(q.interaction?.type==="roman-analysis"){const printedBars=[5,6,7,8,9];q.interaction.slots=q.score.harmonicEvents.flatMap((event,harmonicIndex)=>event.answerRole==="editable"?[{id:event.answerSlotId,harmonicIndex,label:`Bar ${printedBars[event.measure-1]}, beat ${event.beat||1}`,acceptedAnswers:[{label:event.modelLabel}],allowDualAnalysis:String(event.modelLabel||"").includes(" / ")}]:[]);}
+})();
