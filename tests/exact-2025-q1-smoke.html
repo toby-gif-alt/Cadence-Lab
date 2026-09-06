@@ -40,8 +40,12 @@ try {
   assert('q1a-exact-satb-five-measures', a.sourceSpec.transcriptionMode === 'exact' && a.score.layout === 'satb' && a.score.measures.length === 5);
   assert('q1a-twelve-editable-analyses', a.score.harmonicEvents.filter(e => e.answerRole === 'editable').length === 12);
   assert('q1b-full-twelve-measure-surface', b.sourceSpec.transcriptionMode === 'exact' && b.score.measures.length === 12 && b.score.brackets.map(x => x.label).join('') === 'XYZ');
+  assert('q1b-cropped-bar9-alto-is-g-a', b.score.measures[0].voices.alto.map(e => e.pitch).join(',') === 'G4,A4');
+  assert('q1b-y-bracket-ends-bar13-beat3', b.score.brackets[1].end.measure === 5 && b.score.brackets[1].end.beat === 3);
+  assert('q1b-z-bracket-is-late19-to-mid20', b.score.brackets[2].start.measure === 11 && b.score.brackets[2].start.beat === 3 && b.score.brackets[2].end.measure === 12 && b.score.brackets[2].end.beat === 2);
   assert('q1c-four-plus-six-contract', c.score.harmonicEvents.filter(e => e.questionLabel).length === 4 && c.score.harmonicEvents.filter(e => e.analysisBox !== false && !e.questionLabel).length === 6);
   assert('q1c-two-passing-notes', c.interaction.completionRequirements.minimumPassingNotes === 2);
+  assert('q1c-printed-bass-duration-cues', c.sourceSpec.bassDurationCues.join(' ') === 'q q h q' && c.score.rhythmCues.map(cue => cue.label).join(',') === 'crotchet,crotchet,minim,crotchet');
   window.CadenceScoreRenderer.render(document.querySelector('#q1a'), a.score, {width:1000, showAnswer:false});
   window.CadenceScoreRenderer.render(document.querySelector('#q1b'), b.score, {width:1000, showAnswer:false});
   window.CadenceScoreRenderer.render(document.querySelector('#q1c'), c.score, {width:1000, showAnswer:false});
