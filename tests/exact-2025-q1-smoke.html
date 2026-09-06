@@ -43,7 +43,8 @@ try {
   assert('q1b-cropped-bar9-alto-is-g-a', b.score.measures[0].voices.alto.map(e => e.pitch).join(',') === 'G4,A4');
   assert('q1b-y-bracket-ends-bar13-beat3', b.score.brackets[1].end.measure === 5 && b.score.brackets[1].end.beat === 3);
   assert('q1b-z-bracket-is-late19-to-mid20', b.score.brackets[2].start.measure === 11 && b.score.brackets[2].start.beat === 3 && b.score.brackets[2].end.measure === 12 && b.score.brackets[2].end.beat === 2);
-  assert('q1c-four-plus-six-contract', c.score.harmonicEvents.filter(e => e.questionLabel).length === 4 && c.score.harmonicEvents.filter(e => e.analysisBox !== false && !e.questionLabel).length === 6);
+  assert('q1c-four-plus-six-contract', c.score.harmonicEvents.filter(e => e.questionLabel).length === 4 && c.score.harmonicEvents.filter(e => e.paperChoiceBox).length === 6);
+  assert('q1c-paper-choice-boxes-remain-noninteractive', c.score.harmonicEvents.filter(e => e.paperChoiceBox).every(e => e.answerRole === 'none' && !e.answerSlotId));
   assert('q1c-two-passing-notes', c.interaction.completionRequirements.minimumPassingNotes === 2);
   assert('q1c-printed-bass-duration-cues', c.sourceSpec.bassDurationCues.join(' ') === 'q q h q' && c.score.rhythmCues.map(cue => cue.label).join(',') === 'crotchet,crotchet,minim,crotchet');
   window.CadenceScoreRenderer.render(document.querySelector('#q1a'), a.score, {width:1000, showAnswer:false});
@@ -52,6 +53,10 @@ try {
   assert('q1a-independent-voices-render', document.querySelector('#q1a').dataset.independentVoiceMeasureCount === '5');
   assert('q1b-independent-voices-render', document.querySelector('#q1b').dataset.independentVoiceMeasureCount === '12');
   assert('q1c-rhythm-cues-render', document.querySelector('#q1c').dataset.sourceRhythmCueCount === '4');
+  assert('q1c-ten-paper-boxes-render', document.querySelector('#q1c').dataset.analysisBoxCount === '10' && document.querySelectorAll('#q1c .analysis-box-group').length === 10);
+  assert('q1c-six-boxes-blank-before-reveal', [...document.querySelectorAll('#q1c .analysis-box-group')].filter(group => !group.querySelector('.analysis-box-label')).length === 6);
+  window.CadenceScoreRenderer.render(document.querySelector('#q1c'), c.score, {width:1000, showAnswer:true});
+  assert('q1c-model-labels-all-ten-boxes', document.querySelectorAll('#q1c .analysis-box-group').length === 10 && document.querySelectorAll('#q1c .analysis-box-label').length === 10);
   finish();
 } catch (error) { finish(error); }
 </script>
