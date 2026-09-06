@@ -95,13 +95,17 @@
     return `${barLabel}, beat ${formatBeat(harmonicEvent?.beat || 1)}`;
   }
 
+  function usesScoreLocationLabels(question) {
+    return question.sourceType !== "generated-practice" &&
+      LOCATION_INTERACTIONS.has(question.interaction?.type) &&
+      Boolean(question.interaction?.slots?.length);
+  }
+
   function applyQuestion(question) {
     if (!question?.score?.measures?.length) return question;
     const numbers = deriveBarNumbers(question);
     question.score.barNumbers = numbers;
-    const hasLocationSlots =
-      LOCATION_INTERACTIONS.has(question.interaction?.type) &&
-      Boolean(question.interaction?.slots?.length);
+    const hasLocationSlots = usesScoreLocationLabels(question);
     if (question.score.showBarNumbers === undefined) {
       question.score.showBarNumbers = question.score.measures.length > 1 || hasLocationSlots;
     }
@@ -139,7 +143,7 @@
         }
       }
 
-      if (LOCATION_INTERACTIONS.has(question.interaction?.type)) {
+      if (usesScoreLocationLabels(question)) {
         (question.interaction.slots || []).forEach((slot) => {
           const event = Number.isInteger(slot.harmonicIndex)
             ? question.score.harmonicEvents?.[slot.harmonicIndex]
