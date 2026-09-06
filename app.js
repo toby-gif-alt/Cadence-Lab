@@ -29,6 +29,8 @@
 
   const categorySelect = document.querySelector("#category");
   const sourceSelect = document.querySelector("#source-type");
+  const yearSelect = document.querySelector("#source-year");
+  const yearField = document.querySelector("#source-year-field");
   const answerPanel = document.querySelector("#answer-panel");
   const revealButton = document.querySelector("#reveal-answer");
   const scoreElement = document.querySelector("#score");
@@ -63,6 +65,7 @@
   function chooseQuestion() {
     const category = categorySelect.value;
     const sourceType = sourceSelect.value;
+    const sourceYear = yearSelect.value;
     if (category === "chord-identification" || sourceType === "generated-practice") {
       categorySelect.value = "chord-identification";
       sourceSelect.value = "generated-practice";
@@ -72,12 +75,15 @@
     let pool = questionBank.filter(
       (question) =>
         (category === "mixed" || question.category === category) &&
-        (sourceType === "mixed" || question.sourceType === sourceType)
+        (sourceType === "mixed" || question.sourceType === sourceType) &&
+        (!sourceYear || Number(sourceYear) === question.source?.year)
     );
     if (!pool.length) {
       categorySelect.value = "mixed";
       pool = questionBank.filter(
-        (question) => sourceType === "mixed" || question.sourceType === sourceType
+        (question) =>
+          (sourceType === "mixed" || question.sourceType === sourceType) &&
+          (!sourceYear || Number(sourceYear) === question.source?.year)
       );
     }
     let candidates = pool.filter((question) => question.id !== lastQuestionId);
@@ -92,8 +98,14 @@
     if (question.sourceType === "nzqa-reference") {
       return `${source.year} ${source.question} ${source.part}, ${source.extract} · ${source.creator}, “${source.title}” · ${source.location}.`;
     }
+    if (question.sourceType === "practice-assessment-reference") {
+      return `Learning Ideas practice assessment · ${source.year} ${source.question} ${source.part}, ${source.extract} · ${source.creator}, “${source.title}” · ${source.location}. Not an official NZQA examination question.`;
+    }
     if (question.sourceType === "generated-practice") {
       return `Generated Cadence Lab practice · ${question.variantId}.`;
+    }
+    if (source.adaptedFrom) {
+      return source.acknowledgement;
     }
     return "Original Cadence Lab practice material.";
   }
@@ -471,7 +483,7 @@
     );
     const extensionChoices = {
       major: ["triad", "6", "maj7", "maj9"],
-      minor: ["triad", "6", "7", "9"],
+      minor: ["triad", "6", "7", "9", "11"],
       dominant: ["7", "9", "11", "13"],
       diminished: ["triad", "7"],
       "half-diminished": ["7"],
@@ -564,7 +576,9 @@
       );
       return (activeSlot?.acceptedAnswers || []).some((answer) =>
         /m7\(♭5\)/.test(typeof answer === "string" ? answer : answer.label)
-      ) ? "parenthetical-flat-five" : "";
+      ) ? "parenthetical-flat-five" : (activeSlot?.acceptedAnswers || []).some((answer) =>
+        /ø7/.test(typeof answer === "string" ? answer : answer.label)
+      ) ? "half-diminished-symbol" : "";
     };
     const updateJazzPreview = () => {
       const rootLetter = structuredBuilder.querySelector("[data-chord-root]").value;
@@ -613,7 +627,7 @@
       const additionChoices = quality === "major"
         ? extension === "triad" ? ["add9"] : extension === "6" ? ["6(add9)"] : []
         : quality === "minor"
-          ? extension === "triad" ? ["add9"] : extension === "9" ? ["maj7", "add6"] : []
+          ? extension === "triad" ? ["add9", "add4"] : extension === "9" ? ["maj7", "add6"] : []
           : [];
       const addition = additionChoices.includes(additionSelect.value)
         ? additionSelect.value
@@ -673,15 +687,20 @@
       <div class="structured-field-grid">
         ${(interaction.fields || []).map((field) => {
           const selected = structuredModel.formatValue(structuredAnswer.fields[field.id], interaction.type);
+          if (field.kind === "text") {
+            return `<div class="structured-field structured-field-text"><label for="field-${field.id}">${escapeText(field.label)}</label>
+              ${field.prompt ? `<small>${escapeText(field.prompt)}</small>` : ""}
+              <textarea id="field-${field.id}" data-field-id="${field.id}">${escapeText(selected)}</textarea></div>`;
+          }
           return `<div class="structured-field"><label for="field-${field.id}">${escapeText(field.label)}</label>
             <select id="field-${field.id}" data-field-id="${field.id}">${optionMarkup(choicesFor(field), selected)}</select></div>`;
         }).join("")}
       </div>
       ${interaction.evidencePrompt ? `<label class="evidence-wrap">${escapeText(interaction.evidencePrompt)}<textarea class="evidence-field" data-evidence>${escapeText(structuredAnswer.evidence)}</textarea></label>` : ""}`;
     structuredBuilder.hidden = true;
-    structuredControls.querySelectorAll("[data-field-id]").forEach((select) => {
-      select.addEventListener("change", () => commitStructured(
-        structuredModel.setField(structuredAnswer, select.dataset.fieldId, select.value ? { label: select.value } : null),
+    structuredControls.querySelectorAll("[data-field-id]").forEach((control) => {
+      control.addEventListener(control.matches("textarea") ? "input" : "change", () => commitStructured(
+        structuredModel.setField(structuredAnswer, control.dataset.fieldId, control.value ? { label: control.value } : null),
         "Response updated.",
         { renderScore: false }
       ));
@@ -712,12 +731,14 @@
         supplementary.innerHTML = question.interaction.fields.map((field) => {
           const selected = structuredModel.formatValue(structuredAnswer.fields[field.id], question.interaction.type);
           const choices = field.choices || question.interaction.classificationChoices || [];
-          return `<div class="structured-field"><label for="field-${field.id}">${escapeText(field.label)}</label><select id="field-${field.id}" data-field-id="${field.id}">${optionMarkup(choices, selected)}</select></div>`;
+          return field.kind === "text"
+            ? `<div class="structured-field structured-field-text"><label for="field-${field.id}">${escapeText(field.label)}</label>${field.prompt ? `<small>${escapeText(field.prompt)}</small>` : ""}<textarea id="field-${field.id}" data-field-id="${field.id}">${escapeText(selected)}</textarea></div>`
+            : `<div class="structured-field"><label for="field-${field.id}">${escapeText(field.label)}</label><select id="field-${field.id}" data-field-id="${field.id}">${optionMarkup(choices, selected)}</select></div>`;
         }).join("");
         structuredControls.appendChild(supplementary);
-        supplementary.querySelectorAll("[data-field-id]").forEach((select) =>
-          select.addEventListener("change", () => commitStructured(
-            structuredModel.setField(structuredAnswer, select.dataset.fieldId, select.value ? { label: select.value } : null),
+        supplementary.querySelectorAll("[data-field-id]").forEach((control) =>
+          control.addEventListener(control.matches("textarea") ? "input" : "change", () => commitStructured(
+            structuredModel.setField(structuredAnswer, control.dataset.fieldId, control.value ? { label: control.value } : null),
             "Classification updated.",
             { renderScore: false }
           ))
@@ -933,6 +954,20 @@
     const items = [...comparison.slots, ...comparison.fields];
     const generated = currentQuestion.sourceType === "generated-practice";
     panel.hidden = false;
+    if (currentQuestion.interaction.reflectionOnly) {
+      panel.innerHTML = `
+        <h4>Your analysis beside schedule evidence</h4>
+        <p>Your response is recorded for self-check. Cadence Lab does not assign an automatic NCEA grade to contextual writing.</p>
+        <div class="comparison-grid">
+          ${items.map((item) => `<div class="comparison-item" data-status="recorded">
+            <small>${escapeText(item.label)}</small>
+            <strong>${escapeText(item.response || "—")}</strong>
+            <span>Schedule evidence: ${escapeText(item.model || "—")}</span>
+          </div>`).join("")}
+        </div>
+        ${comparison.evidence ? `<div class="comparison-item"><small>Your concluding link</small><strong>${escapeText(comparison.evidence)}</strong></div>` : ""}`;
+      return;
+    }
     panel.innerHTML = `
       <h4>Your response beside the model</h4>
       <p>${generated ? "These labels compare your entry with the intended harmonic identity, including any deliberately declared alternative analysis." : "These labels only compare your structured entry with the authored accepted answer; they are not automated NCEA grading."}</p>
@@ -976,7 +1011,32 @@
     if (!question) throw new Error(`Unknown question: ${questionId}`);
     categorySelect.value = question.category;
     sourceSelect.value = question.sourceType;
+    yearSelect.value = question.source?.year || "";
+    syncSourceYearVisibility();
     renderQuestion(question);
+  }
+
+  function syncSourceYearVisibility() {
+    yearField.hidden = !["mixed", "nzqa-reference", "practice-assessment-reference"].includes(sourceSelect.value);
+    if (yearField.hidden) yearSelect.value = "";
+  }
+
+  function syncFilterAvailability() {
+    [...sourceSelect.options].forEach((option) => {
+      if (["mixed", "generated-practice"].includes(option.value)) return;
+      option.disabled = !questionBank.some(
+        (question) => question.sourceType === option.value
+      );
+    });
+    if (sourceSelect.selectedOptions[0]?.disabled) sourceSelect.value = "mixed";
+    [...yearSelect.options].forEach((option) => {
+      if (!option.value) return;
+      option.disabled = !questionBank.some((question) =>
+        Number(option.value) === question.source?.year &&
+        (sourceSelect.value === "mixed" || question.sourceType === sourceSelect.value)
+      );
+    });
+    if (yearSelect.selectedOptions[0]?.disabled) yearSelect.value = "";
   }
 
   function showGeneratedQuestion(seed) {
@@ -995,13 +1055,17 @@
   categorySelect.addEventListener("change", () => {
     if (categorySelect.value === "chord-identification") sourceSelect.value = "generated-practice";
     else if (sourceSelect.value === "generated-practice") sourceSelect.value = "mixed";
+    syncSourceYearVisibility();
     renderQuestion();
   });
   sourceSelect.addEventListener("change", () => {
     if (sourceSelect.value === "generated-practice") categorySelect.value = "chord-identification";
     else if (categorySelect.value === "chord-identification") categorySelect.value = "mixed";
+    syncFilterAvailability();
+    syncSourceYearVisibility();
     renderQuestion();
   });
+  yearSelect.addEventListener("change", () => renderQuestion());
   revealButton.addEventListener("click", () => submitAndReveal());
   document.querySelector("#print-question").addEventListener("click", () => printCurrent("question"));
   document.querySelector("#print-model").addEventListener("click", () => printCurrent("model"));
@@ -1074,7 +1138,10 @@
   } else if (requestedQuestion) {
     categorySelect.value = requestedQuestion.category;
     sourceSelect.value = requestedQuestion.sourceType;
+    yearSelect.value = requestedQuestion.source?.year || "";
   }
+  syncFilterAvailability();
+  syncSourceYearVisibility();
   try {
     renderQuestion(requestedVariantId
       ? chordGenerator.createFromVariantId(requestedVariantId)

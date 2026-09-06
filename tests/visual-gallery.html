@@ -56,25 +56,32 @@
     <main id="gallery"></main>
 
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../key-relationships.js?v=2026-09-relationship-16"></script>
-    <script src="../question-bank.js?v=2026-09-relationship-16"></script>
-    <script src="../score-renderer.js?v=2026-09-relationship-16"></script>
-    <script src="../question-validator.js?v=2026-09-relationship-16"></script>
+    <script src="../key-relationships.js?v=2026-09-source-bank-18"></script>
+    <script src="../question-bank.js?v=2026-09-source-bank-18"></script>
+    <script src="../score-renderer.js?v=2026-09-source-bank-18"></script>
+    <script src="../question-validator.js?v=2026-09-source-bank-18"></script>
     <script>
       const params = new URLSearchParams(location.search);
-      const category = params.get("category") || "analysis";
+      const requestedCategory = params.get("category");
       const sourceType = params.get("source");
+      const provider = params.get("provider");
+      const year = Number(params.get("year")) || null;
+      const questionNumber = params.get("question");
+      const category = requestedCategory ||
+        (!sourceType && !provider && !year && !questionNumber ? "analysis" : null);
       const requestedWidth = Number(params.get("width")) || 780;
       const width = Math.min(1040, Math.max(340, requestedWidth));
-      const questions = window.CadenceData.questions.filter(
-        (question) => sourceType
-          ? question.sourceType === sourceType
-          : question.category === category
+      const questions = window.CadenceData.questions.filter((question) =>
+        (!sourceType || question.sourceType === sourceType) &&
+        (!category || question.category === category) &&
+        (!provider || question.source?.provider === provider) &&
+        (!year || question.source?.year === year) &&
+        (!questionNumber || String(question.source?.question || "").includes(questionNumber))
       );
       const gallery = document.querySelector("#gallery");
       gallery.style.width = `${width + 30}px`;
       document.querySelector("#summary").textContent =
-        `${sourceType || category} • ${questions.length} templates • question and model • ${width}px score width`;
+        `${provider || sourceType || category || "all references"}${year ? ` • ${year}` : ""}${questionNumber ? ` • ${questionNumber}` : ""} • ${questions.length} templates • question and model • ${width}px score width`;
 
       questions.forEach((question) => {
         const article = document.createElement("article");

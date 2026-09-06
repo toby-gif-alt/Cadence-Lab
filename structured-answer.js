@@ -6,6 +6,7 @@
     "key-modulation",
     "jazz-chord-placement",
     "feature-analysis",
+    "contextual-analysis",
   ]);
 
   function copy(value) {
@@ -247,9 +248,9 @@
   const JAZZ_FORMULAS = Object.freeze([
     "major", "minor", "sixth", "minor-sixth", "dominant-seventh",
     "major-seventh", "minor-seventh", "dominant-ninth", "major-ninth",
-    "minor-ninth", "dominant-eleventh", "dominant-thirteenth",
+    "minor-ninth", "minor-eleventh", "dominant-eleventh", "dominant-thirteenth",
     "dominant-flat-nine", "dominant-sharp-nine", "dominant-sharp-eleven",
-    "thirteenth-flat-nine", "add-nine", "minor-add-nine", "six-add-nine",
+    "thirteenth-flat-nine", "add-nine", "minor-add-nine", "minor-add-four", "six-add-nine",
     "minor-ninth-major-seventh", "minor-nine-add-six", "dominant-seven-sus-four",
     "suspended-two", "suspended-four", "diminished", "diminished-seventh",
     "half-diminished",
@@ -266,6 +267,7 @@
     "dominant-ninth": { quality: "dominant", extension: "9", alteration: "", addition: "" },
     "major-ninth": { quality: "major", extension: "maj9", alteration: "", addition: "" },
     "minor-ninth": { quality: "minor", extension: "9", alteration: "", addition: "" },
+    "minor-eleventh": { quality: "minor", extension: "11", alteration: "", addition: "" },
     "dominant-eleventh": { quality: "dominant", extension: "11", alteration: "", addition: "" },
     "dominant-thirteenth": { quality: "dominant", extension: "13", alteration: "", addition: "" },
     "dominant-flat-nine": { quality: "dominant", extension: "7", alteration: "b9", addition: "" },
@@ -274,6 +276,7 @@
     "thirteenth-flat-nine": { quality: "dominant", extension: "13", alteration: "b9", addition: "" },
     "add-nine": { quality: "major", extension: "triad", alteration: "", addition: "add9" },
     "minor-add-nine": { quality: "minor", extension: "triad", alteration: "", addition: "add9" },
+    "minor-add-four": { quality: "minor", extension: "triad", alteration: "", addition: "add4" },
     "six-add-nine": { quality: "major", extension: "6", alteration: "", addition: "6(add9)" },
     "minor-ninth-major-seventh": { quality: "minor", extension: "9", alteration: "", addition: "maj7" },
     "minor-nine-add-six": { quality: "minor", extension: "9", alteration: "", addition: "add6" },
@@ -298,7 +301,8 @@
       if (extension === "9" && addition === "maj7") return "minor-ninth-major-seventh";
       if (extension === "9" && addition === "add6") return "minor-nine-add-six";
       if (extension === "triad" && addition === "add9") return "minor-add-nine";
-      return { "6": "minor-sixth", "7": "minor-seventh", "9": "minor-ninth" }[extension] || "minor";
+      if (extension === "triad" && addition === "add4") return "minor-add-four";
+      return { "6": "minor-sixth", "7": "minor-seventh", "9": "minor-ninth", "11": "minor-eleventh" }[extension] || "minor";
     }
     if (quality === "dominant") {
       if (extension === "7" && suspension === "sus4") return "dominant-seven-sus-four";
@@ -350,6 +354,7 @@
       "dominant-ninth": "9",
       "major-ninth": "maj9",
       "minor-ninth": "m9",
+      "minor-eleventh": "m11",
       "dominant-eleventh": "11",
       "dominant-thirteenth": "13",
       "dominant-flat-nine": "7♭9",
@@ -358,6 +363,7 @@
       "thirteenth-flat-nine": "13♭9",
       "add-nine": "add9",
       "minor-add-nine": "m(add9)",
+      "minor-add-four": "m(add4)",
       "six-add-nine": "6(add9)",
       "minor-ninth-major-seventh": "m9(maj7)",
       "minor-nine-add-six": "m9(add6)",
@@ -366,7 +372,9 @@
       "suspended-four": "sus4",
       diminished: "dim",
       "diminished-seventh": "dim7",
-      "half-diminished": chord.displayStyle === "parenthetical-flat-five" ? "m7(♭5)" : "m7♭5",
+      "half-diminished": chord.displayStyle === "parenthetical-flat-five"
+        ? "m7(♭5)"
+        : chord.displayStyle === "half-diminished-symbol" ? "ø7" : "m7♭5",
     }[chord.formula];
     return `${chord.root}${suffix}${chord.bass ? `/${chord.bass}` : ""}`;
   }
@@ -391,6 +399,7 @@
       9: "dominant-ninth",
       maj9: "major-ninth",
       m9: "minor-ninth",
+      m11: "minor-eleventh",
       11: "dominant-eleventh",
       13: "dominant-thirteenth",
       "7♭9": "dominant-flat-nine",
@@ -399,6 +408,7 @@
       "13♭9": "thirteenth-flat-nine",
       add9: "add-nine",
       "m(add9)": "minor-add-nine",
+      "m(add4)": "minor-add-four",
       "6(add9)": "six-add-nine",
       "m9(maj7)": "minor-ninth-major-seventh",
       "m9(add6)": "minor-nine-add-six",
@@ -409,10 +419,13 @@
       dim7: "diminished-seventh",
       "m7♭5": "half-diminished",
       "m7(♭5)": "half-diminished",
+      "ø7": "half-diminished",
     }[suffix];
     if (!formula) return null;
     return semanticJazzChord(root, formula, bass, {
-      displayStyle: suffix === "m7(♭5)" ? "parenthetical-flat-five" : "",
+      displayStyle: suffix === "m7(♭5)"
+        ? "parenthetical-flat-five"
+        : suffix === "ø7" ? "half-diminished-symbol" : "",
     });
   }
 

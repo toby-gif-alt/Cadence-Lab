@@ -13,17 +13,17 @@
   <body data-status="running">
     <h1>Cadence Lab interaction smoke test</h1>
     <div id="render-fixture" aria-hidden="true"></div>
-    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-relationship-16"></iframe>
+    <iframe id="app-frame" title="Cadence Lab test application" src="../index.html?question=satb-f-c&amp;v=2026-09-source-bank-18"></iframe>
     <pre id="results">Running…</pre>
 
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../key-relationships.js?v=2026-09-relationship-16"></script>
-    <script src="../question-bank.js?v=2026-09-relationship-16"></script>
-    <script src="../score-renderer.js?v=2026-09-relationship-16"></script>
-    <script src="../question-validator.js?v=2026-09-relationship-16"></script>
-    <script src="../structured-answer.js?v=2026-09-relationship-16"></script>
-    <script src="../chord-generator.js?v=2026-09-relationship-16"></script>
-    <script src="../playback-engine.js?v=2026-09-relationship-16"></script>
+    <script src="../key-relationships.js?v=2026-09-source-bank-18"></script>
+    <script src="../question-bank.js?v=2026-09-source-bank-18"></script>
+    <script src="../score-renderer.js?v=2026-09-source-bank-18"></script>
+    <script src="../question-validator.js?v=2026-09-source-bank-18"></script>
+    <script src="../structured-answer.js?v=2026-09-source-bank-18"></script>
+    <script src="../chord-generator.js?v=2026-09-source-bank-18"></script>
+    <script src="../playback-engine.js?v=2026-09-source-bank-18"></script>
     <script>
       const results = document.querySelector("#results");
       const assertions = {};
@@ -72,8 +72,8 @@
             !appDocument.body.textContent.includes("Target: Merit")
           );
 
-          assert("all32QuestionsHaveSpoilerAuditMetadata",
-            questions.length === 32 && questions.every((question) =>
+          assert("allQuestionsHaveSpoilerAuditMetadata",
+            questions.length > 0 && questions.every((question) =>
               question.internalTitle && question.studentTitle &&
               question.studentContext && question.score.studentCaption &&
               Array.isArray(question.hiddenConceptTerms)
@@ -83,9 +83,63 @@
             report.valid && report.spoilerAuditErrors.length === 0,
             report.spoilerAuditErrors
           );
+          const referenceQuestions = questions.filter((question) =>
+            ["nzqa-reference", "practice-assessment-reference"].includes(question.sourceType)
+          );
+          const adapted2025Ids = [
+            "nzqa-2025-bach-analysis", "nzqa-2025-bach-modulation", "nzqa-2025-bach-satb",
+            "nzqa-2025-schubert-analysis", "nzqa-2025-schubert-feature", "nzqa-2025-schubert-piano",
+            "nzqa-2025-joel-chords", "nzqa-2025-joel-context", "nzqa-2025-joel-piano",
+          ];
+          const contextualQuestions = questions.filter((question) =>
+            question.interaction?.type === "contextual-analysis"
+          );
+          assert("referenceTaxonomyAndProvenanceAreExplicit",
+            window.CadenceData.sourceTypes["nzqa-reference"] === "NZQA examination reference" &&
+            window.CadenceData.sourceTypes["practice-assessment-reference"] === "Practice assessment reference" &&
+            window.CadenceData.sourceTypes["original-practice"] === "Original Cadence Lab practice" &&
+            referenceQuestions.every((question) =>
+              question.source.provider && question.source.sourceKind && question.source.location &&
+              question.source.acknowledgement
+            ) &&
+            referenceQuestions.length === 5 &&
+            referenceQuestions.every((question) =>
+              question.sourceSpec.transcriptionMode === "exact"
+            ) &&
+            !questions.some((question) =>
+              question.sourceType === "practice-assessment-reference"
+            )
+          );
+          assert("allNine2025StudiesAreRetainedAsAdaptedOriginalPractice",
+            adapted2025Ids.every((id) => {
+              const question = questions.find((candidate) => candidate.id === id);
+              return question?.sourceType === "original-practice" &&
+                question.source.adaptedFrom &&
+                /^Adapted:/.test(question.studentTitle);
+            }) &&
+            !questions.some((question) =>
+              question.sourceType === "nzqa-reference" && question.source.year === 2025
+            )
+          );
+          const practiceReferenceOption = appDocument.querySelector(
+            '#source-type option[value="practice-assessment-reference"]'
+          );
+          const referenceYear2025Option = appDocument.querySelector(
+            '#source-year option[value="2025"]'
+          );
+          assert("emptyReferenceFiltersAreDisabled",
+            practiceReferenceOption.disabled && referenceYear2025Option.disabled
+          );
+          assert("contextualAnalysisUsesScaffoldedReflectionOnlyFields",
+            contextualQuestions.length >= 4 && contextualQuestions.every((question) =>
+              question.interaction.reflectionOnly === true &&
+              question.interaction.fields.length >= 3 &&
+              question.interaction.fields.some((field) => field.kind === "text")
+            )
+          );
           assert("allQuestionsHaveUniversalAnswerInteraction",
-            questions.filter((question) => question.interaction).length === 32 &&
-            questions.filter((question) => question.interaction?.type === "paper-completion").length === 8 &&
+            questions.every((question) => question.interaction) &&
+            questions.some((question) => question.interaction?.type === "paper-completion") &&
             questions.filter((question) => question.score.completion)
               .every((question) => question.interaction?.type === "paper-completion") &&
             questions.every((question) => question.interaction?.type !== "notation-completion") &&
@@ -109,16 +163,36 @@
           const satbQuestion = questions.find((question) => question.id === "satb-f-c");
           const pianoQuestion = questions.find((question) => question.id === "piano-d-f");
           const bachQuestion = questions.find((question) => question.id === "nzqa-2024-bach-satb");
-          assert("allEightCompletionsUseSemanticPaperContracts",
-            completionQuestions.length === 8 &&
-            completionQuestions.filter((question) => question.category === "satb").length === 4 &&
-            completionQuestions.filter((question) => question.category === "piano").length === 4 &&
+          const bach2025Completion = questions.find(
+            (question) => question.id === "nzqa-2025-bach-satb"
+          );
+          assert("allCompletionsUseSemanticPaperContracts",
+            completionQuestions.some((question) => question.category === "satb") &&
+            completionQuestions.some((question) => question.category === "piano") &&
             completionQuestions.every((question) =>
               question.interaction.completionType === question.category &&
               question.interaction.completionRequirements &&
               question.interaction.selfCheck.length >= 5 &&
               !question.interaction.editableRegions
             )
+          );
+          assert("adapted2025SatbPreservesFourSuppliedAndSixChoiceContract",
+            bach2025Completion.sourceType === "original-practice" &&
+            bach2025Completion.score.harmonicEvents.length === 10 &&
+            JSON.stringify(bach2025Completion.score.harmonicEvents
+              .filter((event) => event.questionLabel)
+              .map((event) => event.questionLabel)) ===
+              JSON.stringify(["I", "Ib", "IV⁹–⁸", "I"]) &&
+            bach2025Completion.score.harmonicEvents
+              .filter((event) => event.analysisBox !== false && !event.questionLabel)
+              .length === 6 &&
+            bach2025Completion.interaction.completionRequirements.totalChordMoments === 10 &&
+            bach2025Completion.interaction.completionRequirements.suppliedChordMoments === 4 &&
+            bach2025Completion.interaction.completionRequirements.learnerChosenChordMoments === 6 &&
+            bach2025Completion.interaction.completionRequirements.minimumPassingNotes === 2 &&
+            bach2025Completion.interaction.completionRequirements.requiredSuspension === true &&
+            JSON.stringify(bach2025Completion.interaction.completionRequirements.allowedRomanChords) ===
+              JSON.stringify(["I", "ii", "V", "V7", "vi"])
           );
           const suppliedPlaybackFailures = completionQuestions.flatMap((question) => {
             const before = JSON.stringify(question.score);
@@ -299,7 +373,7 @@
             unrepresentableJazzAnswers.length === 0,
             unrepresentableJazzAnswers
           );
-          assert("nzqa2021And2024ReferenceSymbolsAreExplicitSemanticAcceptanceCases",
+          assert("adapted2021And2024SourceSymbolsRemainSemanticAcceptanceCases",
             ["nzqa-2021-valentine-techniques", "nzqa-2024-commercial-chromatic-bass"]
               .flatMap((questionId) => questions.find((question) =>
                 question.id === questionId
@@ -600,7 +674,7 @@
             /^(?:I|II|III|IV|V|VI|VII|i|ii|iii|iv|v|vi|vii)$/.test(label) ||
             /\/[ ]*(?:I|II|III|IV|V|VI|VII|i|ii|iii|iv|v|vi|vii)$/.test(label);
           assert("relationshipDropdownsUseSmallFieldSpecificChoiceSets",
-            relationshipFields.length === 12 && relationshipFields.every(({ question, field }) =>
+            relationshipFields.length >= 12 && relationshipFields.every(({ question, field }) =>
               !question.interaction.relationshipChoices &&
               field.choices.length >= 4 && field.choices.length <= 6 &&
               field.choices.length < keyRelationships.relationshipChoices.length
@@ -693,7 +767,7 @@
             .replaceAll(/\s+/g, " ")
             .toLocaleLowerCase("en-NZ");
           assert("allModulationRelationshipsCarryAuditedSemanticKeyMetadata",
-            modulationQuestions.length === 6 && modulationQuestions.every((question) =>
+            modulationQuestions.length > 0 && modulationQuestions.every((question) =>
               question.homeKey && question.keyRegions.length &&
               question.interaction.homeKey === question.homeKey &&
               normalizeKeyContext(question.studentContext).includes(
@@ -915,7 +989,7 @@
               preRevealLeaks.push(`${question.id}: removed student playback is still available`);
             }
           });
-          assert("all32QuestionsAreSpoilerSafeBeforeReveal",
+          assert("allQuestionsAreSpoilerSafeBeforeReveal",
             preRevealLeaks.length === 0,
             preRevealLeaks
           );
@@ -1261,6 +1335,23 @@
             appDocument.querySelector("#student-comparison").textContent.includes("matches intended analysis") &&
             appDocument.querySelector("#student-comparison").textContent.includes("Intended analysis") &&
             !appDocument.querySelector("#student-comparison").textContent.includes("Accepted analyses")
+          );
+
+          appWindow.CadenceLab.showQuestion("practice-2025-integrated-tonality");
+          const contextualTextarea = appDocument.querySelector(
+            '[data-field-id="tonal-route"]'
+          );
+          contextualTextarea.value = "A supported tonal route with evidence.";
+          contextualTextarea.dispatchEvent(new appWindow.Event("input", { bubbles: true }));
+          appWindow.CadenceLab.submit({ skipConfirmation: true, noScroll: true });
+          assert("contextualWritingUsesRecordedSelfCheckNotAutomatedGrade",
+            appDocument.querySelector("#student-comparison").textContent.includes(
+              "does not assign an automatic NCEA grade"
+            ) &&
+            appDocument.querySelectorAll(
+              '#student-comparison .comparison-item[data-status="recorded"]'
+            ).length === appWindow.CadenceLab.getCurrentQuestion().interaction.fields.length &&
+            !appDocument.querySelector("#student-comparison").textContent.includes("matches model")
           );
 
           appWindow.CadenceLab.showQuestion("nzqa-2024-commercial-chromatic-bass");

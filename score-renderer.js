@@ -848,6 +848,8 @@
       intervals = [0, 4, 6, 7, 10];
     } else if (/^6add9/.test(lowerQuality)) {
       intervals = [0, 2, 4, 7, 9];
+    } else if (/^(m|min)11/.test(lowerQuality)) {
+      intervals = [0, 2, 3, 5, 7, 10];
     } else if (/^(m|min)9maj7/.test(lowerQuality)) {
       intervals = [0, 2, 3, 7, 11];
     } else if (/^(m7b5|half-?dim)/.test(lowerQuality)) {
@@ -882,6 +884,8 @@
       intervals = [0, 2, 7];
     } else if (/^sus4|^sus/.test(lowerQuality)) {
       intervals = [0, 5, 7];
+    } else if (/^(m|min)add4/.test(lowerQuality)) {
+      intervals = [0, 3, 5, 7];
     } else if (/^(m|min)add9/.test(lowerQuality)) {
       intervals = [0, 2, 3, 7];
     } else if (/^add9/.test(lowerQuality)) {

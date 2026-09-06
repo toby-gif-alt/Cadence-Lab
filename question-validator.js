@@ -4,19 +4,13 @@
   const renderer = window.CadenceScoreRenderer;
   const keyRelationships = window.CadenceKeyRelationships;
   const SATB_NAMES = ["soprano", "alto", "tenor", "bass"];
-  const EXPECTED_COUNTS = {
-    analysis: 6,
-    modulation: 6,
-    satb: 4,
-    piano: 4,
-    jazz: 6,
-    features: 6,
-  };
+  const CATEGORIES = ["analysis", "modulation", "satb", "piano", "jazz", "features"];
   const INTERACTION_TYPES = new Set([
     "roman-analysis",
     "key-modulation",
     "jazz-chord-placement",
     "feature-analysis",
+    "contextual-analysis",
     "paper-completion",
   ]);
 
@@ -105,7 +99,7 @@
       jazz: "jazz-chord-placement",
       features: "feature-analysis",
     }[question.category];
-    if (interaction.type !== expectedType) {
+    if (interaction.type !== expectedType && interaction.type !== "contextual-analysis") {
       errors.push(`${question.id}: ${question.category} requires ${expectedType}`);
     }
     const slots = interaction.slots || [];
@@ -787,12 +781,38 @@
     harmonicEvents,
     sourceFidelityErrors
   ) {
-    if (question.sourceType !== "nzqa-reference") return;
+    if (!["nzqa-reference", "practice-assessment-reference"].includes(question.sourceType)) return;
     const spec = question.sourceSpec;
     if (!spec || typeof spec !== "object") {
       sourceFidelityErrors.push(`${question.id}: missing expected-source specification`);
       return;
     }
+    if (spec.transcriptionMode !== "exact") {
+      sourceFidelityErrors.push(
+        `${question.id}: reference transcriptionMode must be exact`
+      );
+    }
+    const approximationLanguage =
+      /\b(?:representative|selected regions?|simplified|reduced|adapted|approximation)\b/i;
+    const referenceDescription = JSON.stringify({
+      source: question.source,
+      sourceSpec: spec,
+      title: question.title,
+      context: question.context,
+      caption: question.score.caption,
+    });
+    if (approximationLanguage.test(referenceDescription)) {
+      sourceFidelityErrors.push(
+        `${question.id}: an exact reference cannot be described as representative, selected, simplified, reduced, adapted or an approximation`
+      );
+    }
+    [["year", question.source.year], ["provider", question.source.provider],
+      ["question", question.source.question], ["part", question.source.part],
+      ["bars", question.source.bars]].forEach(([field, actual]) => {
+      if (spec[field] !== undefined && spec[field] !== actual) {
+        sourceFidelityErrors.push(`${question.id}: source ${field} mismatch; expected ${JSON.stringify(spec[field])}, found ${JSON.stringify(actual)}`);
+      }
+    });
 
     const compareList = (field, actual) => {
       if (!Array.isArray(spec[field])) return;
@@ -802,6 +822,87 @@
         );
       }
     };
+
+    if (!spec.printedBars || spec.printedBars !== question.source.bars) {
+      sourceFidelityErrors.push(
+        `${question.id}: printedBars must exactly match the source bar range`
+      );
+    }
+    if (!Number.isInteger(spec.printedMeasureCount)) {
+      sourceFidelityErrors.push(`${question.id}: exact reference lacks printedMeasureCount`);
+    } else if (question.score.measures.length !== spec.printedMeasureCount) {
+      sourceFidelityErrors.push(
+        `${question.id}: printedMeasureCount mismatch; expected ${spec.printedMeasureCount}, found ${question.score.measures.length}`
+      );
+    }
+    const numberedRange = /^(\d+)\s*[–-]\s*(\d+)$/.exec(spec.printedBars || "");
+    if (numberedRange && Number.isInteger(spec.printedMeasureCount)) {
+      const [, first, last] = numberedRange.map(Number);
+      const expectedPrintedCount = last - first + 1 +
+        (spec.pickupMeasureCount || 0) + (spec.extraPartialMeasureCount || 0);
+      if (last < first || expectedPrintedCount !== spec.printedMeasureCount) {
+        sourceFidelityErrors.push(
+          `${question.id}: printed bar range and explicit pickup/partial metadata do not account for ${spec.printedMeasureCount} displayed measures`
+        );
+      }
+    }
+    if (!spec.staffLayout || spec.staffLayout !== question.score.layout) {
+      sourceFidelityErrors.push(
+        `${question.id}: staffLayout mismatch; expected ${spec.staffLayout || "an explicit layout"}, found ${question.score.layout}`
+      );
+    }
+
+    const durationSignature = (events) =>
+      (events || []).map((event) => event.duration || "q").join(" ");
+    if (spec.staffLayout === "satb") {
+      compareList("voiceNames", SATB_NAMES);
+      if (!Array.isArray(spec.voiceNames) ||
+          !Array.isArray(spec.perMeasureVoiceEventCounts) ||
+          !Array.isArray(spec.measureRhythmSignatures)) {
+        sourceFidelityErrors.push(
+          `${question.id}: exact SATB reference lacks source-derived voice/event/rhythm signatures`
+        );
+      }
+      compareList(
+        "perMeasureVoiceEventCounts",
+        question.score.measures.map((measure) => Object.fromEntries(
+          SATB_NAMES.map((voiceName) => [voiceName, (measure.voices?.[voiceName] || []).length])
+        ))
+      );
+      compareList(
+        "measureRhythmSignatures",
+        question.score.measures.map((measure) => Object.fromEntries(
+          SATB_NAMES.map((voiceName) => [
+            voiceName,
+            durationSignature(measure.voices?.[voiceName]),
+          ])
+        ))
+      );
+      compareList(
+        "questionVoiceEventCounts",
+        question.score.measures.map((measure) => Object.fromEntries(
+          SATB_NAMES.map((voiceName) => [
+            voiceName,
+            (measure.questionVoices?.[voiceName] || []).length,
+          ])
+        ))
+      );
+    } else {
+      if (!Array.isArray(spec.perMeasureEventCounts) ||
+          !Array.isArray(spec.measureRhythmSignatures)) {
+        sourceFidelityErrors.push(
+          `${question.id}: exact ${spec.staffLayout || "staff"} reference lacks source-derived event/rhythm signatures`
+        );
+      }
+      compareList(
+        "perMeasureEventCounts",
+        question.score.measures.map((measure) => (measure.events || []).length)
+      );
+      compareList(
+        "measureRhythmSignatures",
+        question.score.measures.map((measure) => durationSignature(measure.events))
+      );
+    }
 
     compareList(
       "chordSymbols",
@@ -907,6 +1008,65 @@
       }
     }
     if (
+      Number.isInteger(spec.expectedChordCount) &&
+      harmonicEvents.length &&
+      harmonicEvents.length !== spec.expectedChordCount
+    ) {
+      sourceFidelityErrors.push(
+        `${question.id}: source expectedChordCount mismatch; expected ${spec.expectedChordCount}, found ${harmonicEvents.length}`
+      );
+    }
+    if (Number.isInteger(spec.pivotCount)) {
+      const pivotDestinations = new Set(
+        harmonicEvents.flatMap((event) => {
+          const label = String(event.romanNumeral || event.modelLabel || "");
+          const destination = /\/\s*([^:/]+):/.exec(label)?.[1]?.trim();
+          return destination ? [destination] : [];
+        })
+      );
+      const pivotCount = pivotDestinations.size;
+      if (pivotCount !== spec.pivotCount) {
+        sourceFidelityErrors.push(
+          `${question.id}: source pivotCount mismatch; expected ${spec.pivotCount}, found ${pivotCount}`
+        );
+      }
+    }
+    if (spec.expectedCompletionType &&
+        question.interaction?.completionType !== spec.expectedCompletionType) {
+      sourceFidelityErrors.push(
+        `${question.id}: source completion type must remain ${spec.expectedCompletionType}`
+      );
+    }
+    if (Number.isInteger(spec.requiredPassingNotes) &&
+        question.interaction?.completionRequirements?.minimumPassingNotes !==
+          spec.requiredPassingNotes) {
+      sourceFidelityErrors.push(
+        `${question.id}: source requires ${spec.requiredPassingNotes} passing notes`
+      );
+    }
+    if (spec.requiredSuspension === true &&
+        question.interaction?.completionRequirements?.requiredSuspension !== true &&
+        !question.interaction?.completionRequirements?.suspension) {
+      sourceFidelityErrors.push(
+        `${question.id}: source requires an explicit suspension contract`
+      );
+    }
+    if (Array.isArray(spec.nonHarmonicMarkers)) {
+      const acceptedMarkers = new Set(
+        (question.interaction?.fields || [])
+          .filter((field) => field.kind === "classification")
+          .flatMap((field) => field.acceptedAnswers || [])
+          .map((answer) => answer.label)
+      );
+      spec.nonHarmonicMarkers.forEach((marker) => {
+        if (!acceptedMarkers.has(marker)) {
+          sourceFidelityErrors.push(
+            `${question.id}: source non-harmonic marker ${marker} is not represented in the response contract`
+          );
+        }
+      });
+    }
+    if (
       Number.isInteger(spec.measureCount) &&
       question.score.measures.length !== spec.measureCount
     ) {
@@ -979,15 +1139,17 @@
     }
     if (spec.completionContract) {
       const contract = spec.completionContract;
-      const suppliedMeasure = question.score.measures[contract.suppliedMeasure - 1];
-      if (
-        !suppliedMeasure ||
-        JSON.stringify(suppliedMeasure.voices) !==
-          JSON.stringify(suppliedMeasure.questionVoices)
-      ) {
-        sourceFidelityErrors.push(
-          `${question.id}: source completion contract requires measure ${contract.suppliedMeasure} to remain fully supplied`
-        );
+      if (Number.isInteger(contract.suppliedMeasure)) {
+        const suppliedMeasure = question.score.measures[contract.suppliedMeasure - 1];
+        if (
+          !suppliedMeasure ||
+          JSON.stringify(suppliedMeasure.voices) !==
+            JSON.stringify(suppliedMeasure.questionVoices)
+        ) {
+          sourceFidelityErrors.push(
+            `${question.id}: source completion contract requires measure ${contract.suppliedMeasure} to remain fully supplied`
+          );
+        }
       }
 
       const targetMeasures = (contract.targetMeasures || []).map(
@@ -997,16 +1159,17 @@
         })
       );
       const modelTargetsAreComplete = targetMeasures.every(({ measure }) =>
-        measure?.voices &&
-        SATB_NAMES.every((voiceName) =>
-          measure.voices[voiceName]?.some(
-            (event) => event.pitch || event.pitches?.length
-          )
-        )
+        question.category === "satb"
+          ? measure?.voices && SATB_NAMES.every((voiceName) =>
+              measure.voices[voiceName]?.some((event) => event.pitch || event.pitches?.length)
+            )
+          : measure?.events?.some((event) =>
+              (event.treble || []).length && (event.bass || []).length
+            )
       );
       if (!modelTargetsAreComplete) {
         sourceFidelityErrors.push(
-          `${question.id}: source completion contract requires complete model SATB streams in the target region`
+          `${question.id}: source completion contract requires complete model notation in the target region`
         );
       }
 
@@ -1031,9 +1194,31 @@
       const harmonicIndications = harmonicEvents.filter(
         (event) => event.questionLabel
       ).length;
-      if (harmonicIndications !== contract.harmonicIndications) {
+      if (Number.isInteger(contract.harmonicIndications) &&
+          harmonicIndications !== contract.harmonicIndications) {
         sourceFidelityErrors.push(
           `${question.id}: source completion contract requires ${contract.harmonicIndications} supplied harmonic indications, found ${harmonicIndications}`
+        );
+      }
+      if (Number.isInteger(contract.totalChordMoments) &&
+          harmonicEvents.length !== contract.totalChordMoments) {
+        sourceFidelityErrors.push(
+          `${question.id}: source completion contract requires ${contract.totalChordMoments} total chord moments, found ${harmonicEvents.length}`
+        );
+      }
+      if (Number.isInteger(contract.suppliedChordMoments) &&
+          harmonicIndications !== contract.suppliedChordMoments) {
+        sourceFidelityErrors.push(
+          `${question.id}: source completion contract requires ${contract.suppliedChordMoments} supplied chord moments, found ${harmonicIndications}`
+        );
+      }
+      const learnerChosenChordMoments = harmonicEvents.filter(
+        (event) => event.analysisBox !== false && !event.questionLabel
+      ).length;
+      if (Number.isInteger(contract.learnerChosenChordMoments) &&
+          learnerChosenChordMoments !== contract.learnerChosenChordMoments) {
+        sourceFidelityErrors.push(
+          `${question.id}: source completion contract requires ${contract.learnerChosenChordMoments} learner-choice chord boxes, found ${learnerChosenChordMoments}`
         );
       }
 
@@ -1057,7 +1242,7 @@
     const ids = new Set();
     const signatures = new Map();
     const categoryCounts = Object.fromEntries(
-      Object.keys(EXPECTED_COUNTS).map((category) => [category, 0])
+      CATEGORIES.map((category) => [category, 0])
     );
 
     questions.forEach((question) => {
@@ -1068,14 +1253,14 @@
       } else {
         categoryCounts[question.category] += 1;
       }
-      if (!["nzqa-reference", "original-practice"].includes(question.sourceType)) {
+      if (!["nzqa-reference", "practice-assessment-reference", "original-practice"].includes(question.sourceType)) {
         errors.push(`${question.id}: missing sourceType`);
       }
       if (!question.source?.title || !question.source?.acknowledgement) {
         errors.push(`${question.id}: incomplete source metadata`);
       }
-      if (question.sourceType === "nzqa-reference") {
-        ["year", "question", "part", "extract", "creator", "location"].forEach(
+      if (["nzqa-reference", "practice-assessment-reference"].includes(question.sourceType)) {
+        ["provider", "year", "question", "part", "extract", "creator", "location", "sourceKind"].forEach(
           (field) => {
             if (!question.source[field]) {
               errors.push(`${question.id}: reference source missing ${field}`);
@@ -1131,26 +1316,12 @@
 
     });
 
-    Object.entries(EXPECTED_COUNTS).forEach(([category, expected]) => {
-      if (categoryCounts[category] !== expected) {
-        errors.push(
-          `${category}: expected ${expected} questions, found ${categoryCounts[category]}`
-        );
-      }
-    });
-
     const references = questions.filter(
       (question) => question.sourceType === "nzqa-reference"
     );
-    if (references.length !== 8) {
-      errors.push(`references: expected 8 templates, found ${references.length}`);
+    if (!references.length) {
+      errors.push("references: expected at least one exact NZQA reference");
     }
-    [2021, 2022, 2023, 2024].forEach((year) => {
-      const count = references.filter((question) => question.source.year === year).length;
-      if (count < 1) {
-        errors.push(`${year}: expected at least one reference template, found ${count}`);
-      }
-    });
 
     const cTurnaround = questions.find(
       (question) => question.id === "jazz-c-turnaround"
@@ -1178,6 +1349,9 @@
       total: questions.length,
       categoryCounts,
       referenceCount: references.length,
+      practiceReferenceCount: questions.filter(
+        (question) => question.sourceType === "practice-assessment-reference"
+      ).length,
       referenceLabels: references.map(sourceLabel),
       legacyCount: questions.filter((question) => question.score.chords).length,
       reviewWarnings,

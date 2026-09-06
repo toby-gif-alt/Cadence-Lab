@@ -1,8 +1,8 @@
-# AS 91421 task map, 2021–2024
+# AS 91421 official task map, 2021–2025
 
-This map records the published examination tasks and the matching assessment-schedule evidence used to design Cadence Lab. It is a source map, not a reproduction of either document. The PDFs remain external reference material and are not committed to the repository.
+This concise map records the published examination tasks and matching assessment-schedule evidence used to design Cadence Lab. It is a source map, not a reproduction of either document. The PDFs remain external reference material and are not committed to the repository. The exhaustive official 2021–2025 and Learning Ideas practice 2022–2025 subquestion inventory is in [`source-audit-2021-2025.md`](source-audit-2021-2025.md).
 
-## Rubric pattern across the four schedules
+## Rubric pattern across the schedules
 
 | Level | Recurring evidence pattern |
 | --- | --- |
@@ -21,7 +21,7 @@ The in-app checklists use these observable progressions. They deliberately avoid
 | Q1(c) chorale realisation | Bach continuation; exam p.4 | 11-chord sample realisation; schedule p.4 | SATB family and explicit four-voice completion contract. |
 | Q2(a) classical analysis and tonal comment | Beethoven, *Bagatelle*, Op. 119 No. 8, bars 1–8; exam p.6 | Consecutive Roman-numeral analysis, modulation evidence, chromatic function; schedule pp.6–7 | Classical piano-analysis family and chromatic-function prompts. |
 | Q2(b) piano completion | Beethoven continuation; exam p.7 | Eight-chord sample realisation; schedule p.7 | Piano-completion family. |
-| Q3 jazz analysis, non-harmonic notes and devices | Rodgers/Hart, *My Funny Valentine*, bars 21–29; exam pp.8–9 | Chord analysis across bars 21–29; auxiliary, accented passing and appoggiatura examples; chromatic inner line and tonic pedal; schedule pp.8–9 | Reference jazz-feature transcription and original chromatic/pedal equivalents. |
+| Q3 jazz analysis, non-harmonic notes and devices | Rodgers/Hart, *My Funny Valentine*, bars 21–29; exam pp.8–9 | Chord analysis across bars 21–29; auxiliary, accented passing and appoggiatura examples; chromatic inner line and tonic pedal; schedule pp.8–9 | Adapted original chromatic/pedal study; exact vocal/piano reference deferred. |
 | Q3(b) jazz completion | Song continuation; exam p.10 | Eight-chord sample realisation; schedule p.9 | Jazz-completion practice. |
 
 ## 2022
@@ -40,12 +40,12 @@ The in-app checklists use these observable progressions. They deliberately avoid
 
 | Exam task | Published source and location | Schedule evidence | Cadence Lab use |
 | --- | --- | --- | --- |
-| Q1(a) minor-key pivot analysis | J. S. Bach, *Durch Adams Fall ist ganz verderbt*, bars 1–4; exam p.2 | 13 chords; pivot and extended progression; schedule p.3 | Analysis and modulation families. |
+| Q1(a) minor-key pivot analysis | J. S. Bach, *Durch Adams Fall ist ganz verderbt*, bars 1–4; exam p.2 | 13 chords; pivot and extended progression; schedule p.3 | Adapted original analysis study; exact transcription deferred. |
 | Q1(b) keys X/Y/Z | Bach continuation, bars 4–10; exam p.3 | E-flat major, C minor and F major, each with evidence and relationship to G minor; schedule p.4 | Reference modulation transcription with the published X/Y/Z spans. |
 | Q1(c) chorale realisation with passing notes | Bach continuation, bars 10–13; exam p.4 | Nine-chord realisation; schedule p.4 | SATB family and explicit non-harmonic-note validation. |
-| Q2(a) pedal-note feature | Poulenc, *Novelette No. 1 in C minor*, bars 1–5; exam p.5 | Tonic C pedal establishes C major while creating dissonance; schedule p.6 | Reference feature template. |
+| Q2(a) pedal-note feature | Poulenc, *Novelette No. 1 in C minor*, bars 1–5; exam p.5 | Tonic C pedal establishes C major while creating dissonance; schedule p.6 | Adapted original feature study; exact two-voice piano transcription deferred. |
 | Q2(b) C-major to G-major analysis | Poulenc, bars 6–16; exam p.6 | 12 chords including C:I/G:IV pivot; F-sharp creates an unusual tonic major seventh and may be treated as a non-harmonic note in other moments; schedule p.6 | Original items reuse the altered-note context and anti-misclassification principle. |
-| Q2(c) piano completion | Poulenc arrangement, bars 20–24; exam p.7 | Stylistic sample realisation; schedule p.7 | Piano-completion family. |
+| Q2(c) piano completion | Arrangement of Francis Poulenc, *Novelette No. 1 in C minor*, bars 20–24; exam p.7 | Stylistic sample realisation; schedule p.7 | Adapted original piano-completion study; exact reference deferred. |
 | Q3 jazz analysis/tonality/completion | Bacharach, *What the World Needs Now*, bars 4–35; exam pp.8–10 | E minor or G major readings supported by cadences; 10 identified chords; schedule pp.9–10 | Jazz vocabulary and tonality family. |
 
 ## 2024
@@ -57,16 +57,21 @@ The in-app checklists use these observable progressions. They deliberately avoid
 | Q1(c) chorale realisation | Bach continuation, bars 18–19; exam p.3 | Eight chords including two passing notes; schedule p.4 | Reference SATB completion, preceded by the supplied bar 17 texture. |
 | Q2(a) piano analysis and features | Rimsky-Korsakov, *Two Piano Pieces*, bars 1–25; exam pp.4–5 | 13 chords; direct move from F-sharp minor to A major without pivot; pedal and varied non-harmonic notes; schedule pp.6–7 | Reference piano-tonality template and explicit NCT validation. |
 | Q2(b) piano completion | Rimsky-Korsakov continuation, bars 92–96; exam p.6 | Eight-chord sample realisation; schedule p.7 | Piano-completion family. |
-| Q3(a) jazz analysis and harmonic device | Phillip Norman, *Love is Commercial*, bars 16–28; exam pp.8–9 | Published sequence: C♯m(add9), Dmaj7, Bm9, G♯dim/B, C♯7sus4, C♯7, F♯m, E♯dim7, F♯m/E, D♯m7(♭5), Dmaj7; descending chromatic bass and one chord per bar in bars 24–28 create contrast and forward direction; schedule p.9 | Reference chromatic-bass template with exact E♯dim7 spelling and source-sequence validation. |
+| Q3(a) jazz analysis and harmonic device | Phillip Norman, *Love is Commercial*, bars 16–28; exam pp.8–9 | Published sequence: C♯m(add9), Dmaj7, Bm9, G♯dim/B, C♯7sus4, C♯7, F♯m, E♯dim7, F♯m/E, D♯m7(♭5), Dmaj7; frequent harmonic changes and descending chromatic bass create momentum; schedule p.9 | Adapted original chromatic-bass study; exact vocal/piano reference deferred. |
 | Q3(b) jazz completion | Song continuation, bars 33–39; exam p.10 | Nine-chord sample realisation; schedule p.10 | Jazz-completion family. |
 
-## Selected reference set in the bank
+## 2025
 
-Cadence Lab includes eight reference transcriptions:
+All nine official 2025 subquestions are mapped in the manifest and their semantic exercises remain available as adapted Cadence Lab practice. None currently counts as an official reference because the reduced notation does not reproduce the full learner-visible page. In particular, Q1(c) now preserves the paper contract of four supplied indications—`I`, `Ib`, `IV9–8`, `I`—followed by six learner-choice boxes, while exact 2025 score transcriptions remain deferred.
 
-- 2021: Bach Q1(a) and Rodgers/Hart Q3(a)
+## Reference set in the bank
+
+Cadence Lab currently includes five official reference transcriptions:
+
+- 2021: Bach Q1(a)
 - 2022: Bach Q1(a)
-- 2023: Bach Q1(b) and Poulenc Q2(a)
-- 2024: Bach Q1(a), Bach Q1(c), and Norman Q3(a)
+- 2023: Bach Q1(b)
+- 2024: Bach Q1(a) and Bach Q1(c)
+- 2025: none; adapted studies retained, exact transcriptions deferred
 
-Each is labelled `nzqa-reference` with year, question, part, extract and acknowledgement metadata. The uneven distribution deliberately keeps both requested 2024 Bach structures while retaining coverage of every year. Each major task family also has original or adapted practice. Every reference has a separate expected-source specification for its published symbols, key centres, supplied labels, answer locations and relevant section structure. The Bach references use independent soprano, alto, tenor and bass rhythmic streams. The reference data reproduces the assessed span, rhythmic texture, analysis/completion locations and published evidence as far as practical in the static renderer; it does not embed the source PDFs or claim official NZQA status.
+Each is labelled `nzqa-reference` with provider, year, question, part, extract, bars, source-page location and acknowledgement metadata. Every retained reference declares exact transcription mode, printed bars/measures, staff layout and a source-derived event/rhythm signature in addition to its schedule-answer specification. Bach references use independent soprano, alto, tenor and bass rhythmic streams. The source PDFs remain external and the app does not claim official NZQA status.

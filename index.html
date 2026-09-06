@@ -6,11 +6,11 @@
     <meta name="theme-color" content="#172554" />
     <meta
       name="description"
-      content="AS 91421 harmonic and tonal conventions practice with clearly labelled NZQA reference transcriptions, original exercises and NCEA-style self-assessment."
+      content="AS 91421 harmonic and tonal conventions practice with clearly distinguished NZQA examination references, practice-assessment references, original exercises and self-check."
     />
     <title>Cadence Lab | AS 91421 Practice</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=2026-09-relationship-16" />
+    <link rel="stylesheet" href="./styles.css?v=2026-09-source-bank-18" />
   </head>
   <body>
     <header class="topbar">
@@ -47,10 +47,23 @@
         <label class="field-label" for="source-type">Source</label>
         <select id="source-type">
           <option value="mixed">Mixed sources</option>
-          <option value="nzqa-reference">NZQA reference</option>
-          <option value="original-practice">Original practice</option>
-          <option value="generated-practice">Generated practice</option>
+          <option value="nzqa-reference">NZQA examination references</option>
+          <option value="practice-assessment-reference">Practice assessment references</option>
+          <option value="original-practice">Original Cadence Lab practice</option>
+          <option value="generated-practice">Generated Cadence Lab practice</option>
         </select>
+
+        <div id="source-year-field">
+          <label class="field-label" for="source-year">Reference year</label>
+          <select id="source-year">
+            <option value="">All years</option>
+            <option value="2021">2021</option>
+            <option value="2022">2022</option>
+            <option value="2023">2023</option>
+            <option value="2024">2024</option>
+            <option value="2025">2025</option>
+          </select>
+        </div>
 
         <button class="button button-primary" id="new-question" type="button">
           <span aria-hidden="true">↻</span>
@@ -71,7 +84,7 @@
               <h2 id="question-title">Loading question…</h2>
             </div>
             <div class="paper-meta">
-              <span id="source-chip">Original practice</span>
+              <span id="source-chip">Original Cadence Lab practice</span>
               <span id="variant-chip">Variant 01</span>
             </div>
           </div>
@@ -180,18 +193,18 @@
           </button>
         </div>
 
-        <p class="disclaimer">Reference transcriptions are clearly attributed; all other questions are original or adapted practice informed by the published 2021–2024 AS 91421 assessment structure. This is not an official NZQA resource.</p>
+        <p class="disclaimer">Official NZQA and Learning Ideas practice-assessment references are clearly distinguished and attributed; all other questions are original Cadence Lab practice informed by the published 2021–2025 AS 91421 assessment structure. This is not an official NZQA resource.</p>
       </section>
     </main>
 
     <script src="./vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="./key-relationships.js?v=2026-09-relationship-16"></script>
-    <script src="./question-bank.js?v=2026-09-relationship-16"></script>
-    <script src="./score-renderer.js?v=2026-09-relationship-16"></script>
-    <script src="./question-validator.js?v=2026-09-relationship-16"></script>
-    <script src="./structured-answer.js?v=2026-09-relationship-16"></script>
-    <script src="./chord-generator.js?v=2026-09-relationship-16"></script>
-    <script src="./playback-engine.js?v=2026-09-relationship-16"></script>
-    <script src="./app.js?v=2026-09-relationship-16"></script>
+    <script src="./key-relationships.js?v=2026-09-source-bank-18"></script>
+    <script src="./question-bank.js?v=2026-09-source-bank-18"></script>
+    <script src="./score-renderer.js?v=2026-09-source-bank-18"></script>
+    <script src="./question-validator.js?v=2026-09-source-bank-18"></script>
+    <script src="./structured-answer.js?v=2026-09-source-bank-18"></script>
+    <script src="./chord-generator.js?v=2026-09-source-bank-18"></script>
+    <script src="./playback-engine.js?v=2026-09-source-bank-18"></script>
+    <script src="./app.js?v=2026-09-source-bank-18"></script>
   </body>
 </html>
