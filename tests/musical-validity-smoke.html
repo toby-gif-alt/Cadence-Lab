@@ -2,7 +2,7 @@
 <html lang="en-NZ">
 <head><meta charset="utf-8"><title>Cadence Lab musical-validity production smoke test</title></head>
 <body data-status="running">
-<iframe id="app" title="Cadence Lab production application" src="../index.html?question=nzqa-2025-bach-satb&amp;v=2026-09-score-ui-25" style="width:1100px;height:1000px"></iframe>
+<iframe id="app" title="Cadence Lab production application" src="../index.html?question=nzqa-2025-bach-satb&amp;v=2026-09-score-ui-26" style="width:1100px;height:1000px"></iframe>
 <pre id="results">Running…</pre>
 <script>
 const frame=document.querySelector('#app'),out=document.querySelector('#results'),assertions={},details={};
@@ -50,8 +50,25 @@ frame.addEventListener('load',async()=>{try{
   assert('integrated-2025-displays-tonal-route-sequence-and-return',integrated2025.score.harmonicEvents.map(event=>event.chordSymbol).join(',')==='Em,A,B,B,B,B7,Em'&&integrated2025.answer.join(' ').includes('adaptation only'));
   assert('all-authored-nht-contexts-validate-from-notation',validator.report.reviewWarnings.every(warning=>warning.code!=='nonharmonic-context-manual-review')&&validator.report.musicTheoryErrors.every(error=>!error.includes('does not support')));
 
+  const commercial=byId('nzqa-2024-commercial-chromatic-bass'),commercialNormalized=renderer.normalizeMeasures(commercial.score),commercialHarmonies=renderer.normalizeHarmonicEvents(commercial.score,commercialNormalized);
+  const chromaticBassMeasures=commercialNormalized.measures.slice(5),chromaticBassPitches=chromaticBassMeasures.map(measure=>measure.staffVoiceStreams.bass.find(voice=>voice.role==='chromatic-bass').events[0].pitches[0]);
+  const chromaticBassNumbers=chromaticBassPitches.map(pitch=>{const parsed=renderer.parsePitch(pitch);return(parsed.octave+1)*12+renderer.pitchClass(parsed);});
+  const commercialEvents=commercialNormalized.measures.flatMap(measure=>measure.events);
+  assert('commercial-adaptation-displays-an-uninterrupted-chromatic-bass-line',chromaticBassPitches.join(',')==='F#2,E#2,E2,D#2,D2'&&chromaticBassNumbers.slice(1).every((pitch,index)=>pitch===chromaticBassNumbers[index]-1)&&chromaticBassMeasures.every(measure=>measure.staffVoiceStreams.bass[0].events[0].duration==='w'),{chromaticBassPitches,chromaticBassNumbers});
+  assert('commercial-chromatic-bass-harmonies-still-match-displayed-pitches',commercialHarmonies.filter(event=>event.measure>=6).every(harmony=>renderer.validateChordIdentification(commercialEvents[harmony._index],harmony.chordSymbol).valid),commercialHarmonies.filter(event=>event.measure>=6).map(harmony=>({symbol:harmony.chordSymbol,event:commercialEvents[harmony._index]})));
+  assert('commercial-model-explains-the-displayed-semitone-descent',commercial.answer.join(' ').includes('F♯–E♯–E–D♯–D')&&/sustained bass notes descend by semitone from bar to bar/i.test(commercial.answer.join(' ')));
+
+  const beethovenPiano=byId('nzqa-2021-beethoven-piano'),beethovenNormalized=renderer.normalizeMeasures(beethovenPiano.score);
+  const alternatingQuavers=voice=>voice.events.length===6&&voice.events.every((event,index)=>event.duration==='8'&&event.rest===(index%2===0));
+  const alternatingBass=voice=>voice.events.length===6&&voice.events.every((event,index)=>event.duration==='8'&&event.rest===(index%2===1));
+  assert('beethoven-opening-supplies-pattern-register-and-spacing',alternatingQuavers(beethovenNormalized.measures[0].staffVoiceStreams.treble.find(voice=>voice.role==='inner'))&&alternatingBass(beethovenNormalized.measures[0].staffVoiceStreams.bass.find(voice=>voice.role==='accompaniment'))&&beethovenNormalized.measures[0].questionStaffVoiceStreams.treble.length===2&&beethovenNormalized.measures[0].questionStaffVoiceStreams.bass.length===1);
+  assert('beethoven-model-continues-pattern-and-retains-target-melody',beethovenNormalized.measures.slice(1,5).every(measure=>alternatingQuavers(measure.staffVoiceStreams.treble.find(voice=>voice.role==='inner'))&&alternatingBass(measure.staffVoiceStreams.bass.find(voice=>voice.role==='accompaniment'))&&JSON.stringify(measure.questionStaffVoiceStreams.treble.find(voice=>voice.role==='melody').events.map(event=>event.pitches))===JSON.stringify(measure.staffVoiceStreams.treble.find(voice=>voice.role==='melody').events.map(event=>event.pitches)))&&beethovenPiano.sourceType==='original-practice'&&/Original Cadence Lab adaptation/.test(beethovenPiano.score.caption));
+  assert('beethoven-adaptation-needs-no-playability-review',validator.reviewPianoPlayability(beethovenPiano,beethovenNormalized).length===0,validator.reviewPianoPlayability(beethovenPiano,beethovenNormalized));
+
   const schubertPiano=byId('nzqa-2025-schubert-piano');
   assert('schubert-piano-model-has-independent-texture-and-eight-harmonies',schubertPiano.score.harmonicEvents.length===8&&schubertPiano.score.measures.every(measure=>measure.staffVoices.treble.some(voice=>voice.role==='melody')&&measure.staffVoices.treble.some(voice=>voice.role==='inner')&&measure.staffVoices.bass.some(voice=>voice.events.some(event=>event.duration==='8'))));
+  const schubertWarnings=validator.reviewPianoPlayability(schubertPiano,renderer.normalizeMeasures(schubertPiano.score));
+  assert('schubert-opening-pattern-melody-and-playability-remain-valid',schubertPiano.score.measures[0].questionStaffVoices.bass[0].events.every(event=>event.duration==='8')&&schubertPiano.score.measures.slice(1).every(measure=>measure.staffVoices.bass[0].events.every(event=>event.duration==='8')&&JSON.stringify(measure.questionStaffVoices.treble[0].events)===JSON.stringify(measure.staffVoices.treble.find(voice=>voice.role==='melody').events))&&schubertWarnings.length===0,schubertWarnings);
   assert('piano-models-need-no-playability-review',validator.report.reviewWarnings.every(warning=>!['hand-span-over-octave','hand-overlap','register-jump','inner-above-melody','supplied-line-not-retained'].includes(warning.code)),validator.report.reviewWarnings);
   const unplayable=structuredClone(schubertPiano);
   unplayable.score.measures[1].staffVoices.treble.find(voice=>voice.role==='inner').events[0].pitches=['C4','E6'];
@@ -90,6 +107,13 @@ frame.addEventListener('load',async()=>{try{
   const accidentals=noteheadGroups.flatMap(group=>[...group.querySelectorAll(':scope > path')].slice(1));
   assert('dense-accidentals-expand-measure-spacing',denseMetrics.maximumAccidentalColumns>=4&&denseMetrics.preferredWidth>plainMetrics.preferredWidth,{denseMetrics,plainMetrics});
   assert('dense-accidentals-do-not-intersect-noteheads',accidentals.length>=9&&accidentals.every(accidental=>noteheads.every(notehead=>!overlaps(accidental.getBBox(),notehead.getBBox(),.1))),{accidentals:accidentals.length,noteheads:noteheads.length});
+
+  const displacedSecondsScore={key:'C major',keySignature:'C',timeSignature:'4/4',layout:'piano',measures:[{endBarline:'final',staffVoices:{treble:[{role:'inner',stemDirection:'down',events:[{pitches:['C#5','D#5','E#5','F#5','G#5'],duration:'w'}]}],bass:[{role:'bass',stemDirection:'down',events:[{pitch:'C2',duration:'w'}]}]}}],harmonicEvents:[]};
+  const displacedTarget=d.createElement('div');displacedTarget.style.position='absolute';displacedTarget.style.left='-10000px';d.body.append(displacedTarget);renderer.render(displacedTarget,displacedSecondsScore,{width:390});
+  const displacedGroups=[...displacedTarget.querySelectorAll('.vf-notehead')],displacedHeads=displacedGroups.map(group=>group.querySelector(':scope > path')),displacedAccidentals=displacedGroups.flatMap(group=>[...group.querySelectorAll(':scope > path')].slice(1));
+  const displacedHeadXs=displacedHeads.map(head=>Math.round(head.getBBox().x*10)/10);
+  assert('stacked-seconds-regression-contains-displaced-noteheads-and-multiple-accidentals',new Set(displacedHeadXs).size>1&&displacedAccidentals.length>=5,{displacedHeadXs,accidentals:displacedAccidentals.length});
+  assert('stacked-seconds-accidentals-clear-every-displaced-notehead',displacedAccidentals.every(accidental=>displacedHeads.every(notehead=>!overlaps(accidental.getBBox(),notehead.getBBox(),.1))),{heads:displacedHeads.map(head=>head.getBBox()),accidentals:displacedAccidentals.map(accidental=>accidental.getBBox())});
 
   await turn(w);
   finish();
