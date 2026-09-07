@@ -1051,7 +1051,10 @@ function createQuestion(config) {
             ? "Question musical extract: two-stave piano completion score."
             : "Question musical extract for written harmonic or tonal analysis.",
     },
-    tasks: config.tasks || rubric.tasks,
+    // The direct question prompt and structured fields carry the learner task.
+    // Generic A/M/E bullet lists duplicated that wording and sometimes leaked
+    // the analytical route before submission.
+    tasks: config.tasks || { A: [], M: [], E: [] },
     criteria: config.criteria || rubric.criteria,
   };
 }
@@ -1313,7 +1316,10 @@ const questionBank = [
         harmonicBox(4, 4.5, null, "i", { localKey: "A minor", romanNumeral: "i", chordSymbol: "Am" }),
         harmonicBox(5, 1, null, "V♯3", { localKey: "A minor", romanNumeral: "V", chordSymbol: "E" }),
         { measure: 5, beat: 2, analysisBox: false, modelLabel: "(ib)", localKey: "A minor", romanNumeral: "i6", chordSymbol: "Am/C" },
-        harmonicBox(5, 3, null, "V sus⁴–V♯3", { localKey: "A minor", romanNumeral: "V", chordSymbol: "Esus4", questionLabel: "V sus⁴–V♯3" }),
+        harmonicBox(5, 3, null, "V sus⁴–V♯3", {
+          localKey: "A minor", romanNumeral: "V", chordSymbol: "Esus4",
+          questionLabel: "V sus⁴–V♯3", resolution: { beat: 4, chordSymbol: "E" },
+        }),
         harmonicBox(6, 1, null, "i", { localKey: "A minor", romanNumeral: "i", chordSymbol: "Am", questionLabel: "i" }),
       ],
     }),
@@ -1880,7 +1886,11 @@ const questionBank = [
     category: "modulation",
     homeKey: "G minor",
     keyRegions: [
-      { section: "X", localKey: "E♭ major", modelRelationship: "submediant" },
+      {
+        section: "X",
+        localKey: "E♭ major",
+        modelRelationship: "relative major of the subdominant",
+      },
       { section: "Y", localKey: "F major", modelRelationship: "relative major of the dominant" },
     ],
     sourceType: "original-practice",
@@ -2097,7 +2107,7 @@ const questionBank = [
           { voices: { soprano: "C5", alto: "F4", tenor: "A3", bass: "F2" }, questionVoices: { soprano: "C5", bass: "F2" }, duration: "q" },
         ] },
         { events: [
-          { voices: { soprano: "F5", alto: "A4", tenor: "A3", bass: "C3" }, questionVoices: { soprano: "F5", bass: "C3" }, duration: "h" },
+          { voices: { soprano: "F5", alto: "A4", tenor: "C4", bass: "C3" }, questionVoices: { soprano: "F5", bass: "C3" }, duration: "h" },
           { voices: { soprano: "F5", alto: "B4", tenor: "D4", bass: "G3" }, questionVoices: { soprano: "F5", bass: "G3" }, duration: "h" },
         ] },
         { endBarline: "final", events: [
@@ -2135,6 +2145,9 @@ const questionBank = [
       completion: true,
       labelPosition: "bottom",
       caption: "Original practice • SATB cadence in G minor",
+      modelQualityReview: [
+        "The repeated downward motion into the first dominant seventh is retained after review: the supplied soprano and bass fix the outer contour, while alto and tenor take the nearest complete-chord pitches and resolve F♯ and C correctly.",
+      ],
       measures: [
         { events: [
           { voices: { soprano: "G5", alto: "Bb4", tenor: "D4", bass: "G2" }, questionVoices: { soprano: "G5", bass: "G2" }, duration: "h" },
@@ -2181,6 +2194,9 @@ const questionBank = [
       completion: true,
       labelPosition: "bottom",
       caption: "Original practice • SATB in C major and A minor",
+      modelQualityReview: [
+        "At the opening IV chord, retaining tenor C would require fifth doubling and a wider alto move; the chosen F–A–C voicing doubles the root and keeps the alto stepwise, so the small tenor third is preferred after review.",
+      ],
       measures: [
         { events: [
           { voices: { soprano: "G4", alto: "E4", tenor: "C4", bass: "C3" }, questionVoices: { soprano: "G4", bass: "C3" }, duration: "q" },
@@ -3173,16 +3189,18 @@ const questionBank = [
           tenor: [{ pitch: "B3", duration: "q" }], bass: [{ pitch: "B2", duration: "q" }],
         } },
         { voices: {
-          soprano: [{ pitch: "G4", duration: "h" }, { pitch: "G4", duration: "h" }],
+          soprano: [{ pitch: "G4", duration: "h" }, { pitch: "G4", duration: "q" }, { pitch: "D4", duration: "q", tieToNext: true }],
           alto: [{ pitch: "Eb4", duration: "q" }, { pitch: "D4", duration: "q" }, { pitch: "Eb4", duration: "h" }],
           tenor: [{ pitch: "C4", duration: "q" }, { pitch: "Bb3", duration: "q" }, { pitch: "C4", duration: "q" }, { pitch: "B3", duration: "q" }],
           bass: [{ pitch: "C3", duration: "8" }, { pitch: "D3", duration: "8" }, { pitch: "Eb3", duration: "q" }, { pitch: "F3", duration: "h" }],
         } },
         { voices: {
-          soprano: [{ pitch: "F4", duration: "q" }, { pitch: "Eb4", duration: "q" }, { pitch: "D4", duration: "h" }],
-          alto: [{ pitch: "D4", duration: "h" }, { pitch: "C4", duration: "q" }, { pitch: "Bb3", duration: "q" }],
-          tenor: [{ pitch: "B3", duration: "q" }, { pitch: "C4", duration: "8" }, { pitch: "Bb3", duration: "8" }, { pitch: "A3", duration: "h" }],
-          bass: [{ pitch: "G2", duration: "h" }, { pitch: "F2", duration: "q" }, { pitch: "Eb2", duration: "q" }],
+          // The adapted surface makes both analysed suspension spans audible:
+          // D–C above C (9–8), then C–B above G (4–3).
+          soprano: [{ pitch: "D4", duration: "8" }, { pitch: "C4", duration: "8", tieToNext: true }, { pitch: "C4", duration: "8" }, { pitch: "B3", duration: "8" }, { pitch: "C4", duration: "q" }, { pitch: "Eb4", duration: "q" }],
+          alto: [{ pitch: "G3", duration: "q" }, { pitch: "F3", duration: "q" }, { pitch: "G3", duration: "q" }, { pitch: "C4", duration: "q" }],
+          tenor: [{ pitch: "Eb3", duration: "q" }, { pitch: "D3", duration: "q" }, { pitch: "Eb3", duration: "q" }, { pitch: "G3", duration: "q" }],
+          bass: [{ pitch: "C3", duration: "q" }, { pitch: "G2", duration: "q" }, { pitch: "C3", duration: "q" }, { pitch: "C3", duration: "q" }],
         } },
         { voices: {
           soprano: [{ pitch: "D4", duration: "q" }, { pitch: "Eb4", duration: "q" }, { pitch: "D4", duration: "q" }, { pitch: "C4", duration: "q" }],
@@ -3201,13 +3219,33 @@ const questionBank = [
         harmonicBox(1, 1, null, "Cm: Vb", { questionLabel: "Cm: Vb", romanNumeral: "Cm: Vb" }),
         harmonicBox(2, 1, null, "i", { romanNumeral: "i" }), harmonicBox(2, 2, null, "ib", { romanNumeral: "ib" }),
         harmonicBox(2, 3, null, "IV⁷b", { romanNumeral: "IV⁷b" }), harmonicBox(2, 4, null, "Vb", { romanNumeral: "Vb" }),
-        harmonicBox(3, 1, null, "i⁹–⁸", { romanNumeral: "i⁹–⁸" }), harmonicBox(3, 2, null, "V⁷4–3", { romanNumeral: "V⁷4–3" }),
+        harmonicBox(3, 1, null, "i⁹–⁸", {
+          romanNumeral: "i⁹–⁸", chordSymbol: "Cm",
+          validationPitches: ["C3", "Eb3", "G3"], bassPitch: "C3",
+          resolution: { beat: 1.5, chordSymbol: "Cm" },
+        }), harmonicBox(3, 2, null, "V⁷4–3", {
+          romanNumeral: "V⁷4–3", chordSymbol: "G7",
+          validationPitches: ["G2", "D3", "F3"], bassPitch: "G2",
+          omittedChordIntervals: [4], resolution: { beat: 2.5, chordSymbol: "G7" },
+        }),
         harmonicBox(3, 3, null, "i", { romanNumeral: "i" }), harmonicBox(3, 4, null, "i / Gm: iv", { romanNumeral: "i / Gm: iv" }),
         harmonicBox(4, 1, null, "i", { romanNumeral: "i" }), harmonicBox(4, 2, null, "ivb", { romanNumeral: "ivb" }),
         harmonicBox(4, 3, null, "iv", { romanNumeral: "iv" }), harmonicBox(4, 4, null, "ii°", { romanNumeral: "ii°" }),
         harmonicBox(5, 1, null, "ic", { romanNumeral: "ic" }),
         harmonicBox(5, 3, null, "V⁷4–3", { questionLabel: "V⁷4–3", romanNumeral: "V⁷4–3" }),
         harmonicBox(5, 4, null, "I", { questionLabel: "I", romanNumeral: "I" }),
+      ],
+      suspensions: [
+        {
+          type: "9–8", measure: 3, beat: 1, resolutionBeat: 1.5,
+          voice: "soprano", pitch: "D4", resolutionPitch: "C4",
+          bassPitch: "C3", label: "i⁹–⁸",
+        },
+        {
+          type: "4–3", measure: 3, beat: 2, resolutionBeat: 2.5,
+          voice: "soprano", pitch: "C4", resolutionPitch: "B3",
+          bassPitch: "G2", label: "V⁷4–3",
+        },
       ],
     }),
     answerHeading: "Published Roman-numeral route",
@@ -3237,13 +3275,13 @@ const questionBank = [
         { events: [{ treble: ["Db5"], qTreble: ["Db5"], bass: ["Bb2"], qBass: ["Bb2"], duration: "hd" }] },
         { events: [
           { treble: ["F4", "Bb4", "D5"], qTreble: ["D5"], bass: ["Bb2"], qBass: [], duration: "q" },
-          { treble: ["E4", "G4", "Bb4"], qTreble: ["Eb5"], bass: ["C3"], qBass: [], duration: "q" },
-          { treble: ["F4", "A4", "C5"], qTreble: ["D5"], bass: ["F3"], qBass: [], duration: "q" },
+          { treble: ["E4", "G4", "Bb4", "Eb5"], qTreble: ["Eb5"], bass: ["C3"], qBass: [], duration: "q" },
+          { treble: ["F4", "A4", "C5", "D5"], qTreble: ["D5"], bass: ["F3"], qBass: [], duration: "q" },
         ] },
         { events: [
           { treble: ["F4", "A4", "C5"], qTreble: ["C5"], bass: ["A2"], qBass: [], duration: "q" },
-          { treble: ["E4", "G4", "Bb4"], qTreble: ["D5"], bass: ["C3"], qBass: [], duration: "q" },
-          { treble: ["D4", "F4", "B4"], qTreble: ["Db5"], bass: ["B2"], qBass: [], duration: "q" },
+          { treble: ["E4", "G4", "Bb4", "D5"], qTreble: ["D5"], bass: ["C3"], qBass: [], duration: "q" },
+          { treble: ["D4", "F4", "B4", "Db5"], qTreble: ["Db5"], bass: ["B2"], qBass: [], duration: "q" },
         ] },
         { events: [
           { treble: ["E4", "G4", "C5"], qTreble: ["C5"], bass: ["C3"], qBass: [], duration: "qd" },
@@ -3251,8 +3289,8 @@ const questionBank = [
           { treble: ["F4", "Ab4", "B4", "D5"], qTreble: ["B4"], bass: ["G2"], qBass: [], duration: "q" },
         ] },
         { events: [
-          { treble: ["E4", "G4", "C5"], qTreble: ["D5"], bass: ["C3"], qBass: [], duration: "h" },
-          { treble: ["F4", "Ab4", "B4"], qTreble: ["C5"], bass: ["G2"], qBass: [], duration: "q" },
+          { treble: ["E4", "G4", "C5", "D5"], qTreble: ["D5"], bass: ["C3"], qBass: [], duration: "h" },
+          { treble: ["F4", "Ab4", "B4", "C5"], qTreble: ["C5"], bass: ["G2"], qBass: [], duration: "q" },
         ] },
         { endBarline: "final", events: [
           { treble: ["Db5"], qTreble: ["Db5"], bass: ["F2"], qBass: ["F2"], duration: "q" },
@@ -3295,18 +3333,18 @@ const questionBank = [
       measures: [
         { events: [
           { treble: ["E4", "G4", "C5"], qTreble: ["C5"], bass: ["C3", "G3"], qBass: ["C3", "G3"], duration: "8" },
-          { treble: ["F4", "A4", "D5"], qTreble: ["B4"], bass: ["F3"], qBass: ["F3"], duration: "16" },
-          { treble: ["E4", "G4", "C5"], qTreble: ["A4"], bass: ["G3"], qBass: ["G3"], duration: "16" },
+          { treble: ["F4", "A4", "B4", "D5"], qTreble: ["B4"], bass: ["F3"], qBass: ["F3"], duration: "16" },
+          { treble: ["E4", "G4", "A4", "C5"], qTreble: ["A4"], bass: ["G3"], qBass: ["G3"], duration: "16" },
           { treble: ["D4", "G4", "B4"], qTreble: ["B4"], bass: ["G2"], qBass: ["G2"], duration: "8" },
         ] },
         { events: [
           { treble: ["G4", "C5", "E5"], qTreble: ["C5"], bass: ["E3"], qBass: [], duration: "8" },
-          { treble: ["F4", "A4", "C5", "D5"], qTreble: ["E5"], bass: ["D3"], qBass: [], duration: "8" },
+          { treble: ["F4", "A4", "C5", "D5", "E5"], qTreble: ["E5"], bass: ["D3"], qBass: [], duration: "8" },
           { treble: ["F4", "G4", "B4", "D5"], qTreble: ["D5"], bass: ["G2"], qBass: [], duration: "8" },
         ] },
-        { events: [{ treble: ["E4", "G4", "C5"], qTreble: ["D5"], bass: ["C3"], qBass: [], duration: "qd" }] },
+        { events: [{ treble: ["E4", "G4", "C5", "D5"], qTreble: ["D5"], bass: ["C3"], qBass: [], duration: "qd" }] },
         { events: [
-          { treble: ["F4", "Ab4", "B4", "D5"], qTreble: ["F5"], bass: ["F2"], qBass: [], duration: "q" },
+          { treble: ["F4", "Ab4", "B4", "D5", "F5"], qTreble: ["F5"], bass: ["F2"], qBass: [], duration: "q" },
           { treble: ["F4", "Ab4", "B4", "D5"], qTreble: ["D5"], bass: ["D3"], qBass: [], duration: "8" },
         ] },
         { endBarline: "final", events: [{ treble: ["G4", "C5", "E5"], qTreble: ["C5"], bass: ["E3"], qBass: [], duration: "qd" }] },
@@ -3489,18 +3527,35 @@ const questionBank = [
         { events: [{ treble: ["G#4", "B#4", "D5", "F#5"], bass: ["C#3"], duration: "hd" }] },
         { events: [{ treble: ["G#4", "B#4", "D5", "F#5"], bass: ["C#3"], duration: "h" }, { treble: ["A4", "C#5", "F#5"], bass: ["F#3"], duration: "q" }] },
         { events: [{ treble: ["A4", "D#5", "F#5"], bass: ["F#3"], duration: "q" }, { treble: ["A4", "C5", "D#5", "F#5"], bass: ["D#3"], duration: "q" }, { treble: ["A4", "D#5", "F#5"], bass: ["F#3"], duration: "q" }] },
-        { endBarline: "final", events: [{ treble: ["G#4", "B4", "E5"], bass: ["E3"], duration: "h" }, { treble: ["A4", "B4", "D#5", "F#5"], bass: ["A3"], duration: "q" }] },
+        { endBarline: "final", events: [
+          { treble: ["B4", "E5", "G#5"], bass: ["E3"], duration: "h" },
+          { treble: ["A4", "B4", "D#5", "G#5"], bass: ["F#3"], duration: "8" },
+          { treble: ["A4", "B4", "D#5", "F#5"], bass: ["F#3"], duration: "8" },
+        ] },
       ],
       harmonicEvents: [
         harmonicBox(1, 1, 0, "E: I", { questionLabel: "E: I", localKey: "E major", romanNumeral: "E: I" }), harmonicBox(1, 2, 1, "V⁷b", { localKey: "E major", romanNumeral: "V⁷b" }), harmonicBox(1, 3, 2, "I", { localKey: "E major", romanNumeral: "I" }),
         harmonicBox(2, 1, 0, "ii / F♯m: i", { localKey: "E major", romanNumeral: "ii / F♯m: i" }), harmonicBox(2, 2, 1, "iib / F♯m: ib", { localKey: "F♯ minor", romanNumeral: "iib / F♯m: ib" }), harmonicBox(2, 3, 2, "V⁷", { localKey: "F♯ minor", romanNumeral: "V⁷" }),
         harmonicBox(3, 1, 0, "V⁷", { localKey: "F♯ minor", romanNumeral: "V⁷" }), harmonicBox(4, 3, 1, "i / E: ii", { localKey: "F♯ minor", romanNumeral: "i / E: ii" }),
         harmonicBox(5, 1, 0, "V⁷b", { localKey: "E major", romanNumeral: "V⁷b" }), harmonicBox(5, 2, 1, "vii°⁷", { localKey: "E major", romanNumeral: "vii°⁷" }), harmonicBox(5, 3, 2, "V⁷b", { localKey: "E major", romanNumeral: "V⁷b" }),
-        harmonicBox(6, 1, 0, "I", { localKey: "E major", romanNumeral: "I" }), harmonicBox(6, 3, 1, "V⁷c as suspension", { localKey: "E major", romanNumeral: "V⁷c" }),
+        harmonicBox(6, 1, 0, "I", { localKey: "E major", romanNumeral: "I" }), harmonicBox(6, 3, 1, "V⁷c", {
+          localKey: "E major", romanNumeral: "V⁷c", chordSymbol: "B7/F♯",
+          validationPitches: ["A4", "B4", "D#5", "F#3"], bassPitch: "F#3",
+          resolution: { beat: 3.5, chordSymbol: "B7/F♯" },
+        }),
       ],
+      suspensions: [{
+        type: "9–8", measure: 6, beat: 3, resolutionBeat: 3.5,
+        staff: "treble", pitch: "G#5", resolutionPitch: "F#5",
+        bassPitch: "F#3", label: "9–8 suspension over V⁷c",
+      }],
+      ties: [{
+        from: 12, to: 13, staff: "treble",
+        firstPitch: "G#5", lastPitch: "G#5", direction: "above",
+      }],
     }),
     answerHeading: "Published Schubert analysis",
-    answer: ["The 12 assessed positions are V7b–I–ii / F♯m:i–iib / F♯m:ib–V7–V7–i / E:ii–V7b–vii°7–V7b–I–V7c as a suspension. The schedule accepts either adjacent ii/i pivot placement at the first modulation."],
+    answer: ["The 12 assessed positions are V7b–I–ii / F♯m:i–iib / F♯m:ib–V7–V7–i / E:ii–V7b–vii°7–V7b–I–V7c. The final chord identity is V7c; its upper G♯ resolves to F♯ as a 9–8 suspension within that harmony. The schedule accepts either adjacent ii/i pivot placement at the first modulation."],
   }),
   createAdaptedQuestion({
     id: "nzqa-2025-schubert-feature",
@@ -3541,14 +3596,60 @@ const questionBank = [
     score: measuredScore({
       key: "E major", keySignature: "E", timeSignature: "2/4", layout: "piano", completion: true, caption: "NZQA examination reference • 2025 Q2(c), Extract Six • bars 19–24 transcription",
       measures: [
-        { events: [{ treble: ["B4", "E5"], qTreble: ["E5"], bass: ["E3", "B3"], qBass: ["E3", "B3"], duration: "q" }, { treble: ["D#5", "F#5"], qTreble: ["F#5"], bass: ["E3", "B3"], qBass: ["E3", "B3"], duration: "q" }] },
-        { events: [{ treble: ["B4", "D#5"], qTreble: ["D#5"], bass: ["B2", "F#3"], qBass: [], duration: "h" }] },
-        { events: [{ treble: ["A4", "C#5", "E5"], qTreble: ["E5"], bass: ["F#2"], qBass: [], duration: "q" }, { treble: ["A4", "C#5", "F#5"], qTreble: ["F#5"], bass: ["A2"], qBass: [], duration: "q" }] },
-        { events: [{ treble: ["A4", "C5", "D#5", "F#5"], qTreble: ["F#5"], bass: ["D#3"], qBass: [], duration: "q" }, { treble: ["A4", "B4", "D#5"], qTreble: ["D#5"], bass: ["B2"], qBass: [], duration: "q" }] },
-        { events: [{ treble: ["G#4", "B4", "E5"], qTreble: ["E5"], bass: ["E3"], qBass: [], duration: "q" }, { treble: ["A4", "B4", "D#5", "F#5"], qTreble: ["F#5"], bass: ["B2"], qBass: [], duration: "q" }] },
-        { endBarline: "final", events: [{ treble: ["G#4", "B4", "E5"], qTreble: ["E5"], bass: ["E2"], qBass: [], duration: "h" }] },
+        {
+          staffVoices: {
+            treble: [
+              { role: "melody", stemDirection: "up", events: [{ pitch: "E5", duration: "q" }, { pitch: "F#5", duration: "q" }] },
+              { role: "inner", stemDirection: "down", events: [{ pitches: ["G#4", "B4"], duration: "q" }, { pitches: ["A4", "B4"], duration: "q" }] },
+            ],
+            bass: [{ role: "accompaniment", stemDirection: "down", events: [{ pitch: "E3", duration: "8" }, { pitch: "B3", duration: "8" }, { pitch: "E3", duration: "8" }, { pitch: "B3", duration: "8" }] }],
+          },
+          questionStaffVoices: {
+            treble: [
+              { role: "melody", stemDirection: "up", events: [{ pitch: "E5", duration: "q" }, { pitch: "F#5", duration: "q" }] },
+              { role: "inner", stemDirection: "down", events: [{ pitches: ["G#4", "B4"], duration: "q" }, { pitches: ["A4", "B4"], duration: "q" }] },
+            ],
+            bass: [{ role: "accompaniment", stemDirection: "down", events: [{ pitch: "E3", duration: "8" }, { pitch: "B3", duration: "8" }, { pitch: "E3", duration: "8" }, { pitch: "B3", duration: "8" }] }],
+          },
+        },
+        {
+          staffVoices: {
+            treble: [{ role: "melody", stemDirection: "up", events: [{ pitch: "D#5", duration: "h" }] }, { role: "inner", stemDirection: "down", events: [{ pitches: ["F#4", "B4"], duration: "q" }, { pitches: ["F#4", "B4"], duration: "q" }] }],
+            bass: [{ role: "accompaniment", stemDirection: "down", events: [{ pitch: "B2", duration: "8" }, { pitch: "F#3", duration: "8" }, { pitch: "B3", duration: "8" }, { pitch: "F#3", duration: "8" }] }],
+          },
+          questionStaffVoices: { treble: [{ role: "melody", stemDirection: "up", events: [{ pitch: "D#5", duration: "h" }] }], bass: [] },
+        },
+        {
+          staffVoices: {
+            treble: [{ role: "melody", stemDirection: "up", events: [{ pitch: "E5", duration: "q" }, { pitch: "F#5", duration: "q" }] }, { role: "inner", stemDirection: "down", events: [{ pitches: ["A4", "C#5"], duration: "q" }, { pitches: ["A4", "C#5"], duration: "q" }] }],
+            bass: [{ role: "accompaniment", stemDirection: "down", events: [{ pitch: "F#2", duration: "8" }, { pitch: "C#3", duration: "8" }, { pitch: "A2", duration: "8" }, { pitch: "C#3", duration: "8" }] }],
+          },
+          questionStaffVoices: { treble: [{ role: "melody", stemDirection: "up", events: [{ pitch: "E5", duration: "q" }, { pitch: "F#5", duration: "q" }] }], bass: [] },
+        },
+        {
+          staffVoices: {
+            treble: [{ role: "melody", stemDirection: "up", events: [{ pitch: "F#5", duration: "q" }, { pitch: "D#5", duration: "q" }] }, { role: "inner", stemDirection: "down", events: [{ pitches: ["A4", "C5", "D#5"], duration: "q" }, { pitches: ["F#4", "B4"], duration: "q" }] }],
+            bass: [{ role: "accompaniment", stemDirection: "down", events: [{ pitch: "D#3", duration: "8" }, { pitch: "A3", duration: "8" }, { pitch: "B2", duration: "8" }, { pitch: "F#3", duration: "8" }] }],
+          },
+          questionStaffVoices: { treble: [{ role: "melody", stemDirection: "up", events: [{ pitch: "F#5", duration: "q" }, { pitch: "D#5", duration: "q" }] }], bass: [] },
+        },
+        {
+          staffVoices: {
+            treble: [{ role: "melody", stemDirection: "up", events: [{ pitch: "E5", duration: "q" }, { pitch: "F#5", duration: "q" }] }, { role: "inner", stemDirection: "down", events: [{ pitches: ["G#4", "B4"], duration: "q" }, { pitches: ["A4", "B4", "D#5"], duration: "q" }] }],
+            bass: [{ role: "accompaniment", stemDirection: "down", events: [{ pitch: "E3", duration: "8" }, { pitch: "B3", duration: "8" }, { pitch: "B2", duration: "8" }, { pitch: "F#3", duration: "8" }] }],
+          },
+          questionStaffVoices: { treble: [{ role: "melody", stemDirection: "up", events: [{ pitch: "E5", duration: "q" }, { pitch: "F#5", duration: "q" }] }], bass: [] },
+        },
+        {
+          endBarline: "final",
+          staffVoices: {
+            treble: [{ role: "melody", stemDirection: "up", events: [{ pitch: "E5", duration: "h" }] }, { role: "inner", stemDirection: "down", events: [{ pitches: ["G#4", "B4"], duration: "q" }, { pitches: ["G#4", "B4"], duration: "q" }] }],
+            bass: [{ role: "accompaniment", stemDirection: "down", events: [{ pitch: "E3", duration: "8" }, { pitch: "B2", duration: "8" }, { pitch: "E3", duration: "8" }, { pitch: "B2", duration: "8" }] }],
+          },
+          questionStaffVoices: { treble: [{ role: "melody", stemDirection: "up", events: [{ pitch: "E5", duration: "h" }] }], bass: [] },
+        },
       ], harmonicEvents: [
-        harmonicBox(2, 1, 0, "V", { questionLabel: "V" }), harmonicBox(3, 1, 0, "ii", { questionLabel: "ii" }), harmonicBox(3, 2, 1, "iib", { questionLabel: "iib" }), harmonicBox(4, 1, 0, "vii°⁷", { questionLabel: "vii°⁷" }), harmonicBox(4, 2, 1, "V", { questionLabel: "V" }), harmonicBox(5, 1, 0, "I", { questionLabel: "I" }), harmonicBox(5, 2, 1, "V⁷", { questionLabel: "V⁷" }), harmonicBox(6, 1, 0, "I", { questionLabel: "I" }),
+        harmonicBox(2, 1, null, "V", { questionLabel: "V", chordSymbol: "B" }), harmonicBox(3, 1, null, "ii", { questionLabel: "ii", chordSymbol: "F♯m", validationPitches: ["F#2", "A4", "C#5"], bassPitch: "F#2" }), harmonicBox(3, 2, null, "iib", { questionLabel: "iib", chordSymbol: "F♯m/A" }), harmonicBox(4, 1, null, "vii°⁷", { questionLabel: "vii°⁷", chordSymbol: "D♯dim7" }), harmonicBox(4, 2, null, "V", { questionLabel: "V", chordSymbol: "B" }), harmonicBox(5, 1, null, "I", { questionLabel: "I", chordSymbol: "E" }), harmonicBox(5, 2, null, "V⁷", { questionLabel: "V⁷", chordSymbol: "B7" }), harmonicBox(6, 1, null, "I", { questionLabel: "I", chordSymbol: "E" }),
       ],
     }),
     answerHeading: "One possible model completion",
@@ -3628,7 +3729,7 @@ const questionBank = [
         { events: [{ treble: ["G4", "C5", "E5"], qTreble: ["E5"], bass: ["A2", "E3"], qBass: ["A2", "E3"], duration: "h" }, { treble: ["G4", "B4", "E5"], qTreble: ["E5"], bass: ["G2"], qBass: ["G2"], duration: "h" }] },
         { events: [{ treble: ["G4", "B4", "C5", "E5"], qTreble: ["E5"], bass: ["G2"], qBass: [], duration: "h" }, { treble: ["A4", "C5", "F5"], qTreble: ["F5"], bass: ["F2"], qBass: [], duration: "h" }] },
         { events: [{ treble: ["G4", "C5", "E5"], qTreble: ["E5"], bass: ["E2"], qBass: [], duration: "h" }, { treble: ["C5", "E5", "F#5"], qTreble: ["F#5"], bass: ["D2"], qBass: [], duration: "h" }] },
-        { events: [{ treble: ["Eb4", "A4", "C5", "G5"], qTreble: ["G5"], bass: ["F2"], qBass: [], duration: "h" }, { treble: ["F4", "A4", "B4", "D5"], qTreble: ["D5"], bass: ["G2"], qBass: [], duration: "h" }] },
+        { events: [{ treble: ["A4", "C5", "Eb5", "G5"], qTreble: ["G5"], bass: ["F2"], qBass: [], duration: "h" }, { treble: ["F4", "A4", "B4", "D5"], qTreble: ["D5"], bass: ["G2"], qBass: [], duration: "h" }] },
         { events: [{ treble: ["G4", "A4", "C5", "E5"], qTreble: ["E5"], bass: ["A2"], qBass: [], duration: "h" }, { treble: ["F#4", "A4", "C5", "D5"], qTreble: ["D5"], bass: ["D2"], qBass: [], duration: "h" }] },
         { events: [{ treble: ["G4", "A4", "C5", "E5"], qTreble: ["E5"], bass: ["A2"], qBass: [], duration: "w" }] },
         { events: [{ treble: ["G4", "B4", "D5"], qTreble: ["D5"], bass: ["G2"], qBass: [], duration: "w" }] },
@@ -3650,7 +3751,6 @@ const questionBank = [
       { section: "3", localKey: "E major", modelRelationship: "dominant", relationshipChoices: ["dominant", "subdominant", "relative minor", "mediant major", "tonic major"] },
     ],
     analysisFields: [
-      { id: "altered-note", label: "Altered note", kind: "classification", choices: ["A♯", "A♮", "G♯", "B♭", "E♯"], acceptedAnswers: [{ label: "A♯" }] },
       { id: "chord-membership", label: "Chord membership / function", kind: "text", prompt: "Name the chord and the altered note's chord member.", acceptedAnswers: [{ label: "A♯ is the third of F♯7, the dominant chord in B minor." }] },
       { id: "key-implication", label: "Key implication", kind: "text", prompt: "Explain the altered note in the local key.", acceptedAnswers: [{ label: "A♯ is the raised leading note of B minor." }] },
       { id: "cadence-effect", label: "Cadence / modulation effect", kind: "text", prompt: "Connect the pitch to voice leading and the modulation.", acceptedAnswers: [{ label: "It supplies strong leading-note motion in F♯7–B minor and helps establish the modulated key with a perfect cadence." }] },
@@ -3659,7 +3759,7 @@ const questionBank = [
     source: practiceSource(2022, "Question One", "(b)", "Extract Two", "Composer not credited", "Practice modulation and altered-note function", "questions p.3; answers p.4", "2–3"),
     family: "Keys, evidence and contextual pitch function",
     title: "Practice reference: A♯ in a modulation",
-    context: "The passage begins in A major and passes through three marked local keys. Identify each key, cite evidence and state its relationship to A major; then explain the function of A♯ in bars 2–3.",
+    context: "The passage begins in A major and passes through three marked local keys. Identify each key, cite evidence and state its relationship to A major. In displayed bar 1, A♯ is already marked: explain its chord membership, local-key implication and effect on the cadence or modulation.",
     presentation: { title: "Practice reference: keys and an altered-note function", hiddenConceptTerms: ["leading note of B minor", "third of F♯7"] },
     sourceSpec: { year: 2022, provider: "Learning Ideas", question: "Question One", part: "(b)", bars: "2–3", sections: ["1", "2", "3"], keyCentres: ["B minor", "D major", "E major"], keyRelationships: [{ section: "1", homeKey: "A major", localKey: "B minor", acceptedLabels: [] }, { section: "2", homeKey: "A major", localKey: "D major", acceptedLabels: [] }, { section: "3", homeKey: "A major", localKey: "E major", acceptedLabels: [] }], requiredPitchSpellings: ["A#4"], measureCount: 3 },
     score: measuredScore({
@@ -3676,33 +3776,82 @@ const questionBank = [
   }),
   createAdaptedQuestion({
     id: "practice-2022-integrated-analysis",
-    category: "features",
+    category: "analysis",
     sourceType: "practice-assessment-reference",
     source: practiceSource(2022, "Question Two", "(a)", "Extract Four", "Composer not credited", "Integrated Roman, modulation and non-harmonic-note analysis", "questions pp.5–6; answers p.6", "1–8"),
     family: "Integrated harmonic and tonal analysis",
     title: "Practice reference: progression, keys and non-harmonic notes",
-    context: "The extract begins in D minor. Analyse the Roman progression, explain the moves to F major and A major with evidence, and classify the marked non-harmonic notes as parts of one connected response.",
-    presentation: { title: "Practice reference: integrated classical analysis", hiddenConceptTerms: ["relative major", "dominant major", "accented passing"] },
-    contextualFields: [
-      { id: "roman-route", label: "Roman progression", kind: "text", prompt: "Record the eight indicated Roman-numeral answers in order.", acceptedAnswers: [{ label: "Use the eight Roman labels printed in the practice answer schedule, relative to the active local keys." }] },
-      { id: "f-region", label: "F-major modulation", kind: "text", prompt: "State relationship, location and evidence.", acceptedAnswers: [{ label: "F major is the relative major, established in the first local-key region by E♭ and a perfect cadence." }] },
-      { id: "a-region", label: "A-major modulation", kind: "text", prompt: "State relationship, location and evidence.", acceptedAnswers: [{ label: "A major is the dominant major, established in the second local-key region by G♯/B♮ and a perfect cadence." }] },
+    context: "The extract begins in D minor. Analyse all eight boxed harmonic positions, identify the two later local-key regions from the notation, and classify the three marked non-harmonic notes from their melodic and metrical contexts.",
+    presentation: { title: "Practice reference: integrated classical analysis", hiddenConceptTerms: ["F major", "A major", "relative major", "dominant major", "accented passing"] },
+    analysisFields: [
+      { id: "first-region", label: "First local-key region", kind: "text", prompt: "Identify the key, relationship to D minor, and cadence or accidental evidence.", acceptedAnswers: [{ label: "F major is the relative major; C7–F and the B♭ spelling support the local cadence." }] },
+      { id: "second-region", label: "Second local-key region", kind: "text", prompt: "Identify the key, relationship to D minor, and cadence or accidental evidence.", acceptedAnswers: [{ label: "A major is the dominant major; G♯ and the E7–A cadence establish it." }] },
       { id: "nht-1", label: "NHT marker 1", kind: "classification", choices: ["passing note", "auxiliary / neighbour note", "accented passing note", "suspension", "appoggiatura"], acceptedAnswers: [{ label: "passing note" }] },
       { id: "nht-2", label: "NHT marker 2", kind: "classification", choices: ["passing note", "auxiliary / neighbour note", "accented passing note", "suspension", "appoggiatura"], acceptedAnswers: [{ label: "auxiliary / neighbour note" }] },
       { id: "nht-3", label: "NHT marker 3", kind: "classification", choices: ["passing note", "auxiliary / neighbour note", "accented passing note", "suspension", "appoggiatura"], acceptedAnswers: [{ label: "accented passing note" }] },
     ],
-    sourceSpec: { year: 2022, provider: "Learning Ideas", question: "Question Two", part: "(a)", bars: "1–8", keyCentres: ["D minor", "F major", "A major"], nonHarmonicMarkers: ["passing note", "auxiliary / neighbour note", "accented passing note"], expectedChordCount: 8, measureCount: 4 },
+    sourceSpec: {
+      year: 2022, provider: "Learning Ideas", question: "Question Two", part: "(a)", bars: "1–8",
+      keyCentres: ["D minor", "F major", "A major"],
+      romanNumerals: ["i", "V⁷", "i / F: vi", "F: V⁷", "I", "A: Ic", "V⁷", "I"],
+      nonHarmonicMarkers: ["passing note", "auxiliary / neighbour note", "accented passing note"],
+      noteAnnotations: [
+        { measure: 1, beat: 2, staff: "treble", pitch: "E5", label: "1" },
+        { measure: 2, beat: 2, staff: "treble", pitch: "G5", label: "2" },
+        { measure: 3, beat: 3, staff: "treble", pitch: "Bb4", label: "3" },
+      ],
+      analysisPositions: 8, answerPositions: 8, expectedChordCount: 8, measureCount: 5,
+    },
     score: measuredScore({
-      key: "D minor → F major → A major", keySignature: "Dm", layout: "piano", sourceKeyCentres: ["D minor", "F major", "A major"], caption: "Practice assessment reference • 2022 Q2(a), Extract Four • integrated analysis",
+      key: "D minor with two local major regions", keySignature: "Dm", layout: "piano", sourceKeyCentres: ["D minor", "F major", "A major"], caption: "Original Cadence Lab adaptation • integrated analysis with displayed bars 1–5",
       measures: [
-        { events: [{ treble: ["F4", "A4", "D5"], bass: ["D3"], duration: "h" }, { treble: ["E4", "G4", "C#5"], bass: ["A2"], duration: "h" }] },
-        { events: [{ treble: ["F4", "A4", "C5"], bass: ["F3"], duration: "h" }, { treble: ["E4", "G4", "C5"], bass: ["C3"], duration: "h" }] },
-        { events: [{ treble: ["E4", "G#4", "B4", "D5"], bass: ["E3"], duration: "h" }, { treble: ["E4", "A4", "C#5"], bass: ["A2"], duration: "h" }] },
-        { endBarline: "final", events: [{ treble: ["D4", "F4", "B4"], bass: ["G#2"], duration: "h" }, { treble: ["E4", "A4", "C#5"], bass: ["A2"], duration: "h" }] },
-      ], harmonicEvents: [],
+        { events: [
+          { treble: ["F4", "A4", "D5"], bass: ["D3"], duration: "q" },
+          { treble: ["E5"], bass: ["D3"], duration: "q" },
+          { treble: ["F5"], bass: ["D3"], duration: "q" },
+          { treble: ["G4", "C#5", "E5"], bass: ["A2"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["D4", "A4", "F5"], bass: ["D3"], duration: "q" },
+          { treble: ["G5"], bass: ["D3"], duration: "q" },
+          { treble: ["F5"], bass: ["D3"], duration: "q" },
+          { treble: ["E4", "G4", "Bb4", "E5"], bass: ["C3"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["F4", "A4", "C5", "F5"], bass: ["F3"], duration: "q" },
+          { treble: ["A4"], bass: ["F3"], duration: "q" },
+          { treble: ["Bb4"], bass: ["F3"], duration: "q" },
+          { treble: ["C5"], bass: ["F3"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["E4", "A4", "C#5", "E5"], bass: ["E3"], duration: "h" },
+          { treble: ["D4", "G#4", "B4", "E5"], bass: ["E3"], duration: "h" },
+        ] },
+        { endBarline: "final", events: [{ treble: ["E4", "A4", "C#5"], bass: ["A2"], duration: "w" }] },
+      ],
+      harmonicEvents: [
+        harmonicBox(1, 1, 0, "i", { localKey: "D minor", romanNumeral: "i", chordSymbol: "Dm" }),
+        harmonicBox(1, 4, 3, "V⁷", { localKey: "D minor", romanNumeral: "V⁷", chordSymbol: "A7" }),
+        harmonicBox(2, 1, 0, "i / F: vi", { localKey: "D minor", romanNumeral: "i / F: vi", chordSymbol: "Dm" }),
+        harmonicBox(2, 4, 3, "F: V⁷", { localKey: "F major", romanNumeral: "V⁷", chordSymbol: "C7" }),
+        harmonicBox(3, 1, 0, "I", { localKey: "F major", romanNumeral: "I", chordSymbol: "F" }),
+        harmonicBox(4, 1, 0, "A: Ic", { localKey: "A major", romanNumeral: "Ic", chordSymbol: "A/E" }),
+        harmonicBox(4, 3, 1, "V⁷", { localKey: "A major", romanNumeral: "V⁷", chordSymbol: "E7" }),
+        harmonicBox(5, 1, 0, "I", { localKey: "A major", romanNumeral: "I", chordSymbol: "A" }),
+      ],
+      noteAnnotations: [
+        { measure: 1, beat: 2, staff: "treble", pitch: "E5", label: "1" },
+        { measure: 2, beat: 2, staff: "treble", pitch: "G5", label: "2" },
+        { measure: 3, beat: 3, staff: "treble", pitch: "Bb4", label: "3" },
+      ],
+      nonHarmonicNotes: [
+        { measure: 1, event: 1, staff: "treble", pitch: "E5", chordSymbol: "Dm", type: "passing note" },
+        { measure: 2, event: 1, staff: "treble", pitch: "G5", chordSymbol: "Dm", type: "auxiliary / neighbour note" },
+        { measure: 3, event: 2, staff: "treble", pitch: "Bb4", chordSymbol: "F", type: "accented passing note" },
+      ],
     }),
-    answerHeading: "Practice-schedule integrated evidence",
-    answer: ["The answer schedule combines the eight Roman answers with two evidence-based modulations: F major, the relative major, in the first local-key region; and A major, the dominant major, in the second. Its marked NHT evidence includes passing notes, auxiliary notes and accented passing notes."],
+    answerHeading: "Adapted integrated-analysis model",
+    answer: ["The eight boxes are i–V7–i / F:vi–V7–I–A:Ic–V7–I. The first later region is F major, the relative major, confirmed by C7–F; the second is A major, the dominant major, confirmed by G♯ and E7–A. Marker 1 is the unaccented D–E–F passing note, marker 2 is the F–G–F upper neighbour, and marker 3 is the accented A–B♭–C passing note on beat 3. The displayed score is an original Cadence Lab adaptation of the assessed skills, not a copy of the practice-paper extract."],
   }),
   createAdaptedQuestion({
     id: "practice-2023-tonality-harmony",
@@ -3813,31 +3962,79 @@ const questionBank = [
       { id: "tonal-route", label: "Tonal route", kind: "text", prompt: "Name the tonic and the local keys in order.", acceptedAnswers: [{ label: "The passage moves from E minor to A major, then B major, and returns to E minor." }] },
       { id: "relationships", label: "Key relationships and evidence", kind: "text", prompt: "Relate each local key to E minor and cite cadence or accidental evidence.", acceptedAnswers: [{ label: "A major is the major subdominant region and B major is the dominant; the return to E minor is confirmed by its leading note and cadence." }] },
       { id: "modulation-method", label: "How the modulations occur", kind: "text", prompt: "Distinguish direct changes, sequence and the return pivot.", acceptedAnswers: [{ label: "The A-major to B-major changes are direct and follow a melodic sequence whose motif rises by step; the return to E minor uses a pivot chord." }] },
-      { id: "nht-type-1", label: "Non-harmonic note 1", kind: "classification", choices: ["passing note", "accented passing note", "grace note", "mordent", "suspension", "appoggiatura"], acceptedAnswers: [{ label: "passing note" }, { label: "accented passing note" }, { label: "grace note" }, { label: "mordent" }, { label: "suspension" }, { label: "appoggiatura" }] },
-      { id: "nht-evidence-1", label: "Note 1 · score evidence", kind: "text", prompt: "Give its bar/voice, approach and resolution.", acceptedAnswers: [{ label: "Identify the exact note and show from its approach and departure how it fits the chosen classification." }] },
-      { id: "nht-type-2", label: "Non-harmonic note 2", kind: "classification", choices: ["passing note", "accented passing note", "grace note", "mordent", "suspension", "appoggiatura"], acceptedAnswers: [{ label: "passing note" }, { label: "accented passing note" }, { label: "grace note" }, { label: "mordent" }, { label: "suspension" }, { label: "appoggiatura" }] },
-      { id: "nht-evidence-2", label: "Note 2 · score evidence and effect", kind: "text", prompt: "Choose a contrasting type and explain its melodic or harmonic contribution.", acceptedAnswers: [{ label: "A second located example should use a different non-harmonic-note type and explain how it adds melodic interest, tension or decoration." }] },
+      { id: "nht-type-1", label: "Marker 1", kind: "classification", choices: ["passing note", "accented passing note", "auxiliary / neighbour note", "suspension", "appoggiatura"], acceptedAnswers: [{ label: "auxiliary / neighbour note" }] },
+      { id: "nht-type-2", label: "Marker 2", kind: "classification", choices: ["passing note", "accented passing note", "auxiliary / neighbour note", "suspension", "appoggiatura"], acceptedAnswers: [{ label: "passing note" }] },
+      { id: "nht-type-3", label: "Marker 3", kind: "classification", choices: ["passing note", "accented passing note", "auxiliary / neighbour note", "suspension", "appoggiatura"], acceptedAnswers: [{ label: "accented passing note" }] },
+      { id: "nht-evidence", label: "Non-harmonic-note evidence", kind: "text", prompt: "For each marker, describe the approach, departure, harmony and metrical position.", acceptedAnswers: [{ label: "1 is G–A–G over E minor on beat 2; 2 is A–B–C♯ over A on beat 2; 3 is D♯–E–F♯ over B on accented beat 3." }] },
     ],
     sourceSpec: {
       year: 2025, provider: "Learning Ideas", question: "Question Two", part: "(a)(ii)", bars: "1–25",
       keyCentres: ["E minor", "A major", "B major"],
-      nonHarmonicMarkers: ["passing note", "accented passing note", "grace note", "mordent", "suspension", "appoggiatura"],
-      expectedChordCount: 0, measureCount: 5,
+      nonHarmonicMarkers: ["auxiliary / neighbour note", "passing note", "accented passing note"],
+      noteAnnotations: [
+        { measure: 1, beat: 2, staff: "treble", pitch: "A5", label: "1" },
+        { measure: 2, beat: 2, staff: "treble", pitch: "B4", label: "2" },
+        { measure: 4, beat: 3, staff: "treble", pitch: "E5", label: "3" },
+      ],
+      expectedChordCount: 0, measureCount: 6,
     },
     score: measuredScore({
       key: "E minor with related major regions", keySignature: "Em", layout: "piano",
       sourceKeyCentres: ["E minor", "A major", "B major"],
-      caption: "Practice assessment reference • 2025 Q2(a)(ii), Extract Four • representative tonal route",
+      caption: "Original Cadence Lab adaptation • tonal route and melodic evidence in displayed bars 1–6",
       measures: [
-        { events: [{ treble: ["G4", "B4", "E5"], bass: ["E3"], duration: "h" }, { treble: ["F#4", "A4", "D#5"], bass: ["B2"], duration: "h" }] },
-        { events: [{ treble: ["A4", "C#5", "E5"], bass: ["A2"], duration: "h" }, { treble: ["G#4", "B4", "E5"], bass: ["E3"], duration: "h" }] },
-        { events: [{ treble: ["A#4", "C#5", "F#5"], bass: ["F#2"], duration: "h" }, { treble: ["F#4", "B4", "D#5"], bass: ["B2"], duration: "h" }] },
-        { events: [{ treble: ["G#4", "B4", "E5"], bass: ["E3"], duration: "q" }, { treble: ["A4", "C#5", "F#5"], bass: ["F#3"], duration: "q" }, { treble: ["B4", "D#5", "G5"], bass: ["G3"], duration: "q" }, { treble: ["A#4", "C#5", "F#5"], bass: ["F#3"], duration: "q" }] },
-        { endBarline: "final", events: [{ treble: ["F#4", "A4", "D#5"], bass: ["B2"], duration: "h" }, { treble: ["G4", "B4", "E5"], bass: ["E3"], duration: "h" }] },
-      ], harmonicEvents: [],
+        { events: [
+          { treble: ["E4", "B4", "G5"], bass: ["E3"], duration: "q" },
+          { treble: ["A5"], bass: ["E3"], duration: "q" },
+          { treble: ["G5"], bass: ["E3"], duration: "q" },
+          { treble: ["B5"], bass: ["E3"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["C#4", "E4", "A4"], bass: ["A2"], duration: "q" },
+          { treble: ["B4"], bass: ["A2"], duration: "q" },
+          { treble: ["C#5"], bass: ["A2"], duration: "q" },
+          { treble: ["E5"], bass: ["A2"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["D#4", "F#4", "B4"], bass: ["B2"], duration: "q" },
+          { treble: ["C#5"], bass: ["B2"], duration: "q" },
+          { treble: ["D#5"], bass: ["B2"], duration: "q" },
+          { treble: ["F#5"], bass: ["B2"], duration: "q" },
+        ] },
+        { events: [
+          { treble: ["D#4", "F#4", "B4"], bass: ["B2"], duration: "q" },
+          { treble: ["D#5"], bass: ["B2"], duration: "q" },
+          { treble: ["E5"], bass: ["B2"], duration: "q" },
+          { treble: ["F#5"], bass: ["B2"], duration: "q" },
+        ] },
+        { events: [{ treble: ["F#4", "B4", "D#5"], bass: ["B2"], duration: "w" }] },
+        { endBarline: "final", events: [
+          { treble: ["F#4", "A4", "D#5"], bass: ["B2"], duration: "h" },
+          { treble: ["G4", "B4", "E5"], bass: ["E3"], duration: "h" },
+        ] },
+      ],
+      harmonicEvents: [
+        { measure: 1, beat: 1, event: 0, analysisBox: false, chordSymbol: "Em" },
+        { measure: 2, beat: 1, event: 0, analysisBox: false, chordSymbol: "A" },
+        { measure: 3, beat: 1, event: 0, analysisBox: false, chordSymbol: "B" },
+        { measure: 4, beat: 1, event: 0, analysisBox: false, chordSymbol: "B" },
+        { measure: 5, beat: 1, event: 0, analysisBox: false, chordSymbol: "B" },
+        { measure: 6, beat: 1, event: 0, analysisBox: false, chordSymbol: "B7" },
+        { measure: 6, beat: 3, event: 1, analysisBox: false, chordSymbol: "Em" },
+      ],
+      noteAnnotations: [
+        { measure: 1, beat: 2, staff: "treble", pitch: "A5", label: "1" },
+        { measure: 2, beat: 2, staff: "treble", pitch: "B4", label: "2" },
+        { measure: 4, beat: 3, staff: "treble", pitch: "E5", label: "3" },
+      ],
+      nonHarmonicNotes: [
+        { measure: 1, event: 1, staff: "treble", pitch: "A5", chordSymbol: "Em", type: "auxiliary / neighbour note" },
+        { measure: 2, event: 1, staff: "treble", pitch: "B4", chordSymbol: "A", type: "passing note" },
+        { measure: 4, event: 2, staff: "treble", pitch: "E5", chordSymbol: "B", type: "accented passing note" },
+      ],
     }),
     answerHeading: "Practice-schedule contextual evidence",
-    answer: ["The schedule traces E minor to A major, then B major, and back to E minor through a pivot chord. The A-major and B-major changes are direct modulations linked by a melodic sequence whose motif rises by step. Supported non-harmonic-note evidence may include passing notes, accented passing notes, grace notes, mordents, suspensions and appoggiaturas. A strong response locates and explains several examples rather than merely listing terms."],
+    answer: ["The practice schedule's tonal route is E minor–A major–B major–E minor. This original adaptation demonstrates it with the A-major melody in displayed bar 2 sequenced a step higher in B major in displayed bar 3, then a dominant-to-tonic return. Marker 1 is a G–A–G upper neighbour, marker 2 is the unaccented A–B–C♯ passing note, and marker 3 is the accented D♯–E–F♯ passing note. In this Cadence Lab adaptation only, the two half-note harmonies in the final bar quicken the harmonic rhythm into the cadence."],
   }),
 ];
 

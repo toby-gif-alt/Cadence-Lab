@@ -455,6 +455,14 @@
       .toLocaleLowerCase("en-NZ");
   }
 
+  function normalizeRomanIdentity(value) {
+    return normalize(value)
+      // The raised third is contextual minor-key spelling, not a different
+      // dominant chord identity. Preserve exact source labels for display while
+      // accepting V, V3 and V♯3 as the same Roman identity.
+      .replace(/\b([iv]+)\s*♯?3$/u, "$1");
+  }
+
   function acceptedLabels(item) {
     return (item.acceptedAnswers || [])
       .map((answer) => typeof answer === "string" ? answer : answer.label)
@@ -463,8 +471,13 @@
 
   function compareItem(item, value, type) {
     if (!value || !formatValue(value, type)) return "unanswered";
-    const response = normalize(formatValue(value, type));
-    return acceptedLabels(item).some((answer) => normalize(answer) === response)
+    const comparisonNormalizer = type === "roman-analysis"
+      ? normalizeRomanIdentity
+      : normalize;
+    const response = comparisonNormalizer(formatValue(value, type));
+    return acceptedLabels(item).some(
+      (answer) => comparisonNormalizer(answer) === response
+    )
       ? "matches"
       : "different";
   }
@@ -555,6 +568,7 @@
     setHintBankVisible,
     formatKey,
     formatRomanAnalysis,
+    normalizeRomanIdentity,
     sanitizeJazzChord,
     semanticJazzChord,
     formatJazzChord,

@@ -28,7 +28,7 @@ The in-app checklists use these observable progressions. They deliberately avoid
 
 | Exam task | Published source and location | Schedule evidence | Cadence Lab use |
 | --- | --- | --- | --- |
-| Q1(a) pivot analysis and two cadences | J. S. Bach, *Was mein Gott will, das*, bars 0–5; exam p.2 | 10 chords, a pivot and two cadential realisations; schedule p.3 | Reference analysis template and cadence-writing model. |
+| Q1(a) pivot analysis and two cadences | J. S. Bach, *Was mein Gott will, das*, bars 0–5; exam p.2 | 10 chords, a pivot and two cadential realisations; the printed closing indication is `Vsus4 – V#3`; schedule p.3 | Reference analysis template preserves the source label. Cadence Lab treats `V`, `V3` and `V#3` as the same dominant identity where the raised third is contextual, while retaining the suspension as a separate event. |
 | Q1(b) keys X/Y/Z | Bach continuation; exam p.3 | G major (dominant), E minor (relative minor of dominant), A minor (relative minor), with specific evidence; schedule p.4 | Original modulation equivalents. |
 | Q1(c) chorale realisation | Bach continuation; exam p.3 | Eight-chord sample; schedule p.4 | SATB family. |
 | Q2(a) analysis through two modulations | Mendelssohn, *Variations Sérieuses*, Op. 54, bars 1–8; exam p.4 | 10 chords including pivot; D minor to G minor to F major; schedule p.6 | The simplified related-key study is classified as adapted original practice, not as a reference transcription. |
@@ -72,6 +72,6 @@ Cadence Lab currently includes eight official reference transcriptions:
 - 2022: Bach Q1(a)
 - 2023: Bach Q1(b)
 - 2024: Bach Q1(a) and Bach Q1(c)
-- 2025: none; adapted studies retained, exact transcriptions deferred
+- 2025: Bach Q1(a), Q1(b), and Q1(c)
 
 Each is labelled `nzqa-reference` with provider, year, question, part, extract, bars, source-page location and acknowledgement metadata. Every retained reference declares exact transcription mode, printed bars/measures, staff layout and a source-derived event/rhythm signature in addition to its schedule-answer specification. Bach references use independent soprano, alto, tenor and bass rhythmic streams. The source PDFs remain external and the app does not claim official NZQA status.

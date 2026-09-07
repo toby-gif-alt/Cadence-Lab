@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en-NZ">
+<head><meta charset="utf-8"><title>Cadence Lab musical-validity production smoke test</title></head>
+<body data-status="running">
+<iframe id="app" title="Cadence Lab production application" src="../index.html?question=nzqa-2025-bach-satb&amp;v=2026-09-score-ui-25" style="width:1100px;height:1000px"></iframe>
+<pre id="results">Running…</pre>
+<script>
+const frame=document.querySelector('#app'),out=document.querySelector('#results'),assertions={},details={};
+const assert=(name,value,detail)=>{assertions[name]=Boolean(value);if(!value&&detail!==undefined)details[name]=detail;};
+const finish=error=>{if(error)details.error=error.stack||String(error);const passed=!error&&Object.values(assertions).every(Boolean);document.body.dataset.status=passed?'pass':'fail';out.textContent=JSON.stringify({passed,assertions,details},null,2);};
+const turn=w=>new Promise(resolve=>w.setTimeout(resolve,0));
+const overlaps=(a,b,padding=0)=>!(a.x+a.width+padding<=b.x||b.x+b.width+padding<=a.x||a.y+a.height+padding<=b.y||b.y+b.height+padding<=a.y);
+function insideViewBox(target,selector){const svg=target.querySelector('svg');if(!svg)return false;const[,,width,height]=svg.getAttribute('viewBox').split(/\s+/).map(Number);return[...svg.querySelectorAll(selector)].every(element=>{const box=element.getBBox();return box.x>=-.5&&box.y>=-.5&&box.x+box.width<=width+.5&&box.y+box.height<=height+.5;});}
+addEventListener('error',event=>finish(event.error||event.message));
+addEventListener('unhandledrejection',event=>finish(event.reason));
+frame.addEventListener('load',async()=>{try{
+  const w=frame.contentWindow,d=frame.contentDocument;
+  const questions=w.CadenceData.questions,renderer=w.CadenceScoreRenderer,validator=w.CadenceQuestionValidator;
+  const byId=id=>questions.find(question=>question.id===id);
+  assert('production-bank-passes-theory-source-and-spoiler-audits',validator.report.valid,validator.report.errors);
+  assert('all-original-satb-models-have-no-hard-errors',questions.filter(question=>question.category==='satb'&&question.sourceType==='original-practice').every(question=>w.CadenceSatbIntegrity.modelErrors(question).length===0));
+  const qualityWarnings=w.CadenceSatbIntegrity.audit().warnings;
+  assert('satb-quality-audit-is-separate-and-reviewed',qualityWarnings.length===2&&qualityWarnings.every(message=>byId(message.split(':')[0]).score.modelQualityReview?.length),qualityWarnings);
+  const fToC=byId('satb-f-c');
+  const pivot=fToC.score.measures[1].events[0].voices;
+  assert('satb-second-inversion-pivot-doubles-bass',Object.values(pivot).filter(pitch=>pitch.startsWith('C')).length===2);
+
+  const bach2023=byId('nzqa-2023-bach-analysis');
+  const validSuspensionErrors=[];
+  const bach2023Normalized=renderer.normalizeMeasures(bach2023.score);
+  validator.validateSuspensions(bach2023,bach2023Normalized,renderer.normalizeHarmonicEvents(bach2023.score,bach2023Normalized),validSuspensionErrors);
+  assert('adapted-2023-suspensions-have-preparation-retention-and-resolution',bach2023.score.suspensions.map(item=>item.type).join(',')==='9–8,4–3'&&validSuspensionErrors.length===0,validSuspensionErrors);
+  const malformedSuspension=structuredClone(bach2023);
+  malformedSuspension.score.suspensions[0].resolutionPitch=malformedSuspension.score.suspensions[0].pitch;
+  const malformedNormalized=renderer.normalizeMeasures(malformedSuspension.score),malformedErrors=[];
+  validator.validateSuspensions(malformedSuspension,malformedNormalized,renderer.normalizeHarmonicEvents(malformedSuspension.score,malformedNormalized),malformedErrors);
+  assert('suspension-validator-rejects-missing-downward-step',malformedErrors.length>0,malformedErrors);
+  const schubertAnalysis=byId('nzqa-2025-schubert-analysis');
+  assert('schubert-final-answer-separates-chord-and-suspension',schubertAnalysis.score.harmonicEvents.at(-1).romanNumeral==='V⁷c'&&schubertAnalysis.score.suspensions[0].type==='9–8'&&!schubertAnalysis.score.harmonicEvents.at(-1).romanNumeral.toLowerCase().includes('sus'));
+
+  const integrated2022=byId('practice-2022-integrated-analysis');
+  const studentText2022=[integrated2022.studentTitle,integrated2022.studentContext,integrated2022.score.studentCaption,...integrated2022.interaction.fields.flatMap(field=>[field.label,field.prompt,field.placeholder,field.hint])].filter(Boolean).join(' ');
+  assert('integrated-2022-has-eight-boxes-and-eight-roman-slots',integrated2022.score.harmonicEvents.filter(event=>event.answerRole==='editable'&&event.analysisBox).length===8&&integrated2022.interaction.slots.length===8);
+  assert('integrated-2022-learner-fields-do-not-name-local-keys',!(/F major|A major/i.test(studentText2022)),studentText2022);
+  assert('integrated-2022-has-three-specific-musical-nht-contexts',integrated2022.score.nonHarmonicNotes.map(note=>note.type).join('|')==='passing note|auxiliary / neighbour note|accented passing note'&&validator.report.musicTheoryErrors.every(error=>!error.includes(integrated2022.id)));
+  const integrated2025=byId('practice-2025-integrated-tonality');
+  assert('integrated-2025-has-specific-nht-answers',integrated2025.interaction.fields.filter(field=>field.id.startsWith('nht-type-')).every(field=>field.acceptedAnswers.length===1)&&integrated2025.score.nonHarmonicNotes.length===3);
+  assert('integrated-2025-displays-tonal-route-sequence-and-return',integrated2025.score.harmonicEvents.map(event=>event.chordSymbol).join(',')==='Em,A,B,B,B,B7,Em'&&integrated2025.answer.join(' ').includes('adaptation only'));
+  assert('all-authored-nht-contexts-validate-from-notation',validator.report.reviewWarnings.every(warning=>warning.code!=='nonharmonic-context-manual-review')&&validator.report.musicTheoryErrors.every(error=>!error.includes('does not support')));
+
+  const schubertPiano=byId('nzqa-2025-schubert-piano');
+  assert('schubert-piano-model-has-independent-texture-and-eight-harmonies',schubertPiano.score.harmonicEvents.length===8&&schubertPiano.score.measures.every(measure=>measure.staffVoices.treble.some(voice=>voice.role==='melody')&&measure.staffVoices.treble.some(voice=>voice.role==='inner')&&measure.staffVoices.bass.some(voice=>voice.events.some(event=>event.duration==='8'))));
+  assert('piano-models-need-no-playability-review',validator.report.reviewWarnings.every(warning=>!['hand-span-over-octave','hand-overlap','register-jump','inner-above-melody','supplied-line-not-retained'].includes(warning.code)),validator.report.reviewWarnings);
+  const unplayable=structuredClone(schubertPiano);
+  unplayable.score.measures[1].staffVoices.treble.find(voice=>voice.role==='inner').events[0].pitches=['C4','E6'];
+  const unplayableWarnings=validator.reviewPianoPlayability(unplayable,renderer.normalizeMeasures(unplayable.score));
+  assert('piano-audit-warns-for-wide-or-misassigned-inner-voicing',unplayableWarnings.some(warning=>warning.code==='hand-span-over-octave')&&unplayableWarnings.some(warning=>warning.code==='inner-above-melody'),unplayableWarnings);
+  const joelPiano=byId('nzqa-2025-joel-piano'),f9=joelPiano.score.measures[3].events[0];
+  const midi=pitch=>{const parsed=renderer.parsePitch(pitch);return(parsed.octave+1)*12+renderer.pitchClass(parsed);};
+  assert('joel-f9-is-close-playable-and-preserves-top-and-bass',Math.max(...f9.treble.map(midi))-Math.min(...f9.treble.map(midi))<=12&&f9.treble.at(-1)==='G5'&&f9.bass[0]==='F2');
+
+  const ashFunction=byId('practice-2022-asharp-function');
+  assert('asharp-function-uses-displayed-location-without-redundant-pitch-field',ashFunction.studentContext.includes('displayed bar 1')&&!ashFunction.interaction.fields.some(field=>field.id==='altered-note'));
+  const relatedKey=byId('modulation-gminor-eb-f');
+  const xRelationship=relatedKey.interaction.fields.find(field=>field.id==='x-relationship');
+  assert('g-minor-eb-prefers-compound-nzqa-term-with-semantic-aliases',xRelationship.modelRelationship==='relative major of the subdominant'&&xRelationship.acceptedAnswers.some(answer=>answer.label==='submediant')&&xRelationship.acceptedAnswers.some(answer=>answer.label==='VI'));
+  assert('ordinary-dominant-roman-source-normalises-with-raised-third-variant',w.CadenceStructuredAnswer.normalizeRomanIdentity('V')===w.CadenceStructuredAnswer.normalizeRomanIdentity('V3')&&w.CadenceStructuredAnswer.normalizeRomanIdentity('V')===w.CadenceStructuredAnswer.normalizeRomanIdentity('V♯3')&&byId('nzqa-2022-bach-c-aminor').sourceSpec.suppliedLabels.includes('V sus⁴–V♯3'));
+  assert('roman-and-jazz-response-slots-map-one-to-one-to-visible-boxes',questions.filter(question=>['roman-analysis','jazz-chord-placement'].includes(question.interaction?.type)).every(question=>question.interaction.slots.length===question.score.harmonicEvents.filter(event=>event.answerRole==='editable'&&event.analysisBox!==false).length));
+  assert('specific-prompts-are-not-followed-by-generic-task-boilerplate',questions.every(question=>Object.values(question.tasks||{}).flat().length===0));
+
+  const q1c=byId('nzqa-2025-bach-satb'),q1cNormalized=renderer.normalizeMeasures(q1c.score);
+  const altoTie=renderer.independentSatbTies(q1cNormalized).find(tie=>tie.voice==='alto'&&tie.firstPitch==='D4');
+  assert('q1c-alto-tie-resolves-by-source-event-and-same-pitch',altoTie?.firstPitch==='D4'&&altoTie?.lastPitch==='D4'&&Number.isInteger(altoTie.from)&&Number.isInteger(altoTie.to)&&altoTie.from!==altoTie.to,altoTie);
+  const cueTargets=[1000,390].map(width=>{const target=d.createElement('div');target.style.position='absolute';target.style.left='-10000px';d.body.append(target);renderer.render(target,q1c.score,{width,showAnswer:false});return target;});
+  assert('q1c-four-cues-use-vexflow-not-unicode',cueTargets.every(target=>target.querySelectorAll('.vf-source-rhythm-cue').length===4&&target.querySelectorAll('.vf-source-rhythm-cue .vf-stavenote').length===4&&![...target.querySelectorAll('text')].some(text=>/[♩𝅗𝅥□�]/u.test(text.textContent))));
+  assert('q1c-native-cues-do-not-add-crowded-text-labels',cueTargets.every(target=>target.querySelectorAll('.source-rhythm-cue-label').length===0));
+  assert('q1c-native-cues-stay-inside-responsive-score',cueTargets.every(target=>insideViewBox(target,'.vf-source-rhythm-cue')));
+  const modelTarget=d.createElement('div');modelTarget.style.position='absolute';modelTarget.style.left='-10000px';d.body.append(modelTarget);renderer.render(modelTarget,q1c.score,{width:1000,showAnswer:true});
+  assert('q1c-model-renders-a-tie-without-cue-layer',modelTarget.querySelectorAll('.vf-stavetie').length>0&&modelTarget.querySelectorAll('.source-rhythm-cue').length===0);
+
+  const denseScore={key:'C major',keySignature:'C',timeSignature:'4/4',layout:'piano',measures:[{events:[{treble:['C#4','D#4','F#4','G#4','A#4'],bass:['Db2','Eb2','Gb2','Ab2'],duration:'w'}],endBarline:'final'}],harmonicEvents:[]};
+  const plainScore={...denseScore,measures:[{events:[{treble:['C4','E4','G4'],bass:['C2'],duration:'w'}],endBarline:'final'}]};
+  const denseNormalized=renderer.normalizeMeasures(denseScore),plainNormalized=renderer.normalizeMeasures(plainScore);
+  const denseMetrics=renderer.estimateMeasureWidth(denseNormalized.measures[0],denseScore,'piano',[],[]),plainMetrics=renderer.estimateMeasureWidth(plainNormalized.measures[0],plainScore,'piano',[],[]);
+  const accidentalTarget=d.createElement('div');accidentalTarget.style.position='absolute';accidentalTarget.style.left='-10000px';d.body.append(accidentalTarget);renderer.render(accidentalTarget,denseScore,{width:390});
+  const noteheadGroups=[...accidentalTarget.querySelectorAll('.vf-notehead')];
+  const noteheads=noteheadGroups.map(group=>group.querySelector(':scope > path'));
+  const accidentals=noteheadGroups.flatMap(group=>[...group.querySelectorAll(':scope > path')].slice(1));
+  assert('dense-accidentals-expand-measure-spacing',denseMetrics.maximumAccidentalColumns>=4&&denseMetrics.preferredWidth>plainMetrics.preferredWidth,{denseMetrics,plainMetrics});
+  assert('dense-accidentals-do-not-intersect-noteheads',accidentals.length>=9&&accidentals.every(accidental=>noteheads.every(notehead=>!overlaps(accidental.getBBox(),notehead.getBBox(),.1))),{accidentals:accidentals.length,noteheads:noteheads.length});
+
+  await turn(w);
+  finish();
+}catch(error){finish(error);}});
+</script>
+</body>
+</html>

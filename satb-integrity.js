@@ -28,7 +28,12 @@
     return (question.score?.measures || []).flatMap((measure, measureIndex) =>
       (measure.events || []).flatMap((event, eventIndex) =>
         event.voices && VOICES.every((voice) => event.voices[voice])
-          ? [{ measureIndex, eventIndex, voices: event.voices }]
+          ? [{
+              measureIndex,
+              eventIndex,
+              voices: event.voices,
+              questionVoices: event.questionVoices || {},
+            }]
           : []
       )
     );
@@ -132,6 +137,95 @@
     return errors;
   }
 
+  function modelQualityWarnings(question) {
+    if (question.sourceType !== "original-practice" || question.category !== "satb") return [];
+    const warnings = [];
+    const modelMoments = moments(question);
+    const harmony = question.score?.harmonicEvents || [];
+    let previousMotion = null;
+    const totalInnerMotion = { alto: 0, tenor: 0 };
+
+    modelMoments.forEach((moment, index) => {
+      const pitches = VOICES.map((voice) => midi(moment.voices[voice]));
+      const chord = parseChord(harmony[index]?.chordSymbol);
+      if (!chord || pitches.some((pitch) => !Number.isFinite(pitch))) return;
+      const soundingPcs = pitches.map((pitch) => pitch % 12);
+      const counts = chord.pcs.map((pc) =>
+        soundingPcs.filter((sounding) => sounding === pc).length
+      );
+      if (!chord.seventh) {
+        if (chord.bass === chord.root && counts[0] !== 2) {
+          warnings.push(`${question.id}: prefer root doubling in root-position triad at moment ${index + 1}`);
+        }
+        if (chord.bass === chord.pcs[1] && counts[1] > 1) {
+          warnings.push(`${question.id}: avoid routine third/bass doubling in first inversion at moment ${index + 1}`);
+        }
+        if (chord.bass === chord.pcs[2] && counts[2] < 2) {
+          warnings.push(`${question.id}: prefer bass/fifth doubling in second inversion at moment ${index + 1}`);
+        }
+      }
+      if (pitches[0] - pitches[3] > 36 || pitches[2] - pitches[3] > 19) {
+        warnings.push(`${question.id}: unusually wide overall texture at moment ${index + 1}`);
+      }
+
+      if (!index) return;
+      const previous = VOICES.map((voice) =>
+        midi(modelMoments[index - 1].voices[voice])
+      );
+      const motion = pitches.map((pitch, voiceIndex) => pitch - previous[voiceIndex]);
+      totalInnerMotion.alto += Math.abs(motion[1]);
+      totalInnerMotion.tenor += Math.abs(motion[2]);
+      motion.forEach((distance, voiceIndex) => {
+        if (Math.abs(distance) > 7) {
+          warnings.push(`${question.id}: large ${VOICES[voiceIndex]} leap into moment ${index + 1}`);
+        }
+        if (previousMotion && Math.abs(distance) > 7 &&
+            Math.abs(previousMotion[voiceIndex]) > 7) {
+          warnings.push(`${question.id}: repeated large leaps in ${VOICES[voiceIndex]} into moment ${index + 1}`);
+        }
+      });
+      const movingDirections = motion.slice(0, 3)
+        .filter(Boolean)
+        .map(Math.sign);
+      if (movingDirections.length === 3 && new Set(movingDirections).size === 1 &&
+          previousMotion && previousMotion.slice(0, 3).filter(Boolean).length === 3 &&
+          new Set(previousMotion.slice(0, 3).map(Math.sign)).size === 1) {
+        warnings.push(`${question.id}: repeated similar motion in all upper voices into moment ${index + 1}`);
+      }
+      const priorChord = parseChord(harmony[index - 1]?.chordSymbol);
+      if (priorChord) {
+        const commonPcs = priorChord.pcs.filter((pc) => chord.pcs.includes(pc));
+        const editableCommonToneExists = [0, 1, 2].some((voiceIndex) => {
+          const voice = VOICES[voiceIndex];
+          return !modelMoments[index - 1].questionVoices[voice] &&
+            commonPcs.includes(previous[voiceIndex] % 12);
+        });
+        const retainedUpper = [0, 1, 2].some((voiceIndex) =>
+          pitches[voiceIndex] === previous[voiceIndex] &&
+          commonPcs.includes(pitches[voiceIndex] % 12)
+        );
+        const upperTravel = motion.slice(0, 3)
+          .reduce((sum, distance) => sum + Math.abs(distance), 0);
+        if (editableCommonToneExists && chord.bass === chord.root &&
+            !retainedUpper && upperTravel > 8) {
+          warnings.push(`${question.id}: common-tone retention or a smoother upper-part route may be preferable into moment ${index + 1}`);
+        }
+      }
+      previousMotion = motion;
+    });
+    const transitions = Math.max(0, modelMoments.length - 1);
+    if (transitions >= 3) {
+      Object.entries(totalInnerMotion).forEach(([voice, distance]) => {
+        if (distance / transitions > 5) {
+          warnings.push(
+            `${question.id}: excessive total ${voice} motion (${distance} semitones across ${transitions} transitions)`
+          );
+        }
+      });
+    }
+    return warnings;
+  }
+
   function sourceCorrectionErrors() {
     const errors = [];
     const q1c = data.questions.find((question) => question.id === "nzqa-2025-bach-satb");
@@ -146,12 +240,24 @@
     return errors;
   }
 
-  function audit() {
+  function audit(options = {}) {
     const errors = [...data.questions.flatMap(modelErrors), ...sourceCorrectionErrors()];
-    return Object.freeze({ valid: errors.length === 0, errors: Object.freeze(errors) });
+    const warnings = data.questions.flatMap(modelQualityWarnings);
+    return Object.freeze({
+      valid: errors.length === 0 && (!options.strictQuality || warnings.length === 0),
+      errors: Object.freeze(errors),
+      warnings: Object.freeze(warnings),
+      strictQuality: options.strictQuality === true,
+    });
   }
 
   const initialAudit = audit();
   if (!initialAudit.valid) throw new Error(`SATB integrity failed:\n${initialAudit.errors.join("\n")}`);
-  window.CadenceSatbIntegrity = Object.freeze({ modelErrors, audit, initialAudit, ranges: RANGES });
+  window.CadenceSatbIntegrity = Object.freeze({
+    modelErrors,
+    modelQualityWarnings,
+    audit,
+    initialAudit,
+    ranges: RANGES,
+  });
 })();
