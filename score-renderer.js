@@ -361,6 +361,11 @@
           measureIndex,
           currentTimeSignature
         );
+        const questionStaffVoiceStreams = normalizeIndependentStaffVoices(
+          measure.questionStaffVoices,
+          measureIndex,
+          currentTimeSignature
+        );
         let events;
         if (voiceStreams) {
           const harmonicBeats = (score.harmonicEvents || [])
@@ -422,13 +427,17 @@
           const anchorByBeat = new Map(
             events.map((event) => [event._beat, event._index])
           );
-          STAFF_NAMES.forEach((staff) => {
-            staffVoiceStreams[staff].forEach((voice) => {
-              voice.events.forEach((event) => {
-                event._anchorIndex = anchorByBeat.get(event._beat) ?? null;
+          [staffVoiceStreams, questionStaffVoiceStreams]
+            .filter(Boolean)
+            .forEach((streams) => {
+              STAFF_NAMES.forEach((staff) => {
+                streams[staff].forEach((voice) => {
+                  voice.events.forEach((event) => {
+                    event._anchorIndex = anchorByBeat.get(event._beat) ?? null;
+                  });
+                });
               });
             });
-          });
         } else {
           let eventBeat = 1;
           events = sourceEvents.map((event) => {
@@ -452,6 +461,7 @@
           voiceStreams,
           questionVoiceStreams,
           staffVoiceStreams,
+          questionStaffVoiceStreams,
           expectedBeats: measure.expectedBeats || null,
           keyLabel: measure.keyLabel || null,
           keySignature: measure.keySignature || null,
@@ -1143,6 +1153,24 @@
         (pitch) => Boolean(parsePitch(pitch).accidental)
       ).length;
     }, 0);
+    const accidentalColumnsByBeat = new Map();
+    notationEvents.forEach((event) => {
+      const pitches = event.pitch
+        ? [event.pitch]
+        : event.pitches || [...(event.treble || []), ...(event.bass || [])];
+      const count = pitches.filter(
+        (pitch) => Boolean(parsePitch(pitch).accidental)
+      ).length;
+      const beat = event._beat || 1;
+      accidentalColumnsByBeat.set(
+        beat,
+        (accidentalColumnsByBeat.get(beat) || 0) + count
+      );
+    });
+    const maximumAccidentalColumns = Math.max(
+      0,
+      ...accidentalColumnsByBeat.values()
+    );
     const restCount = notationEvents.filter(
       (event) =>
         event.rest ||
@@ -1211,6 +1239,7 @@
         Math.max(0, notationEvents.length - onsetCount) * 2.5 +
         simultaneousActivity * (layout === "satb" ? 1.5 : 0.7) +
         accidentalCount * 7 +
+        Math.max(0, maximumAccidentalColumns - 1) * 18 +
         restCount * 5 +
         dottedCount * 5 +
         tieCount * 8 +
@@ -1225,6 +1254,7 @@
       onsetCount,
       shortestDuration,
       accidentalCount,
+      maximumAccidentalColumns,
       restCount,
       dottedCount,
       tieCount,
@@ -1382,7 +1412,10 @@
 
     if (layout !== "satb") {
       if (measure.staffVoiceStreams) {
-        return measure.staffVoiceStreams[staff].map((stream, streamIndex) => {
+        const visibleStreams = !showAnswer && measure.questionStaffVoiceStreams
+          ? measure.questionStaffVoiceStreams
+          : measure.staffVoiceStreams;
+        return visibleStreams[staff].map((stream, streamIndex) => {
           const fallbackDirection = staff === "treble" ? VF.Stem.UP : VF.Stem.DOWN;
           const stemDirection = stream.stemDirection === "down"
             ? VF.Stem.DOWN
@@ -1775,25 +1808,57 @@
     target.dataset.barNumberCount = String(count);
   }
 
-  function drawRhythmCues(group, target, score, hitMeasures, showAnswer) {
+  function drawRhythmCues(
+    VF,
+    context,
+    group,
+    target,
+    score,
+    hitMeasures,
+    showAnswer,
+    scoreHeight
+  ) {
     let count = 0;
     if (!showAnswer) {
       (score.rhythmCues || []).forEach((cue) => {
         const measure = hitMeasures.find((candidate) => candidate.measure === cue.measure);
         if (!measure || measure.bottomY == null) return;
         const beatSpan = Math.max(1, measure.expectedBeats || 4);
-        const x = measure.x + ((cue.beat - 1) / beatSpan) * (measure.endX - measure.x);
-        const y = measure.bottomY + (measure.bottomSpacing || 10) * 5.2;
-        group.appendChild(createSvgElement("text", {
-          class: "source-rhythm-cue",
-          x,
-          y,
-          "text-anchor": "middle",
-          "font-size": 23,
-          "font-family": "Bravura, 'Noto Music', serif",
-          fill: "#20242a",
-          "data-rhythm-cue": cue.label || cue.text,
-        }, cue.text));
+        const x = clamp(
+          measure.x + ((cue.beat - 1) / beatSpan) * (measure.endX - measure.x),
+          measure.x + 16,
+          measure.endX - 16
+        );
+        const noteY = clamp(
+          measure.bottomY + (measure.bottomSpacing || 10) * 4.4,
+          measure.bottomY + 24,
+          scoreHeight - 34
+        );
+        const cueGroup = context.openGroup("source-rhythm-cue");
+        cueGroup.dataset.rhythmCue = cue.label || cue.duration;
+        cueGroup.dataset.measure = String(cue.measure);
+        cueGroup.dataset.beat = String(cue.beat);
+        cueGroup.dataset.duration = cue.duration;
+        // TickContext x is already an absolute score coordinate. Keep the
+        // invisible cue stave at x=0 so VexFlow does not add the intended
+        // horizontal position a second time.
+        const cueStave = new VF.Stave(0, noteY - 40, 28);
+        const cueNote = makeStaveNote(
+          VF,
+          ["B4"],
+          "treble",
+          cue.duration,
+          VF.Stem.UP,
+          false
+        );
+        cueNote.setStave(cueStave);
+        const tickContext = new VF.TickContext()
+          .addTickable(cueNote)
+          .preFormat()
+          .setX(x);
+        cueNote.setTickContext(tickContext);
+        cueNote.setContext(context).draw();
+        context.closeGroup();
         count += 1;
       });
     }
@@ -2011,6 +2076,23 @@
             firstPitch: event.pitch,
             direction: ["soprano", "tenor"].includes(voiceName) ? "above" : "below",
           }];
+        }
+        if (next.pitch !== event.pitch) {
+          throw new Error(
+            `SATB ${voiceName} tie changes pitch from ${event.pitch} to ${next.pitch}.`
+          );
+        }
+        const measure = normalizedScore.measures[event._measureIndex];
+        const expectedBeats = measure.expectedBeats ||
+          measure.effectiveTimeSignature.numerator;
+        const endBeat = event._beat + event._durationBeats;
+        const contiguous = next._measureIndex === event._measureIndex
+          ? Math.abs(next._beat - endBeat) < 0.001
+          : next._measureIndex === event._measureIndex + 1 &&
+            Math.abs(endBeat - (expectedBeats + 1)) < 0.001 &&
+            Math.abs(next._beat - 1) < 0.001;
+        if (!contiguous) {
+          throw new Error(`SATB ${voiceName} tie crosses a rhythmic gap.`);
         }
         if (!Number.isInteger(next._anchorIndex)) {
           throw new Error(`SATB ${voiceName} tie has no following anchored note.`);
@@ -2625,6 +2707,9 @@
           : [];
         const bundles = [...topBundles, ...bottomBundles];
         const voices = bundles.map((bundle) => bundle.voice);
+        // VexFlow attaches each accidental modifier to its owning StaveNote and
+        // resolves simultaneous columns before formatting. The density-aware
+        // preferred width above then keeps those calculated columns clear.
         VF.Accidental.applyAccidentals(
           topBundles.map((bundle) => bundle.voice),
           keySignatureForStaff(measure.effectiveKeySignature, topStaffName)
@@ -2788,11 +2873,14 @@
         )
       );
       drawRhythmCues(
+        VF,
+        context,
         decorationGroup,
         target,
         score,
         hitMeasures,
-        showAnswer
+        showAnswer,
+        height
       );
       let editableAnalysisBoxCount = 0;
       let blankEditableAnalysisBoxCount = 0;
@@ -2889,5 +2977,6 @@
     normalizeNoteAnnotations,
     estimateMeasureWidth,
     validateChordIdentification,
+    independentSatbTies,
   });
 })();

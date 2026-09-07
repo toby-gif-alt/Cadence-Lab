@@ -44,6 +44,13 @@
       question.studentContext,
       question.score.studentCaption,
       ...Object.values(question.tasks || {}).flat(),
+      question.interaction?.evidencePrompt,
+      ...(question.interaction?.fields || []).flatMap((field) => [
+        field.label,
+        field.prompt,
+        field.placeholder,
+        field.hint,
+      ]),
     ].join(" ").toLocaleLowerCase("en-NZ");
     question.hiddenConceptTerms.forEach((term) => {
       if (!term || typeof term !== "string") {
@@ -345,6 +352,29 @@
         });
         return;
       }
+      if (measure.staffVoices) {
+        [
+          ["staffVoices", measure.staffVoices],
+          ["questionStaffVoices", measure.questionStaffVoices],
+        ].forEach(([sourceName, staffStreams]) => {
+          if (!staffStreams) return;
+          ["treble", "bass"].forEach((staff) => {
+            (staffStreams[staff] || []).forEach((voice, voiceIndex) => {
+              const actual = (voice.events || []).reduce(
+                (sum, event) =>
+                  sum + renderer.durationInBeats(event.duration || "q", denominator),
+                0
+              );
+              if (Math.abs(actual - expected) > 0.001) {
+                errors.push(
+                  `${question.id}: measure ${measureIndex + 1} ${sourceName}.${staff}[${voiceIndex}] contains ${actual} beats in ${activeTime}; expected ${expected}`
+                );
+              }
+            });
+          });
+        });
+        return;
+      }
       const actual = measure.events.reduce(
         (sum, event) =>
           sum + renderer.durationInBeats(event.duration || "q", denominator),
@@ -599,12 +629,16 @@
       };
     }
     if (type.includes("passing")) {
+      const metricAccent = isMetricAccent(context.beat, context.timeSignature);
+      if (metricAccent == null) {
+        return { manual: "explicit metrical placement is unavailable" };
+      }
       return {
         valid:
           approachIsStep && departureIsStep && previousChordTone &&
-          nextChordTone && !returnsToSamePitch && sameDirection,
+          nextChordTone && !returnsToSamePitch && sameDirection && !metricAccent,
         expectation:
-          "a passing note approached and left by step in one direction between different chord tones",
+          "an unaccented passing note approached and left by step in one direction between different chord tones",
       };
     }
     if (type.includes("auxiliary") || type.includes("neighbour") ||
@@ -687,6 +721,197 @@
         errors.push(
           `${question.id}: ${context.previousPitch}–${context.currentPitch}–${context.nextPitch} does not support ${note.type}; expected ${classification.expectation}`
         );
+      }
+    });
+  }
+
+  function suspensionStream(normalized, suspension) {
+    const requestedStaff = suspension.staff ||
+      (["soprano", "alto"].includes(suspension.voice) ? "treble" : "bass");
+    if (suspension.voice) {
+      return normalized.measures.flatMap((measure) =>
+        (measure.voiceStreams?.[suspension.voice] || []).map((event) => ({
+          ...event,
+          measureIndex: measure.index,
+          pitches: event.pitch && !event.rest ? [event.pitch] : [],
+          staff: requestedStaff,
+        }))
+      );
+    }
+    return normalized.measures.flatMap((measure) =>
+      measure.events.map((event) => ({
+        ...event,
+        measureIndex: measure.index,
+        pitches: event[requestedStaff] || [],
+        duration: event.duration || "q",
+        _durationBeats: renderer.durationInBeats(
+          event.duration || "q",
+          measure.effectiveTimeSignature.denominator
+        ),
+        staff: requestedStaff,
+      }))
+    );
+  }
+
+  function adjacentRhythmicEvents(first, second, normalized) {
+    const firstEnd = first._beat + first._durationBeats;
+    if (first.measureIndex === second.measureIndex) {
+      return Math.abs(firstEnd - second._beat) < 0.001;
+    }
+    if (second.measureIndex !== first.measureIndex + 1 ||
+        Math.abs(second._beat - 1) > 0.001) return false;
+    const measure = normalized.measures[first.measureIndex];
+    const expected = measure.expectedBeats ||
+      measure.effectiveTimeSignature.numerator;
+    return Math.abs(firstEnd - (expected + 1)) < 0.001;
+  }
+
+  function diatonicIntervalClass(upper, lower) {
+    const letters = { c: 0, d: 1, e: 2, f: 3, g: 4, a: 5, b: 6 };
+    const top = renderer.parsePitch(upper);
+    const bottom = renderer.parsePitch(lower);
+    const distance = (top.octave * 7 + letters[top.letter]) -
+      (bottom.octave * 7 + letters[bottom.letter]);
+    return ((distance % 7) + 7) % 7 + 1;
+  }
+
+  function bassPitchAt(normalized, measureIndex, beat) {
+    const measure = normalized.measures[measureIndex];
+    if (!measure) return null;
+    if (measure.voiceStreams) {
+      const event = measure.voiceStreams.bass.find(
+        (candidate) => candidate._beat <= beat + 0.001 &&
+          candidate._beat + candidate._durationBeats > beat + 0.001
+      );
+      return event?.pitch || null;
+    }
+    if (measure.staffVoiceStreams) {
+      const pitches = measure.staffVoiceStreams.bass.flatMap((voice) => {
+        const event = voice.events.find(
+          (candidate) => candidate._beat <= beat + 0.001 &&
+            candidate._beat + candidate._durationBeats > beat + 0.001
+        );
+        return event?.pitches || [];
+      });
+      return pitches.length ? [...pitches].sort(
+        (first, second) => pitchNumber(first) - pitchNumber(second)
+      )[0] : null;
+    }
+    const event = [...measure.events]
+      .filter((candidate) => !candidate._virtualAnchor &&
+        candidate._beat <= beat + 0.001)
+      .at(-1);
+    return event?.bass?.[0] || null;
+  }
+
+  function suspensionIsVisiblyTied(question, previous, target, suspension) {
+    if (previous.tieToNext) return true;
+    return (question.score.ties || []).some((tie) =>
+      (tie.from ?? tie.start) === previous._index &&
+      (tie.to ?? tie.end) === target._index &&
+      (tie.staff || "treble") === target.staff &&
+      (!tie.firstPitch || tie.firstPitch === suspension.pitch) &&
+      (!tie.lastPitch || tie.lastPitch === suspension.pitch)
+    );
+  }
+
+  function validateSuspensions(question, normalized, harmonicEvents, errors) {
+    (question.score.suspensions || []).forEach((suspension, index) => {
+      const label = `${question.id}: suspension ${index + 1}`;
+      if (!["9–8", "4–3"].includes(suspension.type)) {
+        errors.push(`${label} has unsupported type ${suspension.type}`);
+        return;
+      }
+      const stream = suspensionStream(normalized, suspension);
+      const targetIndex = stream.findIndex((event) =>
+        event.measureIndex === suspension.measure - 1 &&
+        Math.abs(event._beat - suspension.beat) < 0.001 &&
+        event.pitches.includes(suspension.pitch)
+      );
+      const resolutionIndex = stream.findIndex((event) =>
+        event.measureIndex === suspension.measure - 1 &&
+        Math.abs(event._beat - suspension.resolutionBeat) < 0.001 &&
+        event.pitches.includes(suspension.resolutionPitch)
+      );
+      const target = stream[targetIndex];
+      const previous = stream[targetIndex - 1];
+      const resolution = stream[resolutionIndex];
+      if (!target || !previous || !resolution) {
+        errors.push(`${label} lacks an exact preparation, suspension or resolution event`);
+        return;
+      }
+      if (!previous.pitches.includes(suspension.pitch) ||
+          !adjacentRhythmicEvents(previous, target, normalized)) {
+        errors.push(`${label} is not prepared and retained contiguously in the same voice`);
+      }
+      if (!suspensionIsVisiblyTied(question, previous, target, suspension)) {
+        errors.push(`${label} does not visibly tie or retain its preparation into the dissonance`);
+      }
+      if (resolutionIndex <= targetIndex ||
+          !adjacentRhythmicEvents(target, resolution, normalized)) {
+        errors.push(`${label} does not display a contiguous resolution after the dissonance`);
+      }
+      const resolutionDistance = pitchNumber(suspension.resolutionPitch) -
+        pitchNumber(suspension.pitch);
+      if (![-1, -2].includes(resolutionDistance)) {
+        errors.push(`${label} must resolve down by diatonic step`);
+      }
+      const [targetInterval, resolutionInterval] = suspension.type === "9–8"
+        ? [2, 1]
+        : [4, 3];
+      const targetBass = bassPitchAt(
+        normalized,
+        suspension.measure - 1,
+        suspension.beat
+      );
+      const resolutionBass = bassPitchAt(
+        normalized,
+        suspension.measure - 1,
+        suspension.resolutionBeat
+      );
+      if (targetBass !== suspension.bassPitch ||
+          resolutionBass !== (suspension.resolutionBassPitch || suspension.bassPitch)) {
+        errors.push(`${label} declares bass ${suspension.bassPitch} but the displayed bass does not support both figured intervals`);
+      }
+      if (diatonicIntervalClass(suspension.pitch, suspension.bassPitch) !== targetInterval ||
+          diatonicIntervalClass(suspension.resolutionPitch, suspension.bassPitch) !== resolutionInterval) {
+        errors.push(`${label} does not form the declared ${suspension.type} intervals above the bass`);
+      }
+      const preparationBass = bassPitchAt(
+        normalized,
+        previous.measureIndex,
+        previous._beat
+      );
+      if (!preparationBass || ![1, 3, 5, 6].includes(
+        diatonicIntervalClass(suspension.pitch, preparationBass)
+      )) {
+        errors.push(`${label} preparation is not consonant above the displayed bass`);
+      }
+      const span = harmonicEvents.find((event) =>
+        event.measure === suspension.measure &&
+        Math.abs(Number(event.beat) - suspension.beat) < 0.001 &&
+        event.resolution &&
+        Math.abs(Number(event.resolution.beat) - suspension.resolutionBeat) < 0.001
+      );
+      if (!span) errors.push(`${label} is not attached to one harmonic span with an internal resolution`);
+      const prose = [suspension.label, ...(question.answer || [])].join(" ");
+      if (!prose.includes(suspension.type)) {
+        errors.push(`${label} label/prose does not name ${suspension.type}`);
+      }
+
+      if (question.sourceType !== "nzqa-reference" &&
+          question.sourceType !== "practice-assessment-reference") {
+        const resolutionPc = renderer.pitchClass(
+          renderer.parsePitch(suspension.resolutionPitch)
+        );
+        const sameStaffPitches = target.pitches.filter(
+          (pitch) => pitch !== suspension.pitch
+        );
+        if (sameStaffPitches.some((pitch) =>
+          renderer.pitchClass(renderer.parsePitch(pitch)) === resolutionPc
+        )) {
+          errors.push(`${label} pre-sounds its resolution pitch in the same staff texture`);
+        }
       }
     });
   }
@@ -774,6 +999,133 @@
       };
     }
     return null;
+  }
+
+  function reviewPianoPlayability(question, normalized) {
+    if (question.category !== "piano" || question.sourceType !== "original-practice") {
+      return [];
+    }
+    const warnings = [];
+    const exceptions = new Set(question.score.playabilityExceptions || []);
+    const moments = normalized.measures.flatMap((measure) =>
+      measure.events
+        .filter((event) => !event._virtualAnchor)
+        .map((event) => ({
+          measure: measure.index + 1,
+          beat: event._beat,
+          treble: event.treble || [],
+          bass: event.bass || [],
+        }))
+    );
+    const report = (code, message, moment, staff = "") => {
+      const location = `${moment.measure}:${moment.beat}:${staff}`;
+      if (!exceptions.has(location)) {
+        warnings.push({
+          questionId: question.id,
+          category: question.category,
+          code,
+          message: `Manual playability review: displayed bar ${moment.measure}, beat ${moment.beat} — ${message}`,
+        });
+      }
+    };
+    moments.forEach((moment) => {
+      [["treble", moment.treble], ["bass", moment.bass]].forEach(([staff, pitches]) => {
+        if (pitches.length < 2) return;
+        const values = pitches.map(pitchNumber);
+        if (Math.max(...values) - Math.min(...values) > 12) {
+          report("hand-span-over-octave", `${staff} simultaneous span exceeds an octave`, moment, staff);
+        }
+      });
+      if (moment.treble.length && moment.bass.length &&
+          Math.min(...moment.treble.map(pitchNumber)) <=
+            Math.max(...moment.bass.map(pitchNumber))) {
+        report("hand-overlap", "left- and right-hand registers overlap", moment);
+      }
+    });
+    for (let index = 1; index < moments.length; index += 1) {
+      [["treble", Math.max], ["bass", Math.min]].forEach(([staff, selector]) => {
+        const previous = moments[index - 1][staff].map(pitchNumber);
+        const current = moments[index][staff].map(pitchNumber);
+        if (previous.length && current.length &&
+            Math.abs(selector(...current) - selector(...previous)) > 12) {
+          report("register-jump", `${staff} register jumps by more than an octave`, moments[index], staff);
+        }
+      });
+    }
+
+    normalized.measures.forEach((measure) => {
+      if (!measure.staffVoiceStreams) return;
+      const melody = measure.staffVoiceStreams.treble.find(
+        (voice) => voice.role === "melody"
+      );
+      const innerVoices = measure.staffVoiceStreams.treble.filter(
+        (voice) => voice.role === "inner"
+      );
+      if (!melody || !innerVoices.length) return;
+      innerVoices.flatMap((voice) => voice.events).forEach((innerEvent) => {
+        if (innerEvent.rest || !innerEvent.pitches.length) return;
+        const melodyEvent = melody.events.find(
+          (event) => !event.rest && event.pitches.length &&
+            event._beat <= innerEvent._beat + 0.001 &&
+            event._beat + event._durationBeats > innerEvent._beat + 0.001
+        );
+        if (!melodyEvent) return;
+        const innerTop = Math.max(...innerEvent.pitches.map(pitchNumber));
+        const melodyBottom = Math.min(...melodyEvent.pitches.map(pitchNumber));
+        if (innerTop >= melodyBottom) {
+          report(
+            "inner-above-melody",
+            "an inner-voice pitch meets or rises above the supplied melody",
+            { measure: measure.index + 1, beat: innerEvent._beat },
+            "treble"
+          );
+        }
+      });
+    });
+
+    question.score.measures.forEach((measure, measureIndex) => {
+      (measure.events || []).forEach((event, eventIndex) => {
+        ["Treble", "Bass"].forEach((suffix) => {
+          const supplied = event[`q${suffix}`];
+          const model = event[suffix.toLowerCase()] || [];
+          if (supplied && supplied.some((pitch) => !model.includes(pitch))) {
+            warnings.push({
+              questionId: question.id,
+              category: question.category,
+              code: "supplied-line-not-retained",
+              message: `Supplied ${suffix.toLowerCase()} pitch is not retained at displayed bar ${measureIndex + 1}, event ${eventIndex + 1}.`,
+            });
+          }
+        });
+      });
+      if (measure.staffVoices && measure.questionStaffVoices) {
+        ["treble", "bass"].forEach((staff) => {
+          (measure.questionStaffVoices[staff] || []).forEach((questionVoice) => {
+            const modelVoice = (measure.staffVoices[staff] || []).find(
+              (voice) => voice.role === questionVoice.role
+            );
+            const retained = modelVoice && (questionVoice.events || []).every(
+              (event, eventIndex) => (event.pitches || (event.pitch ? [event.pitch] : []))
+                .every((pitch) => {
+                  const modelEvent = modelVoice.events?.[eventIndex];
+                  const modelPitches = modelEvent?.pitches ||
+                    (modelEvent?.pitch ? [modelEvent.pitch] : []);
+                  return modelPitches.includes(pitch);
+                })
+            );
+            if (!retained) {
+              warnings.push({
+                questionId: question.id,
+                category: question.category,
+                code: "supplied-line-not-retained",
+                message: `Supplied ${questionVoice.role || staff} is not retained in displayed bar ${measureIndex + 1}.`,
+              });
+            }
+          });
+        });
+      }
+    });
+    return warnings;
   }
 
   function validateSourceFidelity(
@@ -1307,6 +1659,7 @@
       validateRomanRoots(question, harmonicEvents, errors);
       validateKeySemantics(question, harmonicEvents, errors);
       validateNonHarmonicNotes(question, normalized, errors, reviewWarnings);
+      validateSuspensions(question, normalized, harmonicEvents, errors);
       validateSatb(question, normalized, errors);
       validateSourceFidelity(
         question,
@@ -1316,6 +1669,7 @@
       );
       const textureWarning = reviewTexture(question, normalized, harmonicEvents);
       if (textureWarning) reviewWarnings.push(textureWarning);
+      reviewWarnings.push(...reviewPianoPlayability(question, normalized));
 
       const signature = JSON.stringify(question.score.measures);
       if (signatures.has(signature)) {
@@ -1375,5 +1729,12 @@
   }
 
   const report = validate(window.CadenceData.questions, { throwOnError: true });
-  window.CadenceQuestionValidator = Object.freeze({ validate, report });
+  window.CadenceQuestionValidator = Object.freeze({
+    validate,
+    report,
+    isMetricAccent,
+    validateNonHarmonicContext,
+    validateSuspensions,
+    reviewPianoPlayability,
+  });
 })();

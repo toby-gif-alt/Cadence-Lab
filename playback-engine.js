@@ -61,6 +61,11 @@
   function questionOnlyScore(score) {
     const questionScore = JSON.parse(JSON.stringify(score));
     questionScore.measures.forEach((measure) => {
+      if (measure.staffVoices && measure.questionStaffVoices) {
+        measure.staffVoices = measure.questionStaffVoices;
+        delete measure.questionStaffVoices;
+        return;
+      }
       if (measure.voices && !measure.events) {
         if (measure.questionVoices) {
           measure.voices = measure.questionVoices;
