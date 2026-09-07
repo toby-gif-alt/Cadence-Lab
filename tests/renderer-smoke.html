@@ -40,15 +40,15 @@
       });
     </script>
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../key-relationships.js?v=2026-09-score-ui-25"></script>
-    <script src="../question-bank.js?v=2026-09-score-ui-25"></script>
-    <script src="../exact-2025-q1-a.js?v=2026-09-score-ui-25"></script>
-    <script src="../exact-2025-q1-b.js?v=2026-09-score-ui-25"></script>
-    <script src="../exact-2025-q1-c.js?v=2026-09-score-ui-25"></script>
-    <script src="../score-ui-consistency.js?v=2026-09-score-ui-25"></script>
-    <script src="../satb-integrity.js?v=2026-09-score-ui-25"></script>
-    <script src="../score-renderer.js?v=2026-09-score-ui-25"></script>
-    <script src="../question-validator.js?v=2026-09-score-ui-25"></script>
+    <script src="../key-relationships.js?v=2026-09-score-ui-26"></script>
+    <script src="../question-bank.js?v=2026-09-score-ui-26"></script>
+    <script src="../exact-2025-q1-a.js?v=2026-09-score-ui-26"></script>
+    <script src="../exact-2025-q1-b.js?v=2026-09-score-ui-26"></script>
+    <script src="../exact-2025-q1-c.js?v=2026-09-score-ui-26"></script>
+    <script src="../score-ui-consistency.js?v=2026-09-score-ui-26"></script>
+    <script src="../satb-integrity.js?v=2026-09-score-ui-26"></script>
+    <script src="../score-renderer.js?v=2026-09-score-ui-26"></script>
+    <script src="../question-validator.js?v=2026-09-score-ui-26"></script>
     <script>
       const renderer = window.CadenceScoreRenderer;
       const questions = window.CadenceData.questions;
@@ -262,7 +262,10 @@
       const commercialSequence = commercialStudy.score.harmonicEvents.map(
         (event) => event.modelLabel
       );
-      const eSharpDiminishedEvent = commercialStudy.score.measures[6].events[0];
+      const eSharpDiminishedPitches = [
+        ...commercialStudy.score.measures[6].staffVoices.treble[0].events[0].pitches,
+        commercialStudy.score.measures[6].staffVoices.bass[0].events[0].pitch,
+      ];
       const commercialBracketTarget = document.createElement("div");
       renderer.render(commercialBracketTarget, commercialStudy.score, {
         showAnswer: false,
@@ -671,9 +674,9 @@
           commercialBracketTarget.querySelectorAll(".analysis-bracket").length > 1 &&
           commercialBracketTarget.querySelectorAll(".analysis-bracket-label").length === 1,
         eSharpDiminishedSpellingPreserved:
-          eSharpDiminishedEvent.treble.includes("E#4") &&
-          eSharpDiminishedEvent.bass.includes("E#2") &&
-          ![...eSharpDiminishedEvent.treble, ...eSharpDiminishedEvent.bass]
+          eSharpDiminishedPitches.includes("E#4") &&
+          eSharpDiminishedPitches.includes("E#2") &&
+          !eSharpDiminishedPitches
             .some((pitch) => /^F(?:#|♯)?/.test(pitch)),
         sourceFidelityRejectsStructuralTranscriptionDrift:
           structurallyCorruptedReferenceReport.sourceFidelityErrors.some(

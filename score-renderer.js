@@ -1243,7 +1243,10 @@
         restCount * 5 +
         dottedCount * 5 +
         tieCount * 8 +
-        closeCollisions * 10 +
+        // Seconds can displace noteheads to the left. Reserve enough width for
+        // the accidental columns to move left with them without crowding the
+        // preceding rhythmic position or stave boundary.
+        closeCollisions * 18 +
         analysisCount * 8 +
         annotationCount * 15,
       MEASURE_MIN_WIDTH,
@@ -1262,6 +1265,29 @@
       analysisCount,
       annotationCount,
     };
+  }
+
+  function clearAccidentalsFromLeftDisplacedNoteheads(bundles) {
+    bundles.forEach((bundle) => {
+      bundle.tickables.forEach((note) => {
+        const displacedHeadWidth = Number(
+          note.getLeftDisplacedHeadPx?.() || 0
+        );
+        if (displacedHeadWidth <= 0 || !note.getModifiers) return;
+
+        note.getModifiers()
+          .filter((modifier) => modifier.getCategory?.() === "Accidental")
+          .forEach((accidental) => {
+            // VexFlow lays out accidental columns against the undisplaced
+            // notehead. A stem-down chord containing seconds can put a
+            // left-displaced head back over the nearest column, so move the
+            // complete accidental stack left before either object is drawn.
+            accidental.setXShift(
+              accidental.getXShift() - displacedHeadWidth - 3
+            );
+          });
+      });
+    });
   }
 
   function distributeMeasureWidths(preferredWidths, availableWidth) {
@@ -2733,6 +2759,7 @@
           align_rests: true,
           stave: topStave,
         });
+        clearAccidentalsFromLeftDisplacedNoteheads(bundles);
 
         bundles.forEach((bundle) => {
           if (normalizedScore.mode !== "explicit") {

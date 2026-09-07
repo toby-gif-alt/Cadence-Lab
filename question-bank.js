@@ -387,13 +387,13 @@ function paperCompletion(completionType, completionRequirements, options = {}) {
 const completionInteractions = {
   "nzqa-2021-beethoven-piano": paperCompletion("piano", {
     suppliedMeasures: [1],
-    targetMeasures: [2, 3, 4],
+    targetMeasures: [2, 3, 4, 5],
     harmonicIndications: 8,
     requiredParts: ["bass line", "two inner parts"],
-    texture: "Beethoven legato piano texture",
+    texture: "alternating bass-and-inner-chord quaver texture",
     selfCheck: [
       "The displayed completion region retains the melody and all eight Roman-numeral indications.",
-      "The bass line and two inner parts continue the first chord's spacing and legato texture.",
+      "The bass line and two inner parts continue the supplied opening's alternating quaver pattern, register and chord spacing.",
       "The harmonic route moves from B♭ major through F major to C major without changing the supplied melody.",
     ],
   }, { printOrientation: "landscape" }),
@@ -2597,39 +2597,75 @@ const questionBank = [
           { treble: ["F#4", "G#4", "B4"], bass: ["C#3"], duration: "h" },
           { treble: ["E#4", "G#4", "B4"], bass: ["C#3"], duration: "h" },
         ] },
-        { events: [
-          { treble: ["A3", "C#4", "F#4"], bass: ["F#2"], duration: "q" },
-          { treble: ["C#5"], bass: ["C#3"], duration: "8" },
-          { treble: ["B4"], bass: ["E3"], duration: "8" },
-          { treble: ["A4"], bass: [], bassRest: true, duration: "q" },
-          { treble: ["F#4"], bass: ["F#2"], duration: "q" },
-        ] },
-        { events: [
-          { treble: ["G#3", "B3", "D4", "E#4"], bass: ["E#2"], duration: "q" },
-          { treble: ["B4"], bass: ["B2"], duration: "q" },
-          { treble: [], trebleRest: true, bass: ["D3"], duration: "q" },
-          { treble: ["G#4"], bass: ["E#2"], duration: "q" },
-        ] },
-        { events: [
-          { treble: ["A3", "C#4", "F#4"], bass: ["E2"], duration: "q" },
-          { treble: ["G#4"], bass: ["C#3"], duration: "8" },
-          { treble: ["A4"], bass: ["E3"], duration: "8" },
-          { treble: ["C#5"], bass: [], bassRest: true, duration: "q" },
-          { treble: ["A4"], bass: ["E2"], duration: "q" },
-        ] },
-        { events: [
-          { treble: ["F#3", "A3", "C#4"], bass: ["D#2"], duration: "q" },
-          { treble: ["A4"], bass: ["F#3"], duration: "q" },
-          { treble: ["G#4"], bass: [], bassRest: true, duration: "q" },
-          { treble: ["F#4"], bass: ["D#2"], duration: "q" },
-        ] },
-        { endBarline: "final", events: [
-          { treble: ["C#4", "F#4", "A4"], bass: ["D2"], duration: "q" },
-          { treble: ["E4"], bass: ["A2"], duration: "8" },
-          { treble: ["F#4"], bass: ["D3"], duration: "8" },
-          { treble: ["A4"], bass: [], bassRest: true, duration: "q" },
-          { treble: ["C#4", "F#4", "A4"], bass: ["D2"], duration: "q" },
-        ] },
+        {
+          staffVoices: {
+            treble: [{ role: "chord-surface", stemDirection: "up", events: [
+              { pitches: ["A3", "C#4", "F#4"], duration: "q" },
+              { pitch: "C#5", duration: "8" },
+              { pitch: "B4", duration: "8" },
+              { pitch: "A4", duration: "q" },
+              { pitch: "F#4", duration: "q" },
+            ] }],
+            bass: [{ role: "chromatic-bass", stemDirection: "down", events: [
+              { pitch: "F#2", duration: "w" },
+            ] }],
+          },
+        },
+        {
+          staffVoices: {
+            treble: [{ role: "chord-surface", stemDirection: "up", events: [
+              { pitches: ["G#3", "B3", "D4", "E#4"], duration: "q" },
+              { pitch: "B4", duration: "q" },
+              { rest: true, duration: "q" },
+              { pitch: "G#4", duration: "q" },
+            ] }],
+            bass: [{ role: "chromatic-bass", stemDirection: "down", events: [
+              { pitch: "E#2", duration: "w" },
+            ] }],
+          },
+        },
+        {
+          staffVoices: {
+            treble: [{ role: "chord-surface", stemDirection: "up", events: [
+              { pitches: ["A3", "C#4", "F#4"], duration: "q" },
+              { pitch: "G#4", duration: "8" },
+              { pitch: "A4", duration: "8" },
+              { pitch: "C#5", duration: "q" },
+              { pitch: "A4", duration: "q" },
+            ] }],
+            bass: [{ role: "chromatic-bass", stemDirection: "down", events: [
+              { pitch: "E2", duration: "w" },
+            ] }],
+          },
+        },
+        {
+          staffVoices: {
+            treble: [{ role: "chord-surface", stemDirection: "up", events: [
+              { pitches: ["F#3", "A3", "C#4"], duration: "q" },
+              { pitch: "A4", duration: "q" },
+              { pitch: "G#4", duration: "q" },
+              { pitch: "F#4", duration: "q" },
+            ] }],
+            bass: [{ role: "chromatic-bass", stemDirection: "down", events: [
+              { pitch: "D#2", duration: "w" },
+            ] }],
+          },
+        },
+        {
+          endBarline: "final",
+          staffVoices: {
+            treble: [{ role: "chord-surface", stemDirection: "up", events: [
+              { pitches: ["C#4", "F#4", "A4"], duration: "q" },
+              { pitch: "E4", duration: "8" },
+              { pitch: "F#4", duration: "8" },
+              { pitch: "A4", duration: "q" },
+              { pitches: ["C#4", "F#4", "A4"], duration: "q" },
+            ] }],
+            bass: [{ role: "chromatic-bass", stemDirection: "down", events: [
+              { pitch: "D2", duration: "w" },
+            ] }],
+          },
+        },
       ],
       harmonicEvents: [
         harmonicBox(1, 1, 0, "C♯m(add9)", { chordSymbol: "C♯madd9", questionLabel: "C♯m(add9)" }),
@@ -2648,7 +2684,7 @@ const questionBank = [
     answerHeading: "Reference chord analysis and effect",
     answer: [
       "<strong>Published analysis:</strong> C♯m(add9)–Dmaj7–Bm9–G♯dim/B–C♯7sus4–C♯7–F♯m–E♯dim7–F♯m/E–D♯m7(♭5)–Dmaj7. Credit alternatives only where the published score and schedule support them.",
-      "In displayed bars 6–10, the bass descends F♯–E♯–E–D♯–D and contrasts with the earlier more static bass. The regular harmonic changes and chromatic descent create momentum and forward direction.",
+      "In displayed bars 6–10, the sustained bass notes descend by semitone from bar to bar: F♯–E♯–E–D♯–D. The regular harmonic changes and uninterrupted chromatic descent create momentum and forward direction.",
     ],
   }),
   createQuestion({
@@ -3258,7 +3294,7 @@ const questionBank = [
     source: nzqaSource(2021, "Question Two", "(b)", "Extract Five", "Ludwig van Beethoven", "Bagatelle, Op. 119, No. 8", "bars 9–14, exam p.7; schedule p.6", "9–14"),
     family: "Piano completion",
     title: "Reference: continue Beethoven's piano texture",
-    context: "The passage begins in B♭ major, modulates to F major and then C major. Complete the displayed target region by adding a bass line and two inner parts in the style of the opening supplied chord.",
+    context: "The passage begins in B♭ major, modulates to F major and then C major. Complete displayed bars 2–5 by adding a bass line and two inner parts that continue the rhythmic pattern, register and spacing established in displayed bar 1.",
     presentation: { title: "Reference: Beethoven piano completion", hiddenConceptTerms: [] },
     sourceSpec: {
       year: 2021, provider: "NZQA", question: "Question Two", part: "(b)", bars: "9–14",
@@ -3272,26 +3308,138 @@ const questionBank = [
       sourceKeyCentres: ["B♭ major", "F major", "C major"],
       caption: "NZQA examination reference • 2021 Q2(b), Extract Five • bars 9–14 transcription",
       measures: [
-        { events: [{ treble: ["Db5"], qTreble: ["Db5"], bass: ["Bb2"], qBass: ["Bb2"], duration: "hd" }] },
-        { events: [
-          { treble: ["F4", "Bb4", "D5"], qTreble: ["D5"], bass: ["Bb2"], qBass: [], duration: "q" },
-          { treble: ["E4", "G4", "Bb4", "Eb5"], qTreble: ["Eb5"], bass: ["C3"], qBass: [], duration: "q" },
-          { treble: ["F4", "A4", "C5", "D5"], qTreble: ["D5"], bass: ["F3"], qBass: [], duration: "q" },
-        ] },
-        { events: [
-          { treble: ["F4", "A4", "C5"], qTreble: ["C5"], bass: ["A2"], qBass: [], duration: "q" },
-          { treble: ["E4", "G4", "Bb4", "D5"], qTreble: ["D5"], bass: ["C3"], qBass: [], duration: "q" },
-          { treble: ["D4", "F4", "B4", "Db5"], qTreble: ["Db5"], bass: ["B2"], qBass: [], duration: "q" },
-        ] },
-        { events: [
-          { treble: ["E4", "G4", "C5"], qTreble: ["C5"], bass: ["C3"], qBass: [], duration: "qd" },
-          { treble: ["F4", "A4", "C5"], qTreble: ["A4"], bass: ["F2"], qBass: [], duration: "8" },
-          { treble: ["F4", "Ab4", "B4", "D5"], qTreble: ["B4"], bass: ["G2"], qBass: [], duration: "q" },
-        ] },
-        { events: [
-          { treble: ["E4", "G4", "C5", "D5"], qTreble: ["D5"], bass: ["C3"], qBass: [], duration: "h" },
-          { treble: ["F4", "Ab4", "B4", "C5"], qTreble: ["C5"], bass: ["G2"], qBass: [], duration: "q" },
-        ] },
+        {
+          staffVoices: {
+            treble: [
+              { role: "melody", stemDirection: "up", events: [{ pitch: "Db5", duration: "hd" }] },
+              { role: "inner", stemDirection: "down", events: [
+                { rest: true, duration: "8" }, { pitches: ["F4", "Bb4"], duration: "8" },
+                { rest: true, duration: "8" }, { pitches: ["F4", "Bb4"], duration: "8" },
+                { rest: true, duration: "8" }, { pitches: ["F4", "Bb4"], duration: "8" },
+              ] },
+            ],
+            bass: [{ role: "accompaniment", stemDirection: "down", events: [
+              { pitch: "Bb2", duration: "8" }, { rest: true, duration: "8" },
+              { pitch: "F3", duration: "8" }, { rest: true, duration: "8" },
+              { pitch: "Bb2", duration: "8" }, { rest: true, duration: "8" },
+            ] }],
+          },
+          questionStaffVoices: {
+            treble: [
+              { role: "melody", stemDirection: "up", events: [{ pitch: "Db5", duration: "hd" }] },
+              { role: "inner", stemDirection: "down", events: [
+                { rest: true, duration: "8" }, { pitches: ["F4", "Bb4"], duration: "8" },
+                { rest: true, duration: "8" }, { pitches: ["F4", "Bb4"], duration: "8" },
+                { rest: true, duration: "8" }, { pitches: ["F4", "Bb4"], duration: "8" },
+              ] },
+            ],
+            bass: [{ role: "accompaniment", stemDirection: "down", events: [
+              { pitch: "Bb2", duration: "8" }, { rest: true, duration: "8" },
+              { pitch: "F3", duration: "8" }, { rest: true, duration: "8" },
+              { pitch: "Bb2", duration: "8" }, { rest: true, duration: "8" },
+            ] }],
+          },
+        },
+        {
+          staffVoices: {
+            treble: [
+              { role: "melody", stemDirection: "up", events: [
+                { pitch: "D5", duration: "q" }, { pitch: "Eb5", duration: "q" }, { pitch: "D5", duration: "q" },
+              ] },
+              { role: "inner", stemDirection: "down", events: [
+                { rest: true, duration: "8" }, { pitches: ["F4", "Bb4"], duration: "8" },
+                { rest: true, duration: "8" }, { pitches: ["E4", "G4", "Bb4"], duration: "8" },
+                { rest: true, duration: "8" }, { pitches: ["F4", "A4", "C5"], duration: "8" },
+              ] },
+            ],
+            bass: [{ role: "accompaniment", stemDirection: "down", events: [
+              { pitch: "Bb2", duration: "8" }, { rest: true, duration: "8" },
+              { pitch: "C3", duration: "8" }, { rest: true, duration: "8" },
+              { pitch: "F3", duration: "8" }, { rest: true, duration: "8" },
+            ] }],
+          },
+          questionStaffVoices: {
+            treble: [{ role: "melody", stemDirection: "up", events: [
+              { pitch: "D5", duration: "q" }, { pitch: "Eb5", duration: "q" }, { pitch: "D5", duration: "q" },
+            ] }],
+            bass: [],
+          },
+        },
+        {
+          staffVoices: {
+            treble: [
+              { role: "melody", stemDirection: "up", events: [
+                { pitch: "C5", duration: "q" }, { pitch: "D5", duration: "q" }, { pitch: "Db5", duration: "q" },
+              ] },
+              { role: "inner", stemDirection: "down", events: [
+                { rest: true, duration: "8" }, { pitches: ["F4", "A4"], duration: "8" },
+                { rest: true, duration: "8" }, { pitches: ["E4", "G4", "Bb4"], duration: "8" },
+                { rest: true, duration: "8" }, { pitches: ["D4", "F4", "B4"], duration: "8" },
+              ] },
+            ],
+            bass: [{ role: "accompaniment", stemDirection: "down", events: [
+              { pitch: "A2", duration: "8" }, { rest: true, duration: "8" },
+              { pitch: "C3", duration: "8" }, { rest: true, duration: "8" },
+              { pitch: "B2", duration: "8" }, { rest: true, duration: "8" },
+            ] }],
+          },
+          questionStaffVoices: {
+            treble: [{ role: "melody", stemDirection: "up", events: [
+              { pitch: "C5", duration: "q" }, { pitch: "D5", duration: "q" }, { pitch: "Db5", duration: "q" },
+            ] }],
+            bass: [],
+          },
+        },
+        {
+          staffVoices: {
+            treble: [
+              { role: "melody", stemDirection: "up", events: [
+                { pitch: "C5", duration: "qd" }, { pitch: "A4", duration: "8" }, { pitch: "B4", duration: "q" },
+              ] },
+              { role: "inner", stemDirection: "down", events: [
+                { rest: true, duration: "8" }, { pitches: ["E4", "G4"], duration: "8" },
+                { rest: true, duration: "8" }, { pitches: ["E4", "G4"], duration: "8" },
+                { rest: true, duration: "8" }, { pitches: ["F4", "Ab4"], duration: "8" },
+              ] },
+            ],
+            bass: [{ role: "accompaniment", stemDirection: "down", events: [
+              { pitch: "C3", duration: "8" }, { rest: true, duration: "8" },
+              { pitch: "C3", duration: "8" }, { rest: true, duration: "8" },
+              { pitch: "G2", duration: "8" }, { rest: true, duration: "8" },
+            ] }],
+          },
+          questionStaffVoices: {
+            treble: [{ role: "melody", stemDirection: "up", events: [
+              { pitch: "C5", duration: "qd" }, { pitch: "A4", duration: "8" }, { pitch: "B4", duration: "q" },
+            ] }],
+            bass: [],
+          },
+        },
+        {
+          staffVoices: {
+            treble: [
+              { role: "melody", stemDirection: "up", events: [
+                { pitch: "D5", duration: "h" }, { pitch: "C5", duration: "q" },
+              ] },
+              { role: "inner", stemDirection: "down", events: [
+                { rest: true, duration: "8" }, { pitches: ["E4", "G4", "C5"], duration: "8" },
+                { rest: true, duration: "8" }, { pitches: ["E4", "G4", "C5"], duration: "8" },
+                { rest: true, duration: "8" }, { pitches: ["F4", "Ab4", "B4"], duration: "8" },
+              ] },
+            ],
+            bass: [{ role: "accompaniment", stemDirection: "down", events: [
+              { pitch: "C3", duration: "8" }, { rest: true, duration: "8" },
+              { pitch: "C3", duration: "8" }, { rest: true, duration: "8" },
+              { pitch: "G2", duration: "8" }, { rest: true, duration: "8" },
+            ] }],
+          },
+          questionStaffVoices: {
+            treble: [{ role: "melody", stemDirection: "up", events: [
+              { pitch: "D5", duration: "h" }, { pitch: "C5", duration: "q" },
+            ] }],
+            bass: [],
+          },
+        },
         { endBarline: "final", events: [
           { treble: ["Db5"], qTreble: ["Db5"], bass: ["F2"], qBass: ["F2"], duration: "q" },
           { treble: ["C5"], qTreble: ["C5"], bass: ["F2"], qBass: ["F2"], duration: "q" },
@@ -3309,7 +3457,7 @@ const questionBank = [
       ],
     }),
     answerHeading: "One possible model completion",
-    answer: ["The model preserves the printed melody and supplies eight chords through the B♭–F–C tonal route. It is one possible realisation; other stylistically appropriate bass and inner-part solutions are possible."],
+    answer: ["The supplied opening establishes a low bass note followed by an off-beat inner chord in each quaver pair. The model preserves the printed melody and continues that register, spacing and alternating accompaniment through the eight chords of the B♭–F–C tonal route. It is one possible realisation; other stylistically appropriate solutions are possible."],
   }),
   createAdaptedQuestion({
     id: "nzqa-2023-novelette-piano",
