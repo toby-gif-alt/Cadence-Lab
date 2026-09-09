@@ -68,47 +68,59 @@
     staffMeasure(
       [rest("h"), note("E5", "q", { tuplet: triplet("a5-1") }), note("E5", "8", { tuplet: triplet("a5-1"), tieToNext: true }), note("E5", "8", { tuplet: triplet("a5-2") }), note("D5", "8", { tuplet: triplet("a5-2") }), note("C5", "8", { tuplet: triplet("a5-2") })],
       [voice("piano-upper", "up", [rest("h"), note("E5", "q", { tuplet: triplet("pa5-1") }), note("E5", "8", { tuplet: triplet("pa5-1"), tieToNext: true }), note("E5", "8", { tuplet: triplet("pa5-2") }), note("D5", "8", { tuplet: triplet("pa5-2") }), note("C5", "8", { tuplet: triplet("pa5-2") })])],
-      [voice("piano-bass", "down", [chord(["C2", "G2"], "h"), chord(["C3", "E3", "G3", "C4"], "h")])],
+      [
+        voice("bass-figure", "up", [
+          note("E3", "h", { graceNotes: [
+            { pitch: "G3", duration: "16" },
+            { pitch: "Gb3", duration: "16" },
+            { pitch: "F3", duration: "16" },
+          ] }),
+          chord(["E3", "G3", "C4"], "h"),
+        ]),
+        voice("piano-bass", "down", [note("C2", "h"), rest("h")]),
+      ],
       { beginBarline: "repeat-begin" }
     ),
     staffMeasure(
       [note("D5", "8"), note("E5", "8"), note("F5", "h"), note("D5", "8"), note("C5", "8")],
-      [voice("piano-upper", "up", [note("D5", "8"), note("E5", "8"), note("F5", "h"), note("D5", "8"), note("C5", "8")]), voice("piano-harmony", "down", [chord(["G#3", "B3", "D4"], "w")])],
+      [voice("piano-upper", "up", [note("D5", "8"), note("E5", "8"), note("F5", "h"), note("D5", "8"), note("C5", "8")])],
       [voice("piano-bass", "down", [note("E2", "h"), chord(["E3", "G#3", "B3", "D4"], "h")])],
       { systemBreakAfter: true }
     ),
     staffMeasure(
       [note("C5", "8"), note("D5", "8"), note("E5", "h"), note("C5", "8"), note("B4", "8")],
-      [voice("piano-upper", "up", [note("C5", "8"), note("D5", "8"), note("E5", "h"), note("C5", "8"), note("B4", "8")]), voice("piano-harmony", "down", [chord(["G3", "A3", "C4", "E4"], "w")])],
+      [voice("piano-upper", "up", [note("C5", "8"), note("D5", "8"), note("E5", "h"), note("C5", "8"), note("B4", "8")])],
       [voice("piano-bass", "down", [note("A2", "h"), chord(["G3", "A3", "C4", "E4"], "h")])]
     ),
     staffMeasure(
       [note("C5", "8"), note("B4", "8"), note("A4", "hd")],
       [
-        voice("piano-upper", "up", [note("C5", "8"), note("B4", "8"), note("A4", "hd")]),
-        voice("piano-inner", "down", [chord(["Bb3", "C4", "D4"], "h"), chord(["E3", "G3", "Bb3"], "h")]),
+        voice("piano-upper", "up", [
+          note("C5", "8"), note("B4", "8"), note("A4", "q"),
+          chord(["C4", "E4"], "q"), chord(["Bb3", "D4"], "q"),
+        ]),
       ],
       [voice("piano-bass", "down", [chord(["G2", "Bb3"], "h"), chord(["C3", "E3", "G3", "Bb3"], "h")])]
     ),
     staffMeasure(
       [rest("q"), note("F5", "8"), note("G5", "8"), note("G5", "q"), note("F5", "8"), note("E5", "8")],
-      [voice("piano-upper", "up", [rest("q"), note("F5", "8"), note("G5", "8"), note("G5", "q"), note("F5", "8"), note("E5", "8")]), voice("piano-harmony", "down", [chord(["A3", "C4", "F4"], "w")])],
+      [voice("piano-upper", "up", [rest("q"), note("F5", "8"), note("G5", "8"), note("G5", "q"), note("F5", "8"), note("E5", "8")])],
       [voice("piano-bass", "down", [note("F2", "h"), chord(["A3", "C4", "F4"], "h")])],
       { systemBreakAfter: true }
     ),
     staffMeasure(
       [note("F5", "8"), note("G5", "8"), note("A5", "h"), note("F5", "8"), note("E5", "8")],
-      [voice("piano-upper", "up", [note("F5", "8"), note("G5", "8"), note("A5", "h"), note("F5", "8"), note("E5", "8")]), voice("piano-harmony", "down", [chord(["G3", "C#4", "E4"], "w")])],
+      [voice("piano-upper", "up", [note("F5", "8"), note("G5", "8"), note("A5", "h"), note("F5", "8"), note("E5", "8")])],
       [voice("piano-bass", "down", [note("A2", "h"), chord(["G3", "A3", "C#4", "E4"], "h")])]
     ),
     staffMeasure(
       [note("F5", "8"), note("E5", "8"), note("D5", "hd")],
-      [voice("piano-upper", "up", [note("F5", "8"), note("E5", "8"), note("D5", "hd")]), voice("piano-harmony", "down", [chord(["F3", "A3", "C4"], "w")])],
+      [voice("piano-upper", "up", [note("F5", "8"), note("E5", "8"), note("D5", "hd")])],
       [voice("piano-bass", "down", [note("D3", "h"), chord(["D3", "F3", "A3", "C4"], "h")])]
     ),
     staffMeasure(
       [rest("w")],
-      [voice("piano-upper", "up", [rest("w")]), voice("piano-harmony", "down", [chord(["Ab3", "C4", "D4", "F4"], "h"), chord(["Ab3", "D4", "F4"], "h")])],
+      [voice("piano-upper", "up", [rest("w")])],
       [voice("piano-bass", "down", [chord(["Bb2", "Ab3", "C4", "D4", "F4"], "h"), chord(["Bb2", "Ab3", "D4", "F4"], "h")])]
     ),
     staffMeasure(
@@ -123,7 +135,7 @@
   const harmonicLocations = [[2, 1], [3, 1], [4, 1], [4, 3], [5, 1], [6, 1], [7, 1], [8, 1], [8, 3], [9, 1]];
   const validation = {
     E7: ["E2", "G#3", "B3", "D4"], Am7: ["A2", "G3", "C4", "E4"],
-    "Gm(add4)": ["G2", "Bb3", "C4", "D4"], C7: ["C3", "E3", "G3", "Bb3"],
+    "Gm(add4)": ["G2", "Bb3", "C5"], C7: ["C3", "E3", "G3", "Bb3"],
     F: ["F2", "A3", "C4"], A7: ["A2", "G3", "C#4", "E4"],
     Dm7: ["D3", "F3", "A3", "C4"], "B♭9": ["Bb2", "Ab3", "C4", "D4", "F4"],
     "B♭7": ["Bb2", "Ab3", "D4", "F4"], C: ["C3", "E3", "G3"],
@@ -138,6 +150,8 @@
     chordSymbol: symbol,
     localKey: "C major",
     validationPitches: validation[symbol],
+    validationScope: "harmonic-span",
+    omittedChordIntervals: symbol === "Gm(add4)" ? [7] : undefined,
   }));
 
   const q3a = getQuestion("nzqa-2025-joel-chords");
@@ -170,13 +184,14 @@
     },
     interaction: {
       type: "jazz-chord-placement", allowPaper: true, advancedBuilder: true,
+      hintBankMode: "limited-vocabulary",
       seed: "nzqa-2025-q3a-published-bank-v1",
       slots: q3aHarmonicEvents.map((event, harmonicIndex) => ({
         id: event.answerSlotId, harmonicIndex,
         label: `Bar ${event.measure + 4}, beat ${event.beat}`,
         acceptedAnswers: [{ label: event.modelLabel }],
       })),
-      bank: [...assessedChords, "Em7", "G7", "Fmaj7", "A9", "Dm9"].map((label, index) => ({ id: `nzqa-2025-q3a-choice-${index + 1}`, label })),
+      bank: ["Cmaj7", "G7", "Am7", "Dm9", "F6"].map((label, index) => ({ id: `nzqa-2025-q3a-hint-${index + 1}`, label })),
       fields: [],
     },
     answerHeading: "Published chord-symbol sequence",
@@ -343,29 +358,82 @@
     { measure: 8, beat: 4, label: "G" }, { measure: 9, beat: 3, label: "F/G" },
     { measure: 10, beat: 1, label: "Am7" }, { measure: 10, beat: 4, label: "G" },
   ];
+  const copiedPianoEvents = (events) => events.map((event) => event.rest
+    ? { ...event }
+    : { ...event, pitches: [event.pitch], pitch: undefined });
+  const d9PianoFigure = () => [
+    chord(["F#3", "A3", "C4", "E4"], "qd"), note("E4", "8"),
+    chord(["A4", "C5"], "8"), chord(["C5", "E5"], "8"),
+    note("E4", "8"), note("A3", "8"),
+  ];
   const q3cModelHarmony = [
-    [[chord(["C4", "E4", "A4"], "h"), chord(["B3", "E4", "G4"], "h")], [chord(["A2", "E3"], "h"), chord(["G2", "E3"], "h")]],
-    [[chord(["A3", "C4", "F4"], "h"), chord(["G3", "C4", "E4"], "h")], [note("F2", "h"), note("E2", "h")]],
-    [[chord(["F#3", "A3", "C4", "E4"], "hd"), note("A4", "8"), chord(["C5", "E5"], "8")], [note("D2", "w")]],
-    [[chord(["A3", "C4", "Eb4", "G4"], "w")], [note("F2", "w")]],
-    [[chord(["F3", "A3", "B3", "D4"], "w")], [note("G2", "h"), chord(["F3", "A3", "B3", "D4"], "h")]],
-    [[chord(["G3", "A3", "C4", "E4"], "hd"), chord(["F#3", "A3", "C4", "D4"], "q", { tieToNext: true })], [note("A2", "hd"), note("D2", "q", { tieToNext: true })]],
-    [[chord(["F#3", "A3", "C4", "D4"], "w")], [note("D2", "w")]],
-    [[chord(["G3", "A3", "C4", "E4"], "hd"), chord(["G3", "B3", "D4"], "q", { tieToNext: true })], [note("A2", "hd"), note("G2", "q", { tieToNext: true })]],
-    [[chord(["G3", "B3", "D4"], "h"), chord(["F3", "A3", "C4", "D4"], "h")], [note("G2", "w")]],
-    [[chord(["G3", "A3", "C4", "E4"], "hd"), chord(["G3", "B3", "D4"], "q")], [note("A2", "hd"), note("G2", "q")]],
+    {
+      upper: copiedPianoEvents(q3cVocal[0]),
+      inner: [chord(["C4", "E4"], "h"), chord(["B3", "C4", "E4"], "h")],
+      bass: [chord(["A2", "E3"], "h"), chord(["G2", "E3"], "h")],
+    },
+    {
+      upper: copiedPianoEvents(q3cVocal[1]),
+      inner: [chord(["A3", "C4"], "h"), chord(["G3", "C4"], "h")],
+      bass: [chord(["F2", "C3"], "h"), chord(["E2", "C3"], "h")],
+    },
+    {
+      upper: copiedPianoEvents(q3cVocal[2]),
+      inner: d9PianoFigure(),
+      bass: [note("D2", "w")],
+    },
+    {
+      upper: copiedPianoEvents(q3cVocal[3]),
+      inner: [chord(["A3", "C4", "Eb4", "G4"], "w")],
+      bass: [note("F2", "w")],
+    },
+    {
+      upper: copiedPianoEvents(q3cVocal[4]),
+      inner: [note("G4", "w")],
+      bass: [note("G2", "h"), chord(["F3", "A3", "B3", "D4"], "h")],
+    },
+    {
+      upper: copiedPianoEvents(q3cVocal[5]),
+      inner: [chord(["G3", "A3", "C4", "E4"], "hd"), chord(["F#3", "A3", "C4", "D4"], "q", { tieToNext: true })],
+      bass: [note("A2", "hd"), note("D2", "q", { tieToNext: true })],
+    },
+    {
+      upper: [],
+      inner: d9PianoFigure(),
+      bass: [note("D2", "w")],
+    },
+    {
+      upper: [],
+      inner: [chord(["G3", "A3", "C4", "E4"], "hd"), chord(["G3", "B3", "D4"], "q", { tieToNext: true })],
+      bass: [note("A2", "hd"), note("G2", "q", { tieToNext: true })],
+    },
+    {
+      upper: [],
+      inner: [
+        chord(["G3", "B3", "D4"], "q", { tuplet: triplet("pc22-1", { bracketed: true }) }),
+        note("A3", "8", { tuplet: triplet("pc22-1", { bracketed: true }) }),
+        note("A3", "8", { tuplet: triplet("pc22-2") }),
+        note("B3", "8", { tuplet: triplet("pc22-2") }),
+        note("D4", "8", { tuplet: triplet("pc22-2") }),
+        chord(["F3", "A3", "C4", "D4"], "q"), note("D4", "q"),
+      ],
+      bass: [note("G2", "h"), note("G2", "h")],
+    },
+    {
+      upper: [],
+      inner: [chord(["G3", "A3", "C4", "E4"], "hd"), chord(["G3", "B3", "D4"], "q")],
+      bass: [note("A2", "hd"), note("G2", "q")],
+    },
   ];
   const q3cMeasures = q3cVocal.map((vocalEvents, index) => {
-    const [upperEvents, bassEvents] = q3cModelHarmony[index];
+    const { upper, inner, bass } = q3cModelHarmony[index];
     const measure = staffMeasure(
       vocalEvents,
       [
-        voice("piano-upper", "up", upperEvents),
-        voice("piano-inner", "down", index === 0
-          ? [chord(["C4", "E4"], "h"), chord(["B3", "E4"], "h")]
-          : [rest("w")]),
+        ...(upper.length ? [voice("piano-upper", "up", upper)] : []),
+        voice("piano-inner", "down", inner),
       ],
-      [voice("piano-bass", "down", bassEvents)],
+      [voice("piano-bass", "down", bass)],
       { systemBreakAfter: [2, 6, 9].includes(index) }
     );
     measure.questionStaffVoices = index === 0 || index === 9

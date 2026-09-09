@@ -755,6 +755,27 @@
     return note;
   }
 
+  function attachGraceNotes(VF, note, event, clef, stemDirection) {
+    if (!event.graceNotes?.length || note instanceof VF.GhostNote) return;
+    const graceNotes = event.graceNotes.map((graceEvent) => {
+      const pitch = parsePitch(graceEvent.pitch);
+      const graceNote = new VF.GraceNote({
+        clef,
+        keys: [vexKey(pitch)],
+        duration: durationDetails(graceEvent.duration || "8").base,
+        slash: graceEvent.slash === true,
+        stem_direction: stemDirection,
+      });
+      if (pitch.accidental) {
+        graceNote.addModifier(new VF.Accidental(pitch.accidental), 0);
+      }
+      return graceNote;
+    });
+    const group = new VF.GraceNoteGroup(graceNotes, false);
+    if (graceNotes.length > 1) group.beamNotes();
+    note.addModifier(group);
+  }
+
   function splitSatbPitches(pitches, staff, eventIndex) {
     if (!pitches.length) return { upper: [], lower: [] };
     if (pitches.length === 1) {
@@ -1532,6 +1553,13 @@
               staff === "bass" ? "d/3" : "b/4"
             );
             note.setStave(stave);
+            attachGraceNotes(
+              VF,
+              note,
+              event,
+              staff === "bass" ? "bass" : "treble",
+              stemDirection
+            );
             if (Number.isInteger(event._anchorIndex)) {
               addReference(
                 VF,

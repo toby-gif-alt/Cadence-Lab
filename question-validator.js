@@ -152,17 +152,24 @@
       const bankLabels = (interaction.bank || []).map((token) => token.label);
       const requiredLabels = slots.map((slot) => slot.acceptedAnswers[0]?.label);
       const count = (items, value) => items.filter((item) => item === value).length;
-      [...new Set(requiredLabels)].forEach((label) => {
-        if (count(bankLabels, label) !== count(requiredLabels, label)) {
-          errors.push(`${question.id}: chord bank multiplicity for ${label} does not match editable answers`);
+      if (interaction.hintBankMode === "limited-vocabulary") {
+        if (!bankLabels.length || bankLabels.length > 6 ||
+            requiredLabels.every((label) => bankLabels.includes(label))) {
+          errors.push(`${question.id}: limited vocabulary hint must remain small and must not expose the full answer route`);
         }
-      });
-      const accepted = new Set(slots.flatMap((slot) =>
-        slot.acceptedAnswers.map((answer) => answer.label)
-      ));
-      const distractors = bankLabels.filter((label) => !requiredLabels.includes(label));
-      if (!distractors.length || distractors.some((label) => accepted.has(label))) {
-        errors.push(`${question.id}: chord bank needs controlled, non-answer distractors`);
+      } else {
+        [...new Set(requiredLabels)].forEach((label) => {
+          if (count(bankLabels, label) !== count(requiredLabels, label)) {
+            errors.push(`${question.id}: chord bank multiplicity for ${label} does not match editable answers`);
+          }
+        });
+        const accepted = new Set(slots.flatMap((slot) =>
+          slot.acceptedAnswers.map((answer) => answer.label)
+        ));
+        const distractors = bankLabels.filter((label) => !requiredLabels.includes(label));
+        if (!distractors.length || distractors.some((label) => accepted.has(label))) {
+          errors.push(`${question.id}: chord bank needs controlled, non-answer distractors`);
+        }
       }
     }
   }
@@ -406,10 +413,23 @@
       }
       const noteEvent = noteEvents.get(harmonicEvent._index);
       if (harmonicEvent.validationPitches) {
-        const displayedPitches = SATB_NAMES.flatMap((voiceName) => {
-          const value = noteEvent?.voices?.[voiceName];
-          return value == null ? [] : Array.isArray(value) ? value : [value];
-        }).concat(noteEvent?.treble || [], noteEvent?.bass || []);
+        const spanEvents = harmonicEvent.validationScope === "harmonic-span"
+          ? (() => {
+              const startBeat = harmonicEvent.beat || 1;
+              const nextBeat = harmonicEvents.find((candidate) =>
+                candidate.measure === harmonicEvent.measure &&
+                (candidate.beat || 1) > startBeat
+              )?.beat || Infinity;
+              return (normalized.measures[harmonicEvent.measure - 1]?.events || [])
+                .filter((event) => event._beat >= startBeat && event._beat < nextBeat);
+            })()
+          : [noteEvent];
+        const displayedPitches = spanEvents.flatMap((event) =>
+          SATB_NAMES.flatMap((voiceName) => {
+            const value = event?.voices?.[voiceName];
+            return value == null ? [] : Array.isArray(value) ? value : [value];
+          }).concat(event?.treble || [], event?.bass || [])
+        );
         const displayedPitchClasses = new Set(
           displayedPitches.map((pitch) =>
             renderer.pitchClass(renderer.parsePitch(pitch))

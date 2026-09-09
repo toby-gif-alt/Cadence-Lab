@@ -34,6 +34,13 @@
       const validator = w.CadenceQuestionValidator?.report;
       const questions = lab?.questions || [];
       const byId = id => questions.find(question => question.id === id);
+      const eventSignature = event => {
+        const pitch = event.rest ? 'R' : (event.pitches || [event.pitch]).join('+');
+        const tuplet = event.tuplet ? `{${event.tuplet.numNotes}:${event.tuplet.notesOccupied}}` : '';
+        return `${pitch}/${event.duration}${tuplet}${event.tieToNext ? '~' : ''}`;
+      };
+      const streamSignatures = (measure, staff) => (measure.staffVoices[staff] || [])
+        .map(stream => stream.events.map(eventSignature).join('|'));
       const ids = ['nzqa-2025-joel-chords', 'nzqa-2025-joel-context', 'nzqa-2025-joel-piano'];
       const [q3a, q3b, q3c] = ids.map(byId);
 
@@ -61,6 +68,19 @@
         return editable.length === 10 && new Set(eventSlots).size === 10 &&
           JSON.stringify(eventSlots) === JSON.stringify(interactionSlots) && new Set(onsets).size === 10;
       })());
+      assert('q3a-bar5-restores-the-printed-short-bass-run', JSON.stringify(streamSignatures(q3a.score.measures[0], 'bass')) === JSON.stringify([
+        'E3/h|E3+G3+C4/h',
+        'C2/h|R/h',
+      ]) && JSON.stringify(q3a.score.measures[0].staffVoices.bass[0].events[0].graceNotes) === JSON.stringify([
+        {pitch: 'G3', duration: '16'}, {pitch: 'Gb3', duration: '16'}, {pitch: 'F3', duration: '16'},
+      ]), streamSignatures(q3a.score.measures[0], 'bass'));
+      assert('q3a-bars6-13-do-not-duplicate-bass-chords-as-whole-note-treble-voices',
+        [1, 2, 4, 5, 6, 7].every(index => q3a.score.measures[index].staffVoices.treble.length === 1)
+      );
+      const q3aHintLabels = q3a.interaction.bank.map(token => token.label);
+      assert('q3a-optional-hint-is-limited-and-does-not-expose-the-ten-answer-route',
+        q3aHintLabels.length <= 5 && !exactChordRoute.every(label => q3aHintLabels.includes(label)), q3aHintLabels
+      );
 
       assert('q3b-is-full-nineteen-bar-bridge', q3b.score.measures.length === 19 && q3b.score.barNumbers[0] === 24 && q3b.score.barNumbers.at(-1) === 42);
       assert('q3b-has-two-large-written-fields', q3b.interaction.reflectionOnly === true && q3b.interaction.fields.length === 2 && q3b.interaction.fields.map(field => field.id).join(',') === 'harmonic-rhythm,tonality-features');
@@ -79,6 +99,43 @@
       ));
       assert('q3c-source-cues-and-navigation-preserved', q3c.score.rhythmCues.length === 12 && q3c.score.endings.length === 2 && q3c.score.endings[0].navigation === 'D.S. al Coda' && q3c.score.measures[8].endBarline === 'repeat-end');
       assert('q3c-answer-heading-is-required-wording', q3c.answerHeading === 'One possible model completion');
+      const expectedQ3cTreble = [
+        ['A4/q|G4/h|R/8{3:2}|E4/8{3:2}|D4/8{3:2}', 'C4+E4/h|B3+C4+E4/h'],
+        ['E4/8|A4/qd|C5/8|B4/8|B4/q~', 'A3+C4/h|G3+C4/h'],
+        ['B4/h|R/h', 'F#3+A3+C4+E4/qd|E4/8|A4+C5/8|C5+E5/8|E4/8|A3/8'],
+        ['R/h|R/q|G4/8{3:2}|A4/8{3:2}|G4/8{3:2}', 'A3+C4+Eb4+G4/w'],
+        ['A4/8|B4/qd~|B4/q|A4/8|F4/8', 'G4/w'],
+        ['E4/h|R/h', 'G3+A3+C4+E4/hd|F#3+A3+C4+D4/q~'],
+        ['F#3+A3+C4+E4/qd|E4/8|A4+C5/8|C5+E5/8|E4/8|A3/8'],
+        ['G3+A3+C4+E4/hd|G3+B3+D4/q~'],
+        ['G3+B3+D4/q{3:2}|A3/8{3:2}|A3/8{3:2}|B3/8{3:2}|D4/8{3:2}|F3+A3+C4+D4/q|D4/q'],
+        ['G3+A3+C4+E4/hd|G3+B3+D4/q'],
+      ];
+      const expectedQ3cBass = [
+        ['A2+E3/h|G2+E3/h'], ['F2+C3/h|E2+C3/h'], ['D2/w'], ['F2/w'],
+        ['G2/h|F3+A3+B3+D4/h'], ['A2/hd|D2/q~'], ['D2/w'],
+        ['A2/hd|G2/q~'], ['G2/h|G2/h'], ['A2/hd|G2/q'],
+      ];
+      assert('q3c-bar14-independent-piano-voices-match-the-published-style-model',
+        JSON.stringify(streamSignatures(q3c.score.measures[0], 'treble')) === JSON.stringify(expectedQ3cTreble[0]) &&
+        JSON.stringify(streamSignatures(q3c.score.measures[0], 'bass')) === JSON.stringify(expectedQ3cBass[0]), {
+          treble: streamSignatures(q3c.score.measures[0], 'treble'), bass: streamSignatures(q3c.score.measures[0], 'bass'),
+        }
+      );
+      assert('q3c-model-bars15-22-lock-pitches-rhythms-tuplets-and-ties',
+        q3c.score.measures.every((measure, index) =>
+          JSON.stringify(streamSignatures(measure, 'treble')) === JSON.stringify(expectedQ3cTreble[index]) &&
+          JSON.stringify(streamSignatures(measure, 'bass')) === JSON.stringify(expectedQ3cBass[index])
+        ), q3c.score.measures.map((measure, index) => ({
+          bar: q3c.score.barNumbers[index], treble: streamSignatures(measure, 'treble'), bass: streamSignatures(measure, 'bass'),
+        }))
+      );
+      assert('q3c-source-tuplets-and-cross-bar-ties-are-explicit',
+        q3c.score.measures[0].staffVoices.treble[0].events.slice(-3).every(event => event.tuplet?.numNotes === 3) &&
+        q3c.score.measures[8].staffVoices.treble[0].events.slice(0, 5).every(event => event.tuplet?.numNotes === 3) &&
+        q3c.score.measures[5].staffVoices.treble[1].events.at(-1).tieToNext === true &&
+        q3c.score.measures[7].staffVoices.treble[0].events.at(-1).tieToNext === true
+      );
       const q3cQuestionTimeline = playback.buildTimeline(playback.questionOnlyScore(q3c.score));
       const q3cModelTimeline = playback.buildTimeline(q3c.score);
       assert('q3c-question-and-model-playback-timelines-validate',
@@ -103,6 +160,10 @@
       });
 
       lab.showQuestion(q3a.id);
+      const visibleHintLabels = [...d.querySelectorAll('#structured-controls .hint-bank .chord-token')].map(button => button.textContent.trim());
+      assert('q3a-visible-hint-content-does-not-contain-all-ten-model-symbols',
+        visibleHintLabels.length <= 5 && !exactChordRoute.every(label => visibleHintLabels.includes(label)), visibleHintLabels
+      );
       assert('q3a-production-renders-ten-blank-boxes-and-two-source-labels',
         d.querySelector('#score')?.dataset.blankEditableAnalysisBoxCount === '10' &&
         d.querySelectorAll('#score .analysis-box-editable').length === 10 &&
@@ -141,7 +202,7 @@
       finish();
     } catch (error) { finish(error); }
   });
-  frame.src = '../index.html?question=nzqa-2025-joel-chords&v=2026-09-score-ui-38';
+  frame.src = '../index.html?question=nzqa-2025-joel-chords&v=2026-09-score-ui-43';
 </script>
 </body>
 </html>
