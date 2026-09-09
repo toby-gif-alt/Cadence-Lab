@@ -33,10 +33,10 @@
       assert('production-app-loaded', Boolean(lab));
       assert('production-validator-valid', validator?.valid === true, validator?.errors);
       assert('production-display-audit-valid', displayAudit?.valid === true, displayAudit?.errors);
-      assert('production-has-eight-exact-nzqa-references', validator?.referenceCount === 8, validator?.referenceCount);
+      assert('production-has-eleven-exact-nzqa-references', validator?.referenceCount === 11, validator?.referenceCount);
       const yearState = lab.referenceYearState('nzqa-reference');
-      assert('production-has-three-2025-references', yearState.counts?.[2025] === 3, yearState);
-      assert('production-year-option-shows-2025-count', [...d.querySelector('#source-year').options].some(option => option.value === '2025' && option.textContent === '2025 (3)' && !option.disabled));
+      assert('production-has-six-2025-references', yearState.counts?.[2025] === 6, yearState);
+      assert('production-year-option-shows-2025-count', [...d.querySelector('#source-year').options].some(option => option.value === '2025' && option.textContent === '2025 (6)' && !option.disabled));
 
       let current = lab.getCurrentQuestion();
       assert('q1a-request-loads-exact-reference', current?.id === 'nzqa-2025-bach-analysis' && current.sourceSpec?.transcriptionMode === 'exact');

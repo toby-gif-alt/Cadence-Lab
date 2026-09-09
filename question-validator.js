@@ -312,6 +312,9 @@
   }
 
   function validateMeasureDurations(question, errors) {
+    const eventBeats = (event, denominator) =>
+      renderer.eventDurationInBeats?.(event, denominator) ??
+      renderer.durationInBeats(event.duration || "q", denominator);
     let activeTime = question.score.timeSignature || "4/4";
     question.score.measures.forEach((measure, measureIndex) => {
       if (measure.timeSignature) activeTime = measure.timeSignature;
@@ -340,7 +343,7 @@
             }
             const actual = stream.reduce(
               (sum, event) =>
-                sum + renderer.durationInBeats(event.duration || "q", denominator),
+                sum + eventBeats(event, denominator),
               0
             );
             if (Math.abs(actual - expected) > 0.001) {
@@ -362,7 +365,7 @@
             (staffStreams[staff] || []).forEach((voice, voiceIndex) => {
               const actual = (voice.events || []).reduce(
                 (sum, event) =>
-                  sum + renderer.durationInBeats(event.duration || "q", denominator),
+                  sum + eventBeats(event, denominator),
                 0
               );
               if (Math.abs(actual - expected) > 0.001) {
@@ -377,7 +380,7 @@
       }
       const actual = measure.events.reduce(
         (sum, event) =>
-          sum + renderer.durationInBeats(event.duration || "q", denominator),
+          sum + eventBeats(event, denominator),
         0
       );
       if (Math.abs(actual - expected) > 0.001) {
@@ -1206,7 +1209,11 @@
     }
 
     const durationSignature = (events) =>
-      (events || []).map((event) => event.duration || "q").join(" ");
+      (events || []).map((event) => {
+        const duration = event.duration || "q";
+        if (!event.tuplet) return duration;
+        return `${duration}{${event.tuplet.numNotes}:${event.tuplet.notesOccupied}}`;
+      }).join(" ");
     if (spec.staffLayout === "satb") {
       compareList("voiceNames", SATB_NAMES);
       if (!Array.isArray(spec.voiceNames) ||
@@ -1252,20 +1259,64 @@
         ))
       );
     } else {
-      if (!Array.isArray(spec.perMeasureEventCounts) ||
-          !Array.isArray(spec.measureRhythmSignatures)) {
-        sourceFidelityErrors.push(
-          `${question.id}: exact ${spec.staffLayout || "staff"} reference lacks source-derived event/rhythm signatures`
+      const usesIndependentStaffVoices = question.score.measures.some(
+        (measure) => measure.staffVoices
+      );
+      if (usesIndependentStaffVoices) {
+        if (!Array.isArray(spec.perMeasureStaffVoiceEventCounts) ||
+            !Array.isArray(spec.staffVoiceRhythmSignatures)) {
+          sourceFidelityErrors.push(
+            `${question.id}: exact ${spec.staffLayout || "staff"} reference lacks source-derived independent staff-voice signatures`
+          );
+        }
+        const staffVoiceCounts = (sourceName) => question.score.measures.map(
+          (measure) => Object.fromEntries(["treble", "bass"].map((staff) => [
+            staff,
+            (measure[sourceName]?.[staff] || []).map(
+              (voice) => (voice.events || []).length
+            ),
+          ]))
+        );
+        const staffVoiceRhythms = (sourceName) => question.score.measures.map(
+          (measure) => Object.fromEntries(["treble", "bass"].map((staff) => [
+            staff,
+            (measure[sourceName]?.[staff] || []).map(
+              (voice) => durationSignature(voice.events)
+            ),
+          ]))
+        );
+        compareList(
+          "perMeasureStaffVoiceEventCounts",
+          staffVoiceCounts("staffVoices")
+        );
+        compareList(
+          "staffVoiceRhythmSignatures",
+          staffVoiceRhythms("staffVoices")
+        );
+        compareList(
+          "questionStaffVoiceEventCounts",
+          staffVoiceCounts("questionStaffVoices")
+        );
+        compareList(
+          "questionStaffVoiceRhythmSignatures",
+          staffVoiceRhythms("questionStaffVoices")
+        );
+      } else {
+        if (!Array.isArray(spec.perMeasureEventCounts) ||
+            !Array.isArray(spec.measureRhythmSignatures)) {
+          sourceFidelityErrors.push(
+            `${question.id}: exact ${spec.staffLayout || "staff"} reference lacks source-derived event/rhythm signatures`
+          );
+        }
+        compareList(
+          "perMeasureEventCounts",
+          question.score.measures.map((measure) => (measure.events || []).length)
+        );
+        compareList(
+          "measureRhythmSignatures",
+          question.score.measures.map((measure) => durationSignature(measure.events))
         );
       }
-      compareList(
-        "perMeasureEventCounts",
-        question.score.measures.map((measure) => (measure.events || []).length)
-      );
-      compareList(
-        "measureRhythmSignatures",
-        question.score.measures.map((measure) => durationSignature(measure.events))
-      );
     }
 
     compareList(
@@ -1505,10 +1556,11 @@
       const contract = spec.completionContract;
       if (Number.isInteger(contract.suppliedMeasure)) {
         const suppliedMeasure = question.score.measures[contract.suppliedMeasure - 1];
+        const modelVoices = suppliedMeasure?.voices || suppliedMeasure?.staffVoices;
+        const questionVoices = suppliedMeasure?.questionVoices || suppliedMeasure?.questionStaffVoices;
         if (
           !suppliedMeasure ||
-          JSON.stringify(suppliedMeasure.voices) !==
-            JSON.stringify(suppliedMeasure.questionVoices)
+          JSON.stringify(modelVoices) !== JSON.stringify(questionVoices)
         ) {
           sourceFidelityErrors.push(
             `${question.id}: source completion contract requires measure ${contract.suppliedMeasure} to remain fully supplied`
@@ -1522,15 +1574,24 @@
           measure: question.score.measures[measureNumber - 1],
         })
       );
-      const modelTargetsAreComplete = targetMeasures.every(({ measure }) =>
-        question.category === "satb"
-          ? measure?.voices && SATB_NAMES.every((voiceName) =>
-              measure.voices[voiceName]?.some((event) => event.pitch || event.pitches?.length)
-            )
-          : measure?.events?.some((event) =>
-              (event.treble || []).length && (event.bass || []).length
-            )
-      );
+      const modelTargetsAreComplete = targetMeasures.every(({ measure }) => {
+        if (question.category === "satb") {
+          return measure?.voices && SATB_NAMES.every((voiceName) =>
+            measure.voices[voiceName]?.some((event) => event.pitch || event.pitches?.length)
+          );
+        }
+        if (measure?.staffVoices) {
+          const treble = measure.staffVoices.treble || [];
+          const bass = measure.staffVoices.bass || [];
+          const containsPitch = (staffVoice) => staffVoice.events?.some(
+            (event) => event.pitch || event.pitches?.length
+          );
+          return treble.filter(containsPitch).length >= 2 && bass.some(containsPitch);
+        }
+        return measure?.events?.some((event) =>
+          (event.treble || []).length && (event.bass || []).length
+        );
+      });
       if (!modelTargetsAreComplete) {
         sourceFidelityErrors.push(
           `${question.id}: source completion contract requires complete model notation in the target region`

@@ -45,10 +45,11 @@
     <script src="../exact-2025-q1-a.js?v=2026-09-score-ui-26"></script>
     <script src="../exact-2025-q1-b.js?v=2026-09-score-ui-26"></script>
     <script src="../exact-2025-q1-c.js?v=2026-09-score-ui-26"></script>
+    <script src="../exact-2025-q2.js?v=2026-09-score-ui-32"></script>
     <script src="../score-ui-consistency.js?v=2026-09-score-ui-26"></script>
     <script src="../satb-integrity.js?v=2026-09-score-ui-26"></script>
-    <script src="../score-renderer.js?v=2026-09-score-ui-26"></script>
-    <script src="../question-validator.js?v=2026-09-score-ui-26"></script>
+    <script src="../score-renderer.js?v=2026-09-score-ui-32"></script>
+    <script src="../question-validator.js?v=2026-09-score-ui-32"></script>
     <script>
       const renderer = window.CadenceScoreRenderer;
       const questions = window.CadenceData.questions;
@@ -283,7 +284,6 @@
       const adaptedPianoStudies = [
         "nzqa-2021-beethoven-piano",
         "nzqa-2023-novelette-piano",
-        "nzqa-2025-schubert-piano",
         "nzqa-2025-joel-piano",
       ].map((id) => questions.find((question) => question.id === id));
       const retainedReferences = questions.filter((question) =>
@@ -432,7 +432,7 @@
                 bounds.x + bounds.width > viewWidth + 1
               ) {
                 layoutCheckErrors.push(
-                  `${question.id} (${showAnswer ? "model" : "question"}, ${width}px): horizontal SVG overflow`
+                  `${question.id} (${showAnswer ? "model" : "question"}, ${width}px): horizontal SVG overflow (${JSON.stringify({x:bounds?.x,width:bounds?.width,viewWidth})})`
                 );
               }
             } catch (error) {
@@ -574,17 +574,20 @@
           validatorReport.legacyCount === 0,
         exactReferenceCountsAreTruthful:
           JSON.stringify(referenceCounts) === JSON.stringify({
-            2021: 1, 2022: 1, 2023: 1, 2024: 2, 2025: 3,
-          }) && retainedReferences.length === 8 &&
-          validatorReport.referenceCount === 8 &&
+            2021: 1, 2022: 1, 2023: 1, 2024: 2, 2025: 6,
+          }) && retainedReferences.length === 11 &&
+          validatorReport.referenceCount === 11 &&
           validatorReport.practiceReferenceCount === 0,
-        exactQ1AndAdaptedQ2Q3AreClassifiedHonestly:
+        exactQ1Q2AndAdaptedQ3AreClassifiedHonestly:
           [bach2025, bachModulation2025].every((question) =>
             question.sourceType === "nzqa-reference" &&
             question.sourceSpec.transcriptionMode === "exact" &&
             question.score.layout === "satb"
           ) &&
-          [schubert2025, joel2025, joelContext2025]
+          schubert2025.sourceType === "nzqa-reference" &&
+          schubert2025.sourceSpec.transcriptionMode === "exact" &&
+          schubert2025.score.layout === "piano" &&
+          [joel2025, joelContext2025]
             .every((question) =>
               question.sourceType === "original-practice" &&
               question.source.adaptedFrom &&
@@ -638,7 +641,7 @@
           featureAnnotationTargets.every(annotationLabelsAvoidNotation),
         sourceFidelityValidatorPasses:
           validatorReport.sourceFidelityErrors.length === 0,
-        adapted2025PublishedAnswerSequencesRemainPinned:
+        published2025AnswerSequencesRemainPinned:
           bach2025.sourceSpec.romanNumerals.length === 15 &&
           schubert2025.sourceSpec.romanNumerals.length === 13 &&
           JSON.stringify(joel2025.sourceSpec.chordSymbols) === JSON.stringify([
@@ -690,10 +693,14 @@
             question.sourceSpec.printedBars === question.source.bars &&
             question.sourceSpec.printedMeasureCount === question.score.measures.length &&
             question.sourceSpec.staffLayout === question.score.layout &&
-            Array.isArray(question.sourceSpec.measureRhythmSignatures) &&
             (question.score.layout === "satb"
-              ? Array.isArray(question.sourceSpec.perMeasureVoiceEventCounts)
-              : Array.isArray(question.sourceSpec.perMeasureEventCounts))
+              ? Array.isArray(question.sourceSpec.measureRhythmSignatures) &&
+                Array.isArray(question.sourceSpec.perMeasureVoiceEventCounts)
+              : question.score.measures.some((measure) => measure.staffVoices)
+                ? Array.isArray(question.sourceSpec.staffVoiceRhythmSignatures) &&
+                  Array.isArray(question.sourceSpec.perMeasureStaffVoiceEventCounts)
+                : Array.isArray(question.sourceSpec.measureRhythmSignatures) &&
+                  Array.isArray(question.sourceSpec.perMeasureEventCounts))
           ),
         retainedReferencesContainNoApproximationLanguage:
           retainedReferences.every((question) =>

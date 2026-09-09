@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const QUARTER_BEATS = { w: 4, h: 2, q: 1, "8": 0.5, "16": 0.25 };
+  const QUARTER_BEATS = { w: 4, h: 2, q: 1, "8": 0.5, "16": 0.25, "32": 0.125, "64": 0.0625 };
   const PITCH_CLASSES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
   function normalizeAccidental(value) {
@@ -22,6 +22,16 @@
       addition /= 2;
     }
     return QUARTER_BEATS[base] * multiplier;
+  }
+
+  function eventDurationBeats(event) {
+    const numNotes = Number(event?.tuplet?.numNotes);
+    const notesOccupied = Number(event?.tuplet?.notesOccupied);
+    const scale = Number.isFinite(numNotes) && Number.isFinite(notesOccupied) &&
+      numNotes > 0 && notesOccupied > 0
+      ? notesOccupied / numNotes
+      : 1;
+    return durationBeats(event?.duration || "q") * scale;
   }
 
   function pitchMidi(value) {
@@ -243,7 +253,7 @@
       built.streams.forEach((stream) => {
         let streamBeat = 0;
         stream.events.forEach((event) => {
-          const beats = durationBeats(event.duration || "q");
+          const beats = eventDurationBeats(event);
           const streamEventOrder = streamEventOrders.get(stream.key) || 0;
           streamEventOrders.set(stream.key, streamEventOrder + 1);
           if (!event.rest) {
@@ -426,6 +436,7 @@
     buildTimeline,
     questionOnlyScore,
     durationBeats,
+    eventDurationBeats,
     pitchFrequency,
   });
 })();

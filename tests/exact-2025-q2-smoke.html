@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en-NZ">
+<head><meta charset="utf-8"><title>2025 Q2 exact-source production smoke test</title></head>
+<body data-status="running">
+<iframe id="app" title="Cadence Lab production frame" style="width:1100px;height:950px"></iframe>
+<div id="responsive-renders" style="position:absolute;left:-2200px;top:0"></div>
+<pre id="results">Running…</pre>
+<script>
+  const frame = document.querySelector('#app');
+  const results = document.querySelector('#results');
+  const assertions = {};
+  const details = {};
+  const assert = (name, condition, detail = null) => {
+    assertions[name] = Boolean(condition);
+    if (!condition && detail != null) details[name] = detail;
+  };
+  function finish(error = null) {
+    if (error) details.error = error.stack || String(error);
+    const passed = !error && Object.values(assertions).every(Boolean);
+    document.body.dataset.status = passed ? 'pass' : 'fail';
+    results.textContent = JSON.stringify({passed, assertions, details}, null, 2);
+  }
+  addEventListener('error', event => finish(event.error || event.message));
+  addEventListener('unhandledrejection', event => finish(event.reason));
+  const nextTurn = w => new Promise(resolve => w.setTimeout(resolve, 0));
+  const pitched = event => Boolean(event.pitch || event.pitches?.length);
+  const pitchSequence = voice => voice.events
+    .filter(pitched)
+    .flatMap(event => event.pitch ? [event.pitch] : event.pitches);
+  const voicePitchSignature = voice => voice.events.map(event =>
+    event.rest ? '_' : event.pitch || (event.pitches || []).join('+')
+  ).join(' ');
+  const scorePitchSignatures = score => score.measures.map(measure => ({
+    treble: measure.staffVoices.treble.map(voicePitchSignature),
+    bass: measure.staffVoices.bass.map(voicePitchSignature),
+  }));
+
+  frame.addEventListener('load', async () => {
+    try {
+      const w = frame.contentWindow;
+      const d = frame.contentDocument;
+      const lab = w.CadenceLab;
+      const renderer = w.CadenceScoreRenderer;
+      const structured = w.CadenceStructuredAnswer;
+      const playback = w.CadencePlayback;
+      const validator = w.CadenceQuestionValidator?.report;
+      const questions = lab?.questions || [];
+      const byId = id => questions.find(question => question.id === id);
+      const ids = [
+        'nzqa-2025-schubert-analysis',
+        'nzqa-2025-schubert-feature',
+        'nzqa-2025-schubert-piano',
+      ];
+      const [q2a, q2b, q2c] = ids.map(byId);
+      const route = [
+        'E: I', 'V⁷b', 'I', 'ii / F♯m: i', 'iib / F♯m: ib', 'V⁷',
+        'V⁷', 'i / E: ii', 'V⁷b', 'vii°⁷', 'V⁷b', 'I', 'V⁷c sus',
+      ];
+      const completionRoute = ['V', 'ii', 'iib', 'vii°⁷', 'V', 'I', 'V⁷', 'I'];
+
+      assert('production-app-and-validator-load', Boolean(lab && renderer) && validator?.valid === true, validator);
+      assert('three-existing-q2-ids-are-upgraded-in-place', ids.every(id => questions.filter(question => question.id === id).length === 1) && questions.length === 50);
+      assert('q2a-b-c-are-exact-nzqa-references', [q2a, q2b, q2c].every((question, index) =>
+        question?.sourceType === 'nzqa-reference' &&
+        question.sourceSpec?.transcriptionMode === 'exact' &&
+        question.source?.year === 2025 &&
+        question.source?.question === 'Question Two' &&
+        question.source?.part === `(${String.fromCharCode(97 + index)})`
+      ));
+      assert('exact-reference-count-grows-from-eight-to-eleven', validator?.referenceCount === 11 && questions.filter(question => question.sourceType === 'nzqa-reference' && question.source?.year === 2025).length === 6, validator);
+
+      assert('q2a-has-supplied-i-plus-twelve-answer-positions',
+        q2a.score.harmonicEvents.length === 13 &&
+        q2a.score.harmonicEvents.filter(event => event.answerRole === 'supplied').length === 1 &&
+        q2a.score.harmonicEvents.filter(event => event.answerRole === 'editable').length === 12 &&
+        q2a.interaction.slots.length === 12
+      );
+      assert('q2a-route-and-bars-match-schedule',
+        JSON.stringify(q2a.sourceSpec.romanNumerals) === JSON.stringify(route) &&
+        JSON.stringify(q2a.score.harmonicEvents.map(event => event.modelLabel)) === JSON.stringify(route) &&
+        JSON.stringify(q2a.score.barNumbers) === '[1,2,3,4,5,6]' &&
+        q2a.score.timeSignature === '3/4'
+      );
+      assert('q2a-analysis-boxes-occupy-the-printed-harmonic-locations',
+        q2a.score.harmonicEvents.map(event => `${event.measure}:${event.beat}`).join(',') ===
+          '1:1,1:3,2:1,3:1,3:2,3:3,4:1,4:2,5:1,5:2.5,6:1,6:1.75,6:2'
+      );
+      assert('q2a-dual-analysis-is-limited-to-pivot-capable-slots',
+        q2a.interaction.slots.filter(slot => slot.allowDualAnalysis).length === 3 &&
+        q2a.interaction.slots.filter(slot => slot.allowDualAnalysis).every(slot => [3,4,7].includes(slot.harmonicIndex)) &&
+        q2a.interaction.slots.filter(slot => !slot.allowDualAnalysis).every(slot => slot.allowDualAnalysis !== true)
+      );
+      const builderCases = [
+        [3, {analyses:[
+          {degree:'II',quality:'minor',extent:'triad',inversion:'root'},
+          {key:{root:'F♯',mode:'minor'},degree:'I',quality:'minor',extent:'triad',inversion:'root'},
+        ]}],
+        [4, {analyses:[
+          {degree:'II',quality:'minor',extent:'triad',inversion:'b'},
+          {key:{root:'F♯',mode:'minor'},degree:'I',quality:'minor',extent:'triad',inversion:'b'},
+        ]}],
+        [7, {analyses:[
+          {degree:'I',quality:'minor',extent:'triad',inversion:'root'},
+          {key:{root:'E',mode:'major'},degree:'II',quality:'minor',extent:'triad',inversion:'root'},
+        ]}],
+        [12, {analyses:[
+          {degree:'V',quality:'major',extent:'seventh',inversion:'c',suspension:'sus⁴'},
+        ]}],
+      ];
+      assert('q2a-source-pivots-and-suspended-dominant-are-enterable-with-the-roman-builder',
+        builderCases.every(([harmonicIndex, value]) => {
+          const slot = q2a.interaction.slots.find(candidate => candidate.harmonicIndex === harmonicIndex);
+          const state = structured.setSlot(structured.create(q2a), slot.id, value);
+          return structured.comparison(q2a, state).slots.find(result => result.id === slot.id)?.status === 'matches';
+        })
+      );
+      assert('q2a-source-spec-locks-independent-rhythm',
+        q2a.sourceSpec.perMeasureStaffVoiceEventCounts.length === 6 &&
+        q2a.sourceSpec.staffVoiceRhythmSignatures.length === 6 &&
+        q2a.sourceSpec.answerPositions === 12 &&
+        q2a.score.measures.every(measure => ['treble', 'bass'].every(staff =>
+          measure.staffVoices[staff].every(voice => Math.abs(
+            voice.events.reduce((sum, event) => sum + renderer.eventDurationInBeats(event, 4), 0) - 3
+          ) < 0.001)
+        ))
+      );
+      assert('q2a-preserves-the-printed-sextuplet-triplet-and-ornament-values',
+        q2a.score.measures[1].staffVoices.treble[0].events.slice(3).length === 6 &&
+        q2a.score.measures[1].staffVoices.treble[0].events.slice(3).every(event =>
+          event.duration === '16' && event.tuplet?.numNotes === 6 && event.tuplet?.notesOccupied === 4
+        ) &&
+        q2a.score.measures[3].staffVoices.treble[0].events.slice(1, 4).every(event =>
+          event.duration === '32' && event.tuplet?.numNotes === 3 && event.tuplet?.notesOccupied === 2
+        ) &&
+        q2a.score.measures[5].staffVoices.treble[0].events.filter(event => event.duration === '64').length === 2
+      );
+      assert('q2a-pitches-and-rests-are-locked-to-extract-four',
+        JSON.stringify(scorePitchSignatures(q2a.score)) === JSON.stringify([
+          {treble:['B4 E5 B4 B4 B4 B4','E4 E4 F#4 F#4'],bass:['E3+G#3 E3+G#3 D#3+A3 D#3+A3']},
+          {treble:['B4 G#4 E4 D#4 E4 F#4 G#4 A4 B4','E4 _'],bass:['G#3 B3 G#3 _','E3 _']},
+          {treble:['A4+C#5 G#4+B4 F#4+A4 A4 A4 G#4 Gn4 G#4','C#4 C#4+F#4 B3+E#4 B3+E#4'],bass:['F#2 G#2 A2 A2 B2 C#3 C#3']},
+          {treble:['C#5 B4 A4 G#4 F#4 _ _ E4 F#4 G#4','E#4 F#4 _'],bass:['C#3+B3 F#3+A3 _']},
+          {treble:['F#4+A4 A4+C#5 G#4+B4 F#4+A4 F#4+A4 F#4+A4 F#4+A4 F#4+A4'],bass:['D#3+B3 D#3+Cn4 D#3+B3 D#3+Cn4']},
+          {treble:['F#4+A4+F#5 G#4+E5 E5 D#5 C#5 D#5 C#5 B4 C#5 D#5','_ A4'],bass:['D#3+B3 E3+B3 F#3+B3']},
+        ])
+      );
+      assert('q2a-question-is-spoiler-safe-before-submit',
+        d.querySelectorAll('#score .analysis-box-editable').length === 12 &&
+        d.querySelectorAll('#score .analysis-box-label').length === 1 &&
+        d.querySelector('#model-score-wrap')?.hidden === true
+      );
+      assert('q2a-submit-succeeds', lab.submit({skipConfirmation:true, noScroll:true}) === true);
+      await nextTurn(w);
+      assert('q2a-model-route-is-revealed-separately',
+        d.querySelector('#score')?.dataset.scoreMode === 'question' &&
+        d.querySelector('#model-score-wrap')?.hidden === false &&
+        d.querySelectorAll('#model-score .analysis-box-label').length === 13
+      );
+
+      lab.showQuestion(q2b.id);
+      assert('q2b-uses-three-free-text-analysis-fields',
+        q2b.interaction.type === 'contextual-analysis' &&
+        q2b.interaction.fields.map(field => field.id).join(',') === 'feature,evidence,function' &&
+        q2b.interaction.fields.every(field => field.kind === 'text')
+      );
+      assert('q2b-score-is-extract-five-bars-seven-eight',
+        q2b.source.extract === 'Extract Five' &&
+        q2b.source.bars === '7–8' &&
+        JSON.stringify(q2b.score.barNumbers) === '[7,8]' &&
+        q2b.score.measures.length === 2
+      );
+      assert('q2b-source-voices-preserve-the-printed-contrary-chromatic-motion',
+        JSON.stringify(pitchSequence(q2b.score.measures[0].staffVoices.treble[0])) === JSON.stringify([
+          'E5', 'G#5', 'F#5', 'E5', 'D#5', 'C#5', 'B4', 'A4', 'G#4', 'Gn4', 'F#4',
+        ]) &&
+        JSON.stringify(pitchSequence(q2b.score.measures[0].staffVoices.bass[0])) === JSON.stringify([
+          'E3', 'B3', 'E4', 'A2', 'A#2',
+        ]) &&
+        pitchSequence(q2b.score.measures[1].staffVoices.bass[0])[0] === 'B2' &&
+        q2b.score.measures.every(measure => ['treble', 'bass'].every(staff =>
+          measure.staffVoices[staff].every(voice => Math.abs(
+            voice.events.reduce((sum, event) => sum + renderer.eventDurationInBeats(event, 4), 0) - 3
+          ) < 0.001)
+        ))
+      );
+      assert('q2b-pitches-and-rests-are-locked-to-extract-five',
+        JSON.stringify(scorePitchSignatures(q2b.score)) === JSON.stringify([
+          {treble:['E5 G#5 F#5 E5 D#5 C#5 B4 A4 G#4 Gn4 F#4','G#4 C#4 C#4'],bass:['E3+B3+E4 A2 A#2']},
+          {treble:['G#3+E4 F#3+D#4 _','B3 _'],bass:['B2 D#3 C#3 B2 A2 G#2 F#2']},
+        ])
+      );
+      assert('q2b-has-no-duplicate-model-notation-before-submit', d.querySelector('#model-score-wrap')?.hidden === true);
+      assert('q2b-submit-succeeds', lab.submit({skipConfirmation:true, noScroll:true}) === true);
+      await nextTurn(w);
+      assert('q2b-reveals-prose-without-duplicate-model-score',
+        d.querySelector('#score')?.dataset.scoreMode === 'question' &&
+        d.querySelector('#model-score-wrap')?.hidden === true &&
+        q2b.answer.join(' ').includes('bar 7 beat 3')
+      );
+
+      lab.showQuestion(q2c.id);
+      const questionPitchCounts = q2c.score.measures.map(measure => ({
+        treble: (measure.questionStaffVoices?.treble || []).flatMap(voice => voice.events).filter(pitched).length,
+        bass: (measure.questionStaffVoices?.bass || []).flatMap(voice => voice.events).filter(pitched).length,
+      }));
+      const modelPitchCounts = q2c.score.measures.map(measure => ({
+        treble: (measure.staffVoices?.treble || []).flatMap(voice => voice.events).filter(pitched).length,
+        bass: (measure.staffVoices?.bass || []).flatMap(voice => voice.events).filter(pitched).length,
+      }));
+      const q2cMelodyByBar = q2c.score.measures.map(measure =>
+        pitchSequence(measure.staffVoices.treble.find(voice => voice.role === 'melody'))
+      );
+      const q2cBassByBar = q2c.score.measures.map(measure =>
+        pitchSequence(measure.staffVoices.bass.find(voice => voice.role === 'bass'))
+      );
+      const q2cInnerByBar = q2c.score.measures.map(measure =>
+        voicePitchSignature(measure.staffVoices.treble.find(voice => voice.role === 'inner'))
+      );
+      assert('q2c-bars-metre-and-eight-labels-match-source',
+        q2c.category === 'piano' &&
+        q2c.source.extract === 'Extract Six' &&
+        q2c.source.bars === '19–24' &&
+        JSON.stringify(q2c.score.barNumbers) === '[19,20,21,22,23,24]' &&
+        q2c.score.timeSignature === '2/4' &&
+        q2c.score.measures.at(-1).endBarline === 'repeat-end' &&
+        JSON.stringify(q2c.score.harmonicEvents.map(event => event.questionLabel)) === JSON.stringify(completionRoute) &&
+        q2c.score.harmonicEvents.every(event => event.answerRole === 'supplied')
+      );
+      assert('q2c-bar19-is-fully-supplied-and-bar20-keeps-only-printed-opening-texture',
+        JSON.stringify(q2c.score.measures[0].staffVoices) === JSON.stringify(q2c.score.measures[0].questionStaffVoices) &&
+        questionPitchCounts[1].treble < modelPitchCounts[1].treble &&
+        questionPitchCounts[1].bass < modelPitchCounts[1].bass &&
+        q2c.score.measures[1].questionStaffVoices.treble[1].events[1].rest === true &&
+        q2c.score.measures[1].questionStaffVoices.bass[0].events.slice(2).every(event => event.rest)
+      );
+      assert('q2c-bars21-24-retain-melody-and-mask-model-inner-bass', q2c.score.measures.slice(2).every(measure =>
+        JSON.stringify(measure.questionStaffVoices.treble[0].events) === JSON.stringify(measure.staffVoices.treble[0].events) &&
+        measure.questionStaffVoices.treble.slice(1).flatMap(voice => voice.events).every(event => !pitched(event)) &&
+        measure.questionStaffVoices.bass.flatMap(voice => voice.events).every(event => !pitched(event))
+      ));
+      assert('q2c-model-completes-two-inner-textures-and-bass', q2c.score.measures.slice(1).every(measure =>
+        measure.staffVoices.treble.filter(voice => voice.events.some(pitched)).length >= 2 &&
+        measure.staffVoices.bass.some(voice => voice.events.some(pitched))
+      ));
+      assert('q2c-printed-melody-and-schedule-bass-are-source-locked',
+        JSON.stringify(q2cMelodyByBar) === JSON.stringify([
+          ['E4', 'F#4', 'G#4'], ['G#4', 'G#4'], ['A4', 'G#4', 'F#4'],
+          ['C#5', 'B4', 'A4'], ['G#4', 'A4', 'F#4'], ['E4'],
+        ]) &&
+        JSON.stringify(q2cBassByBar) === JSON.stringify([
+          ['E2', 'G#2', 'E2', 'G#2'], ['C#2', 'G#2', 'B1', 'B2'],
+          ['F#2', 'C#3', 'A2', 'C#3'], ['D#2', 'D#3', 'B1', 'B2'],
+          ['E2', 'B2', 'B1', 'B2'], ['E2', 'B2', 'E2', 'B2'],
+        ])
+      );
+      assert('q2c-schedule-inner-parts-are-source-locked',
+        JSON.stringify(q2cInnerByBar) === JSON.stringify([
+          'B3', 'C#4+E#4 D#4+F#4', 'A3+C#4 A3+C#4',
+          'A3+Cn4+D#4 B3+D#4+F#4', 'G#3+B3 A3+D#4+F#4', 'G#3+B3 _',
+        ])
+      );
+      const q2cQuestionTimeline = playback.buildTimeline(playback.questionOnlyScore(q2c.score));
+      const q2cModelTimeline = playback.buildTimeline(q2c.score);
+      assert('q2c-question-and-model-playback-timelines-validate',
+        q2cQuestionTimeline.totalBeats === 12 &&
+        q2cModelTimeline.totalBeats === 12 &&
+        q2cQuestionTimeline.notes.length < q2cModelTimeline.notes.length &&
+        q2cQuestionTimeline.notes.every(event => event.startBeat + event.durationBeats <= 12) &&
+        q2cModelTimeline.notes.every(event => event.startBeat + event.durationBeats <= 12)
+      );
+      assert('q2c-paper-question-hides-model-before-submit',
+        q2c.interaction.type === 'paper-completion' &&
+        d.querySelector('#paper-completion-panel')?.hidden === false &&
+        d.querySelector('#model-score-wrap')?.hidden === true &&
+        d.querySelectorAll('#score .analysis-box-label').length === 8
+      );
+      assert('q2c-submit-succeeds', lab.submit({skipConfirmation:true, noScroll:true}) === true);
+      await nextTurn(w);
+      assert('q2c-model-score-reveals-after-submit',
+        d.querySelector('#score')?.dataset.scoreMode === 'question' &&
+        d.querySelector('#model-score-wrap')?.hidden === false &&
+        d.querySelectorAll('#model-score .analysis-box-label').length === 8 &&
+        Number(d.querySelector('#model-score')?.dataset.eventCount) >= Number(d.querySelector('#score')?.dataset.eventCount)
+      );
+
+      const renderErrors = [];
+      [q2a, q2b, q2c].forEach(question => [false, true].forEach(showAnswer => [1000, 780, 390].forEach(width => {
+        const target = document.createElement('div');
+        document.querySelector('#responsive-renders').append(target);
+        try {
+          renderer.render(target, question.score, {showAnswer, width});
+          const svg = target.querySelector('svg');
+          const viewWidth = Number(svg?.getAttribute('viewBox')?.split(/\s+/)[2]);
+          const bounds = svg?.getBBox();
+          if (!svg || !bounds || bounds.x < -1 || bounds.x + bounds.width > viewWidth + 1) {
+            renderErrors.push(`${question.id} ${showAnswer ? 'model' : 'question'} ${width}px overflow (${bounds?.x}, ${bounds && bounds.x + bounds.width}; view ${viewWidth})`);
+          }
+        } catch (error) {
+          renderErrors.push(`${question.id} ${showAnswer ? 'model' : 'question'} ${width}px: ${error.message}`);
+        }
+      })));
+      assert('q2-question-and-model-scores-render-at-all-supported-widths', renderErrors.length === 0, renderErrors);
+      finish();
+    } catch (error) {
+      finish(error);
+    }
+  });
+  frame.src = '../index.html?question=nzqa-2025-schubert-analysis&v=2026-09-score-ui-32';
+</script>
+</body>
+</html>
