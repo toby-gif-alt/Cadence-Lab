@@ -356,12 +356,15 @@
         return;
       }
       if (measure.staffVoices) {
+        const staffNames = question.score.layout === "vocal-piano"
+          ? ["vocal", "treble", "bass"]
+          : ["treble", "bass"];
         [
           ["staffVoices", measure.staffVoices],
           ["questionStaffVoices", measure.questionStaffVoices],
         ].forEach(([sourceName, staffStreams]) => {
           if (!staffStreams) return;
-          ["treble", "bass"].forEach((staff) => {
+          staffNames.forEach((staff) => {
             (staffStreams[staff] || []).forEach((voice, voiceIndex) => {
               const actual = (voice.events || []).reduce(
                 (sum, event) =>
@@ -1102,7 +1105,7 @@
         });
       });
       if (measure.staffVoices && measure.questionStaffVoices) {
-        ["treble", "bass"].forEach((staff) => {
+        Object.keys(measure.staffVoices).forEach((staff) => {
           (measure.questionStaffVoices[staff] || []).forEach((questionVoice) => {
             const modelVoice = (measure.staffVoices[staff] || []).find(
               (voice) => voice.role === questionVoice.role
@@ -1263,6 +1266,19 @@
         (measure) => measure.staffVoices
       );
       if (usesIndependentStaffVoices) {
+        const staffNames = spec.staffLayout === "vocal-piano"
+          ? ["vocal", "treble", "bass"]
+          : ["treble", "bass"];
+        compareList("staffNames", staffNames);
+        if (question.score.measures.some((measure) =>
+          !measure.staffVoices || staffNames.some(
+            (staff) => !Array.isArray(measure.staffVoices[staff])
+          )
+        )) {
+          sourceFidelityErrors.push(
+            `${question.id}: exact ${spec.staffLayout || "staff"} reference omits a required staff stream`
+          );
+        }
         if (!Array.isArray(spec.perMeasureStaffVoiceEventCounts) ||
             !Array.isArray(spec.staffVoiceRhythmSignatures)) {
           sourceFidelityErrors.push(
@@ -1270,7 +1286,7 @@
           );
         }
         const staffVoiceCounts = (sourceName) => question.score.measures.map(
-          (measure) => Object.fromEntries(["treble", "bass"].map((staff) => [
+          (measure) => Object.fromEntries(staffNames.map((staff) => [
             staff,
             (measure[sourceName]?.[staff] || []).map(
               (voice) => (voice.events || []).length
@@ -1278,7 +1294,7 @@
           ]))
         );
         const staffVoiceRhythms = (sourceName) => question.score.measures.map(
-          (measure) => Object.fromEntries(["treble", "bass"].map((staff) => [
+          (measure) => Object.fromEntries(staffNames.map((staff) => [
             staff,
             (measure[sourceName]?.[staff] || []).map(
               (voice) => durationSignature(voice.events)
@@ -1336,6 +1352,10 @@
     compareList(
       "suppliedLabels",
       harmonicEvents.map((event) => event.questionLabel).filter(Boolean)
+    );
+    compareList(
+      "sourceChordLabels",
+      (question.score.sourceChordLabels || []).map((event) => event.label)
     );
     compareList(
       "sections",
@@ -1586,7 +1606,9 @@
           const containsPitch = (staffVoice) => staffVoice.events?.some(
             (event) => event.pitch || event.pitches?.length
           );
-          return treble.filter(containsPitch).length >= 2 && bass.some(containsPitch);
+          const requiredTrebleVoices = question.score.layout === "vocal-piano" ? 1 : 2;
+          return treble.filter(containsPitch).length >= requiredTrebleVoices &&
+            bass.some(containsPitch);
         }
         return measure?.events?.some((event) =>
           (event.treble || []).length && (event.bass || []).length
@@ -1612,6 +1634,24 @@
         if (!targetsAreBlank) {
           sourceFidelityErrors.push(
             `${question.id}: source completion contract leaks model voice pitches into the target region`
+          );
+        }
+      }
+      if (Array.isArray(contract.blankTargetStaffVoices)) {
+        const targetsAreBlank = targetMeasures.every(({ measure }) =>
+          measure?.questionStaffVoices &&
+          contract.blankTargetStaffVoices.every((staff) =>
+            Array.isArray(measure.questionStaffVoices[staff]) &&
+            measure.questionStaffVoices[staff].every((voice) =>
+              (voice.events || []).every(
+                (event) => !event.pitch && !event.pitches?.length
+              )
+            )
+          )
+        );
+        if (!targetsAreBlank) {
+          sourceFidelityErrors.push(
+            `${question.id}: source completion contract leaks model piano pitches into the target region`
           );
         }
       }
