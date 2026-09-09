@@ -30,15 +30,25 @@
     e: "8",
     "16": "16",
     sixteenth: "16",
+    "32": "32",
+    thirtysecond: "32",
+    "64": "64",
+    sixtyfourth: "64",
     "dotted-half": "hd",
     dottedhalf: "hd",
     hd: "hd",
     "dotted-quarter": "qd",
     dottedquarter: "qd",
     qd: "qd",
+    "double-dotted-quarter": "qdd",
+    doubledottedquarter: "qdd",
+    qdd: "qdd",
     "dotted-eighth": "8d",
     dottedeighth: "8d",
     "8d": "8d",
+    "dotted-sixteenth": "16d",
+    dottedsixteenth: "16d",
+    "16d": "16d",
   };
 
   function getVexFlow() {
@@ -74,7 +84,7 @@
 
   function durationInBeats(value, denominator = 4) {
     const details = durationDetails(value);
-    const quarterBeats = { w: 4, h: 2, q: 1, "8": 0.5, "16": 0.25 }[
+    const quarterBeats = { w: 4, h: 2, q: 1, "8": 0.5, "16": 0.25, "32": 0.125, "64": 0.0625 }[
       details.base
     ];
     let multiplier = 1;
@@ -84,6 +94,23 @@
       addition /= 2;
     }
     return quarterBeats * multiplier * (denominator / 4);
+  }
+
+  function tupletScale(event) {
+    const numNotes = Number(event?.tuplet?.numNotes);
+    const notesOccupied = Number(event?.tuplet?.notesOccupied);
+    if (!Number.isFinite(numNotes) || !Number.isFinite(notesOccupied) ||
+        numNotes <= 0 || notesOccupied <= 0) {
+      return 1;
+    }
+    return notesOccupied / numNotes;
+  }
+
+  function eventDurationInBeats(event, denominator = 4) {
+    return durationInBeats(
+      event?.duration || DEFAULT_EXPLICIT_DURATION,
+      denominator
+    ) * tupletScale(event);
   }
 
   function parseTimeSignature(value) {
@@ -202,8 +229,8 @@
           }
           if (pitches[0] != null) parsePitch(pitches[0]);
           const duration = normalizeDuration(event.duration);
-          const durationBeats = durationInBeats(
-            duration,
+          const durationBeats = eventDurationInBeats(
+            { ...event, duration },
             timeSignature.denominator
           );
           const result = {
@@ -278,8 +305,8 @@
             }
             pitches.forEach(parsePitch);
             const duration = normalizeDuration(event.duration);
-            const durationBeats = durationInBeats(
-              duration,
+            const durationBeats = eventDurationInBeats(
+              { ...event, duration },
               timeSignature.denominator
             );
             const result = {
@@ -447,8 +474,8 @@
               _beat: eventBeat,
               _measureIndex: measureIndex,
             };
-            eventBeat += durationInBeats(
-              event.duration || DEFAULT_EXPLICIT_DURATION,
+            eventBeat += eventDurationInBeats(
+              event,
               currentTimeSignature.denominator
             );
             return normalizedEvent;
@@ -523,8 +550,8 @@
     let currentBeat = 1;
     for (const event of measure.events) {
       if (Math.abs(currentBeat - targetBeat) < 0.001) return event._index;
-      currentBeat += durationInBeats(
-        event.duration || DEFAULT_EXPLICIT_DURATION,
+      currentBeat += eventDurationInBeats(
+        event,
         measure.effectiveTimeSignature.denominator
       );
     }
@@ -1138,8 +1165,8 @@
           )
         : measure.events;
     const durations = notationEvents.map((event) =>
-      durationInBeats(
-        event.duration || DEFAULT_EXPLICIT_DURATION,
+      eventDurationInBeats(
+        event,
         measure.effectiveTimeSignature.denominator
       )
     );
@@ -1419,6 +1446,30 @@
     eventReferences[staff].push({ note, role, pitches });
   }
 
+  function buildTuplets(VF, tickables, events) {
+    const groups = new Map();
+    events.forEach((event, index) => {
+      if (!event.tuplet) return;
+      const id = event.tuplet.id;
+      if (!id) {
+        throw new Error("Tuplet events require a shared group id.");
+      }
+      if (!groups.has(id)) groups.set(id, { details: event.tuplet, notes: [] });
+      groups.get(id).notes.push(tickables[index]);
+    });
+    return [...groups.values()].map(({ details, notes }) =>
+      new VF.Tuplet(notes, {
+        num_notes: Number(details.numNotes) || notes.length,
+        notes_occupied: Number(details.notesOccupied) || 2,
+        bracketed: details.bracketed !== false,
+        ratioed: Boolean(details.ratioed),
+        location: details.location === "bottom"
+          ? VF.Tuplet.LOCATION_BOTTOM
+          : VF.Tuplet.LOCATION_TOP,
+      })
+    );
+  }
+
   function buildStaffVoices(
     VF,
     events,
@@ -1472,9 +1523,10 @@
             }
             return note;
           });
+          const tuplets = buildTuplets(VF, tickables, stream.events);
           if (!tickables.length) {
             const expectedBeats = measure.expectedBeats || timeSignature.numerator;
-            const ghostDuration = ["w", "hd", "h", "qd", "q", "8d", "8", "16"]
+            const ghostDuration = ["w", "hd", "h", "qdd", "qd", "q", "8d", "8", "16d", "16", "32", "64"]
               .find(
                 (duration) =>
                   Math.abs(
@@ -1504,6 +1556,7 @@
           return {
             voice,
             tickables,
+            tuplets,
             role: stream.role || `${staff}-${streamIndex + 1}`,
             independent: true,
             timeSignature,
@@ -1535,7 +1588,7 @@
       const voice = new VF.Voice(voiceConfig)
         .setStrict(false)
         .addTickables(tickables);
-      return [{ voice, tickables, timeSignature }];
+      return [{ voice, tickables, tuplets: [], timeSignature }];
     }
 
     const roles = staff === "treble"
@@ -1586,7 +1639,7 @@
         });
         if (!tickables.length) {
           const expectedBeats = measure.expectedBeats || timeSignature.numerator;
-          const ghostDuration = ["w", "hd", "h", "qd", "q", "8d", "8", "16"]
+          const ghostDuration = ["w", "hd", "h", "qdd", "qd", "q", "8d", "8", "16d", "16", "32", "64"]
             .find(
               (duration) =>
                 Math.abs(
@@ -1616,6 +1669,7 @@
         return {
           voice,
           tickables,
+          tuplets: [],
           role: role.name,
           independent: true,
           timeSignature,
@@ -1658,7 +1712,7 @@
       const voice = new VF.Voice(voiceConfig)
         .setStrict(false)
         .addTickables(tickables);
-      return { voice, tickables, role: role.name, timeSignature };
+      return { voice, tickables, tuplets: [], role: role.name, timeSignature };
     });
   }
 
@@ -2450,7 +2504,11 @@
       target.getBoundingClientRect().width ||
       target.closest(".paper")?.getBoundingClientRect().width ||
       900;
-    const width = Math.round(clamp(measuredWidth, MIN_RENDER_WIDTH, MAX_RENDER_WIDTH));
+    const width = Math.round(clamp(
+      Math.max(measuredWidth, Number(score.minimumEngravingWidth) || 0),
+      MIN_RENDER_WIDTH,
+      MAX_RENDER_WIDTH
+    ));
     const normalizedScore = normalizeMeasures(score);
     validateScoreData(normalizedScore, layout);
     const harmonicEvents = normalizeHarmonicEvents(score, normalizedScore);
@@ -2789,6 +2847,8 @@
         );
         bundles.flatMap((bundle) => bundle.beams)
           .forEach((beam) => beam.setContext(context).draw());
+        bundles.flatMap((bundle) => bundle.tuplets || [])
+          .forEach((tuplet) => tuplet.setContext(context).draw());
 
         measure.events.forEach((event, eventIndexInMeasure) => {
           const eventReferences = references.get(event._index);
@@ -2998,6 +3058,7 @@
     pitchClass,
     normalizeDuration,
     durationInBeats,
+    eventDurationInBeats,
     normalizeMeasures,
     normalizeHarmonicEvents,
     normalizeBrackets,
