@@ -7,7 +7,9 @@
   const DEFAULT_EXPLICIT_DURATION = "q";
   const LEGACY_EVENT_DURATION = "w";
   const MIN_RENDER_WIDTH = 340;
-  const MAX_RENDER_WIDTH = 1040;
+  const MAX_RENDER_WIDTH = 1120;
+  const RESPONSIVE_REFLOW_BREAKPOINT = 720;
+  const MAX_RESPONSIVE_ENGRAVING_WIDTH = 520;
   const MEASURE_MIN_WIDTH = 128;
   const LEGACY_EVENT_MIN_WIDTH = 90;
   const MARGIN_X = 42;
@@ -1353,26 +1355,85 @@
   }
 
   function clearAccidentalsFromLeftDisplacedNoteheads(bundles) {
+    const notesByStaveAndTick = new Map();
+    let adjustedColumnCount = 0;
+    let minimumClearance = Infinity;
     bundles.forEach((bundle) => {
       bundle.tickables.forEach((note) => {
-        const displacedHeadWidth = Number(
-          note.getLeftDisplacedHeadPx?.() || 0
-        );
-        if (displacedHeadWidth <= 0 || !note.getModifiers) return;
-
-        note.getModifiers()
-          .filter((modifier) => modifier.getCategory?.() === "Accidental")
-          .forEach((accidental) => {
-            // VexFlow lays out accidental columns against the undisplaced
-            // notehead. A stem-down chord containing seconds can put a
-            // left-displaced head back over the nearest column, so move the
-            // complete accidental stack left before either object is drawn.
-            accidental.setXShift(
-              accidental.getXShift() - displacedHeadWidth - 3
-            );
-          });
+        const stave = note.getStave?.();
+        const tickX = note.getTickContext?.().getX?.();
+        if (!stave || !Number.isFinite(tickX)) return;
+        if (!notesByStaveAndTick.has(stave)) {
+          notesByStaveAndTick.set(stave, new Map());
+        }
+        const notesByTick = notesByStaveAndTick.get(stave);
+        const tickKey = Math.round(tickX * 1000) / 1000;
+        if (!notesByTick.has(tickKey)) notesByTick.set(tickKey, []);
+        notesByTick.get(tickKey).push(note);
       });
     });
+
+    notesByStaveAndTick.forEach((notesByTick) => {
+      notesByTick.forEach((notes) => {
+        const accidentals = notes.flatMap((note) =>
+          (note.getModifiers?.() || [])
+            .filter((modifier) => modifier.getCategory?.() === "Accidental")
+            .map((accidental) => ({ note, accidental }))
+        );
+        if (!accidentals.length) return;
+
+        const leftmostHeadX = Math.min(...notes.map((note) =>
+          note.getNoteHeadBeginX() - Number(note.getLeftDisplacedHeadPx?.() || 0)
+        ));
+        const accidentalPosition = ({ note, accidental }) => {
+          const start = note.getModifierStartXY(
+            accidental.getPosition(),
+            accidental.getIndex()
+          );
+          // Bravura accidentals use an origin at the glyph's right edge.
+          return {
+            note,
+            accidental,
+            startX: start.x,
+            rightEdge: start.x + accidental.getXShift(),
+          };
+        };
+        const accidentalPositions = accidentals.map(accidentalPosition);
+        const rightmostAccidentalX = Math.max(
+          ...accidentalPositions.map((position) => position.rightEdge)
+        );
+        const requiredShift = Math.min(
+          0,
+          leftmostHeadX - 4 - rightmostAccidentalX
+        );
+        if (requiredShift < 0) {
+          accidentalPositions.forEach((position) => {
+            const columnOffset = rightmostAccidentalX - position.rightEdge;
+            const desiredInternalShift =
+              leftmostHeadX - 4 - columnOffset - position.startX;
+            // Modifier.setXShift() accepts a positive distance for LEFT
+            // modifiers and stores it internally as a negative x shift.
+            position.accidental.setXShift(-desiredInternalShift);
+          });
+          adjustedColumnCount += 1;
+        }
+        const finalRightmostAccidentalX = Math.max(
+          ...accidentalPositions.map((position) =>
+            position.startX + position.accidental.getXShift()
+          )
+        );
+        minimumClearance = Math.min(
+          minimumClearance,
+          leftmostHeadX - finalRightmostAccidentalX
+        );
+      });
+    });
+    return {
+      adjustedColumnCount,
+      minimumClearance: Number.isFinite(minimumClearance)
+        ? minimumClearance
+        : null,
+    };
   }
 
   function distributeMeasureWidths(preferredWidths, availableWidth) {
@@ -2751,8 +2812,22 @@
       target.getBoundingClientRect().width ||
       target.closest(".paper")?.getBoundingClientRect().width ||
       900;
+    const minimumEngravingWidth = Number(score.minimumEngravingWidth) || 0;
+    // Preserve an authored desktop system when there is room for it, but do
+    // not scale a wide page layout down inside a phone-sized container. At a
+    // narrow width the normal system builder can add line breaks and keep the
+    // glyphs at a readable, collision-free size.
+    const responsiveWidth = measuredWidth < RESPONSIVE_REFLOW_BREAKPOINT
+      // Keep modest score-specific minima for unusually dense individual
+      // measures and their modifiers. Wider print-page minima instead reflow
+      // into additional systems so the whole page is not shrunk to phone size.
+      ? Math.max(
+          measuredWidth,
+          Math.min(minimumEngravingWidth, MAX_RESPONSIVE_ENGRAVING_WIDTH)
+        )
+      : Math.max(measuredWidth, minimumEngravingWidth);
     const width = Math.round(clamp(
-      Math.max(measuredWidth, Number(score.minimumEngravingWidth) || 0),
+      responsiveWidth,
       MIN_RENDER_WIDTH,
       MAX_RENDER_WIDTH
     ));
@@ -2889,6 +2964,8 @@
     const anchors = new Map();
     const hitMeasures = [];
     let absoluteMeasureIndex = 0;
+    let accidentalColumnAdjustmentCount = 0;
+    let minimumAccidentalClearance = Infinity;
 
     systems.forEach((system, systemIndex) => {
       const systemMeasures = system.measures;
@@ -3141,8 +3218,16 @@
           align_rests: true,
           stave: topStave,
         });
-        clearAccidentalsFromLeftDisplacedNoteheads(bundles);
-
+        const accidentalLayout =
+          clearAccidentalsFromLeftDisplacedNoteheads(bundles);
+        accidentalColumnAdjustmentCount +=
+          accidentalLayout.adjustedColumnCount;
+        if (accidentalLayout.minimumClearance != null) {
+          minimumAccidentalClearance = Math.min(
+            minimumAccidentalClearance,
+            accidentalLayout.minimumClearance
+          );
+        }
         bundles.forEach((bundle) => {
           if (normalizedScore.mode !== "explicit") {
             bundle.beams = [];
@@ -3237,6 +3322,13 @@
         : diagnostics.minimumRhythmicGap.toFixed(3);
     target.dataset.maximumSatbAlignmentDelta =
       diagnostics.maximumSatbAlignmentDelta.toFixed(3);
+    target.dataset.accidentalColumnAdjustmentCount = String(
+      accidentalColumnAdjustmentCount
+    );
+    target.dataset.minimumAccidentalClearance =
+      Number.isFinite(minimumAccidentalClearance)
+        ? minimumAccidentalClearance.toFixed(3)
+        : "";
     target.dataset.interStaffDistances = JSON.stringify(
       systems.map((system) => system.layout.staffDistance)
     );

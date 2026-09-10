@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+  <meta charset="utf-8" />
+  <title>Cadence Lab engraving cleanup smoke test</title>
+  <style>
+    body { margin: 20px; font-family: sans-serif; }
+    .fixture { margin-bottom: 18px; border: 1px solid #ddd; }
+    #results { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Cadence Lab engraving cleanup smoke test</h1>
+  <div id="dense-desktop" class="fixture"></div>
+  <div id="dense-narrow" class="fixture"></div>
+  <div id="rimsky-desktop" class="fixture"></div>
+  <div id="rimsky-narrow" class="fixture"></div>
+  <div id="representative-renders"></div>
+  <pre id="results"></pre>
+
+  <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
+  <script src="../key-relationships.js?v=2026-09-score-ui-44"></script>
+  <script src="../question-bank.js?v=2026-09-score-ui-44"></script>
+  <script src="../exact-2025-q1-a.js?v=2026-09-score-ui-26"></script>
+  <script src="../exact-2025-q1-b.js?v=2026-09-score-ui-26"></script>
+  <script src="../exact-2025-q1-c.js?v=2026-09-score-ui-26"></script>
+  <script src="../exact-2024-q2.js?v=2026-09-engraving-1"></script>
+  <script src="../exact-2025-q2.js?v=2026-09-score-ui-32"></script>
+  <script src="../exact-2025-q3.js?v=2026-09-score-ui-43"></script>
+  <script src="../score-renderer.js?v=2026-09-engraving-1"></script>
+  <script src="../question-validator.js?v=2026-09-score-ui-41"></script>
+  <script>
+    const renderer = window.CadenceScoreRenderer;
+    const questions = window.CadenceData.questions;
+    const byId = (id) => questions.find((question) => question.id === id);
+    const denseAccidentalScore = {
+      key: 'C major',
+      keySignature: 'C',
+      timeSignature: '4/4',
+      layout: 'piano',
+      measures: [{
+        staffVoices: {
+          treble: [
+            {
+              role: 'melody',
+              stemDirection: 'up',
+              events: [
+                { pitches: ['F#4'], duration: 'h' },
+                { pitches: ['A#4'], duration: 'h' },
+              ],
+            },
+            {
+              role: 'inner',
+              stemDirection: 'down',
+              events: [
+                { pitches: ['E4', 'F4'], duration: 'h' },
+                { pitches: ['A4', 'B4'], duration: 'h' },
+              ],
+            },
+          ],
+          bass: [{
+            role: 'bass',
+            stemDirection: 'down',
+            events: [
+              { pitches: ['C#3', 'Dn3', 'E#3', 'Fn3'], duration: 'h' },
+              { pitches: ['F#2', 'Gn2', 'A#2', 'Bn2'], duration: 'h' },
+            ],
+          }],
+        },
+        endBarline: 'final',
+      }],
+      harmonicEvents: [],
+    };
+
+    const denseDesktop = document.querySelector('#dense-desktop');
+    const denseNarrow = document.querySelector('#dense-narrow');
+    renderer.render(denseDesktop, denseAccidentalScore, { width: 780 });
+    renderer.render(denseNarrow, denseAccidentalScore, { width: 390 });
+
+    const rimsky = byId('nzqa-2024-rimsky-context');
+    const rimskyDesktop = document.querySelector('#rimsky-desktop');
+    const rimskyNarrow = document.querySelector('#rimsky-narrow');
+    renderer.render(rimskyDesktop, rimsky.score, { width: 1000 });
+    renderer.render(rimskyNarrow, rimsky.score, { width: 390 });
+
+    const representativeIds = [
+      'nzqa-2024-rimsky-analysis',
+      'nzqa-2024-bach-analysis',
+      'nzqa-2025-schubert-piano',
+      'nzqa-2025-joel-piano',
+    ];
+    const representativeErrors = [];
+    representativeIds.forEach((id) => {
+      const question = byId(id);
+      [1000, 390].forEach((width) => {
+        const target = document.createElement('div');
+        document.querySelector('#representative-renders').append(target);
+        try {
+          renderer.render(target, question.score, { width });
+          if (!target.querySelector('svg')) throw new Error('missing SVG');
+        } catch (error) {
+          representativeErrors.push(`${id} at ${width}px: ${error.message}`);
+        }
+      });
+    });
+
+    const assertions = {
+      denseDesktopHasDisplacedHeadsAndAccidentals:
+        denseDesktop.querySelectorAll('.vf-notehead').length >= 4 &&
+        Number(denseDesktop.dataset.accidentalColumnAdjustmentCount) >= 1,
+      denseDesktopHasNoAccidentalNoteheadCollisions:
+        Number(denseDesktop.dataset.minimumAccidentalClearance) >= 3.99,
+      denseNarrowHasNoAccidentalNoteheadCollisions:
+        Number(denseNarrow.dataset.minimumAccidentalClearance) >= 3.99,
+      rimskyKeepsFiveSourceSystemsAtDesktop:
+        rimskyDesktop.dataset.systemMeasureCounts === '[5,5,5,5,5]',
+      rimskyReflowsWithoutHorizontalOverflowAtNarrowWidth:
+        Number(rimskyNarrow.dataset.systemCount) >= 5 &&
+        Number(rimskyNarrow.dataset.minimumRhythmicGap) >= 12,
+      rimskyDensePassagesKeepMinimumRhythmicClearance:
+        Number(rimskyDesktop.dataset.minimumRhythmicGap) >= 13.5,
+      representativeNotationStillRenders: representativeErrors.length === 0,
+    };
+    const diagnostics = {
+      denseDesktopAccidentalAdjustments:
+        denseDesktop.dataset.accidentalColumnAdjustmentCount,
+      denseDesktopMinimumAccidentalClearance:
+        denseDesktop.dataset.minimumAccidentalClearance,
+      denseNarrowAccidentalAdjustments:
+        denseNarrow.dataset.accidentalColumnAdjustmentCount,
+      denseNarrowMinimumAccidentalClearance:
+        denseNarrow.dataset.minimumAccidentalClearance,
+      denseDesktopNoteheads: denseDesktop.querySelectorAll('.vf-notehead').length,
+      rimskyDesktopWidths: JSON.parse(rimskyDesktop.dataset.measureWidths),
+      rimskyDesktopPreferredWidths: JSON.parse(rimskyDesktop.dataset.measurePreferredWidths),
+      rimskyDesktopMinimumGap: rimskyDesktop.dataset.minimumRhythmicGap,
+      rimskyNarrowSystems: rimskyNarrow.dataset.systemMeasureCounts,
+      rimskyNarrowMinimumGap: rimskyNarrow.dataset.minimumRhythmicGap,
+      representativeErrors,
+    };
+    const passed = Object.values(assertions).every(Boolean);
+    document.body.dataset.status = passed ? 'pass' : 'fail';
+    document.querySelector('#results').textContent = JSON.stringify({
+      passed,
+      assertions,
+      diagnostics,
+    }, null, 2);
+  </script>
+</body>
+</html>
