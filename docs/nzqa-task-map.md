@@ -62,16 +62,16 @@ The in-app checklists use these observable progressions. They deliberately avoid
 
 ## 2025
 
-All nine official 2025 subquestions are mapped in the manifest. Question 1(a–c) and Schubert Question 2(a–c) now use exact independently rhythmic transcriptions checked against the paper and schedule; Question 3 remains adapted Cadence Lab practice and therefore does not count as reference material. Q1(c) preserves the paper contract of four supplied indications—`I`, `Ib`, `IV9–8`, `I`—followed by six learner-choice boxes, with the D–C suspension resolution shown inside the IV9–8 span. Q2(a) preserves the supplied tonic plus twelve assessed Roman positions, Q2(b) separates feature, evidence and function, and Q2(c) retains the printed melody and eight supplied Roman indications while revealing the schedule model only after submission.
+All nine official 2025 subquestions now use exact transcriptions checked against the paper and schedule. Q1(c) preserves the paper contract of four supplied indications—`I`, `Ib`, `IV9–8`, `I`—followed by six learner-choice boxes. Q2(a) preserves the supplied tonic plus twelve assessed Roman positions, Q2(b) separates feature, evidence and function, and Q2(c) retains the printed melody and eight supplied Roman indications. Q3(a) separates the two printed chord symbols from its ten answer slots, Q3(b) presents the complete 19-bar bridge with two extended written responses, and Q3(c) retains the vocal line, chord labels, rhythm cues, repeat/endings and a separately revealed published piano model.
 
 ## Reference set in the bank
 
-Cadence Lab currently includes eleven official reference transcriptions:
+Cadence Lab currently includes fourteen official reference transcriptions:
 
 - 2021: Bach Q1(a)
 - 2022: Bach Q1(a)
 - 2023: Bach Q1(b)
 - 2024: Bach Q1(a) and Bach Q1(c)
-- 2025: Bach Q1(a), Q1(b), Q1(c), and Schubert Q2(a), Q2(b), Q2(c)
+- 2025: Bach Q1(a–c), Schubert Q2(a–c), and Billy Joel Q3(a–c)
 
 Each is labelled `nzqa-reference` with provider, year, question, part, extract, bars, source-page location and acknowledgement metadata. Every retained reference declares exact transcription mode, printed bars/measures, staff layout and a source-derived event/rhythm signature in addition to its schedule-answer specification. Bach references use independent soprano, alto, tenor and bass rhythmic streams. The source PDFs remain external and the app does not claim official NZQA status.

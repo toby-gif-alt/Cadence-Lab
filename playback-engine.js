@@ -103,12 +103,17 @@
 
   function measureStreams(measure, measureIndex, firstSourceEventIndex) {
     if (measure.staffVoices) {
+      const staffNames = Object.keys(measure.staffVoices).sort(
+        (first, second) =>
+          ["vocal", "treble", "bass"].indexOf(first) -
+          ["vocal", "treble", "bass"].indexOf(second)
+      );
       return {
-        streams: ["treble", "bass"].flatMap((staff) =>
+        streams: staffNames.flatMap((staff) =>
           (measure.staffVoices[staff] || []).map((voice, voiceIndex) => ({
             key: `${staff}:${voice.role || voiceIndex}`,
             voice: voice.role || staff,
-            staff,
+            staff: staff === "vocal" ? "treble" : staff,
             events: (voice.events || []).map((event, eventIndex) => ({
               ...event,
               pitches: normalizedPitches(event, staff),

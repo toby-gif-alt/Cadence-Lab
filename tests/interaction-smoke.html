@@ -11,7 +11,7 @@
 </head>
 <body data-status="running">
   <h1>Cadence Lab production interaction smoke test</h1>
-  <iframe id="app-frame" title="Cadence Lab production app" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-26"></iframe>
+  <iframe id="app-frame" title="Cadence Lab production app" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-44"></iframe>
   <pre id="results">Running…</pre>
 <script>
   const frame = document.querySelector('#app-frame');
@@ -56,9 +56,9 @@
 
       const nzqaRefs = questions.filter(question => question.sourceType === 'nzqa-reference');
       const practiceRefs = questions.filter(question => question.sourceType === 'practice-assessment-reference');
-      assert('current-source-counts-are-production-counts', nzqaRefs.length === 11 && practiceRefs.length === 0, {nzqa:nzqaRefs.length, practice:practiceRefs.length});
+      assert('current-source-counts-are-production-counts', nzqaRefs.length === 14 && practiceRefs.length === 0, {nzqa:nzqaRefs.length, practice:practiceRefs.length});
       assert('every-retained-reference-is-exact', nzqaRefs.every(question => question.sourceSpec?.transcriptionMode === 'exact'));
-      assert('six-exact-2025-references-are-live', nzqaRefs.filter(question => question.source?.year === 2025).length === 6);
+      assert('nine-exact-2025-references-are-live', nzqaRefs.filter(question => question.source?.year === 2025).length === 9);
 
       const sourceSelect = d.querySelector('#source-type');
       const yearSelect = d.querySelector('#source-year');
@@ -77,7 +77,7 @@
       change(sourceSelect, 'nzqa-reference');
       const yearOptions = Object.fromEntries([...yearSelect.options].map(option => [option.value || 'all', {text:option.textContent, disabled:option.disabled}]));
       assert('nzqa-filter-shows-current-examination-years', !yearField.hidden && yearLabel.textContent === 'Examination year' &&
-        yearOptions.all.text === 'All years (11)' && yearOptions['2025'].text === '2025 (6)' && !yearOptions['2025'].disabled,
+        yearOptions.all.text === 'All years (14)' && yearOptions['2025'].text === '2025 (9)' && !yearOptions['2025'].disabled,
         yearOptions);
 
       change(sourceSelect, 'nzqa-reference');

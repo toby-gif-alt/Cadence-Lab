@@ -14,6 +14,11 @@
   const VOICE_LABEL_MARGIN_X = 58;
   const SATB_VOICE_NAMES = ["soprano", "alto", "tenor", "bass"];
   const STAFF_NAMES = ["treble", "bass"];
+  const VOCAL_PIANO_STAFF_NAMES = ["vocal", "treble", "bass"];
+
+  function staffNamesForLayout(layout) {
+    return layout === "vocal-piano" ? VOCAL_PIANO_STAFF_NAMES : STAFF_NAMES;
+  }
 
   const durationAliases = {
     "1": "w",
@@ -252,7 +257,12 @@
     );
   }
 
-  function normalizeIndependentStaffVoices(source, measureIndex, timeSignature) {
+  function normalizeIndependentStaffVoices(
+    source,
+    measureIndex,
+    timeSignature,
+    staffNames
+  ) {
     if (source == null) return null;
     if (typeof source !== "object" || Array.isArray(source)) {
       throw new Error(
@@ -260,7 +270,7 @@
       );
     }
     const unknownStaves = Object.keys(source).filter(
-      (staff) => !STAFF_NAMES.includes(staff)
+      (staff) => !staffNames.includes(staff)
     );
     if (unknownStaves.length) {
       throw new Error(
@@ -269,7 +279,7 @@
     }
 
     return Object.fromEntries(
-      STAFF_NAMES.map((staff) => {
+      staffNames.map((staff) => {
         const voices = source[staff] || [];
         if (!Array.isArray(voices)) {
           throw new Error(
@@ -357,6 +367,7 @@
   }
 
   function normalizeMeasures(score) {
+    const staffNames = staffNamesForLayout(score.layout);
     const initialKeySignature =
       score.keySignature || inferKeySignature(score.key);
     let globalIndex = 0;
@@ -386,12 +397,14 @@
         const staffVoiceStreams = normalizeIndependentStaffVoices(
           measure.staffVoices,
           measureIndex,
-          currentTimeSignature
+          currentTimeSignature,
+          staffNames
         );
         const questionStaffVoiceStreams = normalizeIndependentStaffVoices(
           measure.questionStaffVoices,
           measureIndex,
-          currentTimeSignature
+          currentTimeSignature,
+          staffNames
         );
         let events;
         if (voiceStreams) {
@@ -437,7 +450,7 @@
         } else if (staffVoiceStreams) {
           const onsetBeats = [
             ...new Set(
-              STAFF_NAMES.flatMap((staff) =>
+              staffNames.flatMap((staff) =>
                 staffVoiceStreams[staff].flatMap((voice) =>
                   voice.events.map((event) => event._beat)
                 )
@@ -448,8 +461,12 @@
             _index: globalIndex++,
             _beat: beat,
             _independentStaves: true,
-            treble: soundingPitchesAt(staffVoiceStreams.treble, beat),
-            bass: soundingPitchesAt(staffVoiceStreams.bass, beat),
+            ...Object.fromEntries(
+              staffNames.map((staff) => [
+                staff,
+                soundingPitchesAt(staffVoiceStreams[staff], beat),
+              ])
+            ),
           }));
           const anchorByBeat = new Map(
             events.map((event) => [event._beat, event._index])
@@ -457,7 +474,7 @@
           [staffVoiceStreams, questionStaffVoiceStreams]
             .filter(Boolean)
             .forEach((streams) => {
-              STAFF_NAMES.forEach((staff) => {
+              staffNames.forEach((staff) => {
                 streams[staff].forEach((voice) => {
                   voice.events.forEach((event) => {
                     event._anchorIndex = anchorByBeat.get(event._beat) ?? null;
@@ -498,6 +515,7 @@
           effectiveTimeSignature: currentTimeSignature,
           beginBarline: measure.beginBarline || null,
           endBarline: measure.endBarline || measure.barline || null,
+          systemBreakAfter: Boolean(measure.systemBreakAfter),
         };
       });
       return { mode: "explicit", measures };
@@ -735,6 +753,27 @@
     });
     attachDots(VF, note, details.dots);
     return note;
+  }
+
+  function attachGraceNotes(VF, note, event, clef, stemDirection) {
+    if (!event.graceNotes?.length || note instanceof VF.GhostNote) return;
+    const graceNotes = event.graceNotes.map((graceEvent) => {
+      const pitch = parsePitch(graceEvent.pitch);
+      const graceNote = new VF.GraceNote({
+        clef,
+        keys: [vexKey(pitch)],
+        duration: durationDetails(graceEvent.duration || "8").base,
+        slash: graceEvent.slash === true,
+        stem_direction: stemDirection,
+      });
+      if (pitch.accidental) {
+        graceNote.addModifier(new VF.Accidental(pitch.accidental), 0);
+      }
+      return graceNote;
+    });
+    const group = new VF.GraceNoteGroup(graceNotes, false);
+    if (graceNotes.length > 1) group.beamNotes();
+    note.addModifier(group);
   }
 
   function splitSatbPitches(pitches, staff, eventIndex) {
@@ -1075,7 +1114,7 @@
             `Independent staff voices are not valid for SATB layout in measure ${measure.index + 1}.`
           );
         }
-        STAFF_NAMES.forEach((staff) => {
+        staffNamesForLayout(layout).forEach((staff) => {
           if (!measure.staffVoiceStreams[staff].length) {
             throw new Error(
               `Measure ${measure.index + 1} staffVoices.${staff} must contain at least one voice.`
@@ -1160,7 +1199,7 @@
     const notationEvents = measure.voiceStreams
       ? SATB_VOICE_NAMES.flatMap((voiceName) => measure.voiceStreams[voiceName])
       : measure.staffVoiceStreams
-        ? STAFF_NAMES.flatMap((staff) =>
+        ? staffNamesForLayout(layout).flatMap((staff) =>
             measure.staffVoiceStreams[staff].flatMap((voice) => voice.events)
           )
         : measure.events;
@@ -1243,10 +1282,10 @@
       });
     } else if (measure.staffVoiceStreams) {
       measure.events.forEach((event) => {
-        closeCollisions += closePitchCollisionCount(event.treble || []) +
-          closePitchCollisionCount(event.bass || []);
-        simultaneousActivity += (event.treble || []).length +
-          (event.bass || []).length;
+        staffNamesForLayout(layout).forEach((staff) => {
+          closeCollisions += closePitchCollisionCount(event[staff] || []);
+          simultaneousActivity += (event[staff] || []).length;
+        });
       });
     } else {
       measure.events.forEach((event) => {
@@ -1373,10 +1412,14 @@
       normalizedScore.measures.forEach((measure, index) => {
         const metric = metrics[index];
         const nextTotal = preferredTotal + metric.preferredWidth;
-        if (systemMeasures.length && nextTotal > availableWidth) flush();
+        const honourAuthoredBreaks = score.authoredSystemBreaks && width >= 720;
+        if (!honourAuthoredBreaks && systemMeasures.length && nextTotal > availableWidth) {
+          flush();
+        }
         systemMeasures.push(measure);
         systemMetrics.push(metric);
         preferredTotal += metric.preferredWidth;
+        if (measure.systemBreakAfter) flush();
       });
       flush();
       return { systems, leftMargin };
@@ -1493,7 +1536,7 @@
           ? measure.questionStaffVoiceStreams
           : measure.staffVoiceStreams;
         return visibleStreams[staff].map((stream, streamIndex) => {
-          const fallbackDirection = staff === "treble" ? VF.Stem.UP : VF.Stem.DOWN;
+          const fallbackDirection = staff === "bass" ? VF.Stem.DOWN : VF.Stem.UP;
           const stemDirection = stream.stemDirection === "down"
             ? VF.Stem.DOWN
             : stream.stemDirection === "up"
@@ -1503,13 +1546,20 @@
             const note = makeStaveNote(
               VF,
               event.rest ? [] : event.pitches,
-              staff,
+              staff === "bass" ? "bass" : "treble",
               event.duration,
               stemDirection,
               event.rest,
               staff === "bass" ? "d/3" : "b/4"
             );
             note.setStave(stave);
+            attachGraceNotes(
+              VF,
+              note,
+              event,
+              staff === "bass" ? "bass" : "treble",
+              stemDirection
+            );
             if (Number.isInteger(event._anchorIndex)) {
               addReference(
                 VF,
@@ -1542,7 +1592,7 @@
             const ghost = makeStaveNote(
               VF,
               [],
-              staff,
+              staff === "bass" ? "bass" : "treble",
               ghostDuration,
               stemDirection,
               false
@@ -1888,6 +1938,66 @@
     target.dataset.barNumberCount = String(count);
   }
 
+  function drawSourceChordLabels(group, target, labels, anchors) {
+    let count = 0;
+    labels.forEach((label) => {
+      const anchor = anchors.get(label._index);
+      if (!anchor?.note) return;
+      group.appendChild(createSvgElement("text", {
+        class: "source-chord-label",
+        x: anchor.note.getAbsoluteX(),
+        y: anchor.topStave.getYForLine(0) - 24,
+        "text-anchor": "middle",
+        "font-family": "Georgia, 'Times New Roman', serif",
+        "font-size": 14,
+        "font-weight": 700,
+        "data-measure": label.measure,
+        "data-beat": label.beat || 1,
+      }, label.label));
+      count += 1;
+    });
+    target.dataset.sourceChordLabelCount = String(count);
+  }
+
+  function drawEndings(group, target, endings, hitMeasures) {
+    let count = 0;
+    (endings || []).forEach((ending) => {
+      const first = hitMeasures.find((measure) => measure.measure === ending.startMeasure);
+      const last = hitMeasures.find((measure) => measure.measure === ending.endMeasure);
+      if (!first || !last || first.system !== last.system) return;
+      const y = first.topY - 48;
+      group.appendChild(createSvgElement("path", {
+        class: "source-ending-bracket",
+        d: `M ${first.x} ${y + 12} V ${y} H ${last.endX}`,
+        fill: "none",
+        stroke: "#172033",
+        "stroke-width": 1.2,
+        "data-ending": ending.label,
+      }));
+      group.appendChild(createSvgElement("text", {
+        class: "source-ending-label",
+        x: first.x + 6,
+        y: y + 11,
+        "font-family": "Georgia, 'Times New Roman', serif",
+        "font-size": 12,
+        "font-weight": 700,
+      }, ending.label));
+      if (ending.navigation) {
+        group.appendChild(createSvgElement("text", {
+          class: "source-navigation-label",
+          x: last.endX - 5,
+          y: last.bottomY + 72,
+          "text-anchor": "end",
+          "font-family": "Georgia, 'Times New Roman', serif",
+          "font-size": 11,
+          "font-weight": 600,
+        }, ending.navigation));
+      }
+      count += 1;
+    });
+    target.dataset.sourceEndingCount = String(count);
+  }
+
   function drawRhythmCues(
     VF,
     context,
@@ -1919,10 +2029,8 @@
         cueGroup.dataset.measure = String(cue.measure);
         cueGroup.dataset.beat = String(cue.beat);
         cueGroup.dataset.duration = cue.duration;
-        // TickContext x is already an absolute score coordinate. Keep the
-        // invisible cue stave at x=0 so VexFlow does not add the intended
-        // horizontal position a second time.
-        const cueStave = new VF.Stave(0, noteY - 40, 28);
+        const cueStave = new VF.Stave(x - 16, noteY - 40, 32);
+        cueStave.setNoteStartX(x);
         const cueNote = makeStaveNote(
           VF,
           ["B4"],
@@ -1932,12 +2040,13 @@
           false
         );
         cueNote.setStave(cueStave);
-        const tickContext = new VF.TickContext()
-          .addTickable(cueNote)
-          .preFormat()
-          .setX(x);
-        cueNote.setTickContext(tickContext);
-        cueNote.setContext(context).draw();
+        const cueVoice = new VF.Voice({ num_beats: 4, beat_value: 4 })
+          .setStrict(false)
+          .addTickables([cueNote]);
+        new VF.Formatter()
+          .joinVoices([cueVoice])
+          .formatToStave([cueVoice], cueStave);
+        cueVoice.draw(context, cueStave);
         context.closeGroup();
         count += 1;
       });
@@ -2192,8 +2301,8 @@
     });
   }
 
-  function independentStaffTies(normalizedScore) {
-    return STAFF_NAMES.flatMap((staff) => {
+  function independentStaffTies(normalizedScore, layout) {
+    return staffNamesForLayout(layout).flatMap((staff) => {
       const byRole = new Map();
       normalizedScore.measures.forEach((measure) => {
         (measure.staffVoiceStreams?.[staff] || []).forEach((voice) => {
@@ -2330,13 +2439,23 @@
     });
   }
 
-  function drawSystemConnectors(VF, context, topStave, bottomStave, layout) {
+  function drawSystemConnectors(
+    VF,
+    context,
+    topStave,
+    middleStave,
+    bottomStave,
+    layout
+  ) {
     if (!bottomStave) return;
     new VF.StaveConnector(topStave, bottomStave)
       .setType(VF.StaveConnector.type.SINGLE_LEFT)
       .setContext(context)
       .draw();
-    new VF.StaveConnector(topStave, bottomStave)
+    new VF.StaveConnector(
+      layout === "vocal-piano" ? middleStave : topStave,
+      bottomStave
+    )
       .setType(
         layout === "satb"
           ? VF.StaveConnector.type.BRACKET
@@ -2353,6 +2472,7 @@
       satb: "SATB score on treble and bass staves",
       piano: "piano grand staff",
       grand: "grand staff",
+      "vocal-piano": "vocal stave above piano grand staff",
     }[layout];
   }
 
@@ -2417,13 +2537,16 @@
               104 + clamp((maximumPreferredWidth - 220) * 0.08, 0, 28) +
                 clamp(maximumCollisions * 2, 0, 12)
             )
-          : 88
+          : layout === "vocal-piano"
+            ? 176
+            : 88
         : 0;
       const topPadding =
         28 +
         (hasTopBoxes ? 42 : 0) +
         (hasAnnotations ? 28 : 0) +
-        (hasBrackets ? 25 : 0);
+        (hasBrackets ? 25 : 0) +
+        ((score.endings || []).length ? 30 : 0);
       // Reserve enough space for boxes after their final y-position is derived
       // from the rendered lower-staff note geometry.
       const bottomPadding = hasBottomBoxes ? 94 : 8;
@@ -2498,6 +2621,8 @@
     const VF = getVexFlow();
     const showAnswer = Boolean(options.showAnswer);
     const layout = score.layout || options.layout || "grand";
+    const staffNames = staffNamesForLayout(layout);
+    const hasThreeStaves = layout === "vocal-piano";
     const hasTwoStaves = !["treble", "bass"].includes(layout);
     const measuredWidth =
       options.width ||
@@ -2514,6 +2639,10 @@
     const harmonicEvents = normalizeHarmonicEvents(score, normalizedScore);
     const brackets = normalizeBrackets(score, normalizedScore);
     const noteAnnotations = normalizeNoteAnnotations(score, normalizedScore);
+    const sourceChordLabels = (score.sourceChordLabels || []).map((label) => ({
+      ...label,
+      _index: resolveEventIndex(label, normalizedScore),
+    }));
     if (!score.skipChordValidation) {
       validateHarmonicEvents(normalizedScore, harmonicEvents);
     }
@@ -2533,7 +2662,7 @@
             (voiceName) => measure.voiceStreams[voiceName]
           )
         : measure.staffVoiceStreams
-          ? STAFF_NAMES.flatMap((staff) =>
+          ? staffNames.flatMap((staff) =>
               measure.staffVoiceStreams[staff].flatMap((voice) => voice.events)
             )
           : measure.events
@@ -2597,6 +2726,8 @@
         annotationIsVisible(annotation, showAnswer)
       ).length
     );
+    target.dataset.sourceChordLabelCount = "0";
+    target.dataset.sourceEndingCount = "0";
     target.dataset.measurePreferredWidths = JSON.stringify(
       systems.flatMap((system) => system.preferredWidths.map(Math.round))
     );
@@ -2636,10 +2767,12 @@
       const systemMeasures = system.measures;
       const systemLayout = system.layout;
       const topY = systemLayout.yOffset + systemLayout.topPadding;
+      const middleY = hasThreeStaves ? topY + 84 : null;
       const bottomY = hasTwoStaves
         ? topY + systemLayout.staffDistance
         : topY;
       let firstTopStave = null;
+      let firstMiddleStave = null;
       let firstBottomStave = null;
       let measureX = systemBuild.leftMargin;
 
@@ -2650,7 +2783,12 @@
         const isLegacy = normalizedScore.mode === "legacy";
         const isFinalMeasure =
           absoluteMeasureIndex === normalizedScore.measures.length - 1;
-        const topClef = layout === "bass" ? "bass" : "treble";
+        const topStaffName = hasThreeStaves
+          ? "vocal"
+          : layout === "bass"
+            ? "bass"
+            : "treble";
+        const topClef = topStaffName === "bass" ? "bass" : "treble";
         const topStave = new VF.Stave(x, topY, staveWidth);
         topStave.setBegBarType(
           barlineType(
@@ -2683,6 +2821,38 @@
           normalizedScore.mode
         );
         topStave.setContext(context).draw();
+
+        let middleStave = null;
+        if (hasThreeStaves) {
+          middleStave = new VF.Stave(x, middleY, staveWidth);
+          middleStave.setBegBarType(
+            barlineType(
+              VF,
+              measure.beginBarline,
+              measureIndexInSystem === 0
+                ? VF.Barline.type.SINGLE
+                : VF.Barline.type.NONE
+            )
+          );
+          middleStave.setEndBarType(
+            barlineType(
+              VF,
+              measure.endBarline,
+              isFinalMeasure
+                ? VF.Barline.type.END
+                : VF.Barline.type.SINGLE
+            )
+          );
+          addStaveModifiers(
+            middleStave,
+            "treble",
+            measure,
+            systemIndex,
+            measureIndexInSystem,
+            normalizedScore.mode
+          );
+          middleStave.setContext(context).draw();
+        }
 
         let bottomStave = null;
         if (hasTwoStaves) {
@@ -2723,9 +2893,11 @@
         if (bottomStave && topStave.setNoteStartX && bottomStave.setNoteStartX) {
           const sharedNoteStartX = Math.max(
             topStave.getNoteStartX(),
+            middleStave?.getNoteStartX() || 0,
             bottomStave.getNoteStartX()
           );
           topStave.setNoteStartX(sharedNoteStartX);
+          middleStave?.setNoteStartX(sharedNoteStartX);
           bottomStave.setNoteStartX(sharedNoteStartX);
         }
 
@@ -2737,6 +2909,10 @@
           endX: topStave.getNoteEndX(),
           topY: topStave.getYForLine(0),
           topSpacing: topStave.getYForLine(1) - topStave.getYForLine(0),
+          middleY: middleStave?.getYForLine(0) ?? null,
+          middleSpacing: middleStave
+            ? middleStave.getYForLine(1) - middleStave.getYForLine(0)
+            : null,
           bottomY: bottomStave?.getYForLine(0) ?? null,
           bottomSpacing: bottomStave
             ? bottomStave.getYForLine(1) - bottomStave.getYForLine(0)
@@ -2750,6 +2926,7 @@
 
         if (!firstTopStave) {
           firstTopStave = topStave;
+          firstMiddleStave = middleStave;
           firstBottomStave = bottomStave;
           const topLineY = topStave.getYForLine(0);
           systemLayout.annotationY =
@@ -2759,10 +2936,10 @@
             (systemLayout.hasTopBoxes ? 42 : 0) -
             (systemLayout.hasAnnotations ? 28 : 0);
           system.firstTopStave = topStave;
+          system.firstMiddleStave = middleStave;
           system.firstBottomStave = bottomStave;
         }
 
-        const topStaffName = layout === "bass" ? "bass" : "treble";
         const topBundles = buildStaffVoices(
           VF,
           measure.events,
@@ -2775,6 +2952,20 @@
           normalizedScore.mode,
           measure
         );
+        const middleBundles = middleStave
+          ? buildStaffVoices(
+              VF,
+              measure.events,
+              "treble",
+              middleStave,
+              layout,
+              showAnswer,
+              measure.effectiveTimeSignature,
+              references,
+              normalizedScore.mode,
+              measure
+            )
+          : [];
         const bottomBundles = bottomStave
           ? buildStaffVoices(
               VF,
@@ -2789,7 +2980,7 @@
               measure
             )
           : [];
-        const bundles = [...topBundles, ...bottomBundles];
+        const bundles = [...topBundles, ...middleBundles, ...bottomBundles];
         const voices = bundles.map((bundle) => bundle.voice);
         // VexFlow attaches each accidental modifier to its owning StaveNote and
         // resolves simultaneous columns before formatting. The density-aware
@@ -2798,6 +2989,12 @@
           topBundles.map((bundle) => bundle.voice),
           keySignatureForStaff(measure.effectiveKeySignature, topStaffName)
         );
+        if (middleBundles.length) {
+          VF.Accidental.applyAccidentals(
+            middleBundles.map((bundle) => bundle.voice),
+            keySignatureForStaff(measure.effectiveKeySignature, "treble")
+          );
+        }
         if (bottomBundles.length) {
           VF.Accidental.applyAccidentals(
             bottomBundles.map((bundle) => bundle.voice),
@@ -2842,6 +3039,9 @@
         });
 
         topBundles.forEach((bundle) => bundle.voice.draw(context, topStave));
+        middleBundles.forEach((bundle) =>
+          bundle.voice.draw(context, middleStave)
+        );
         bottomBundles.forEach((bundle) =>
           bundle.voice.draw(context, bottomStave)
         );
@@ -2853,6 +3053,7 @@
         measure.events.forEach((event, eventIndexInMeasure) => {
           const eventReferences = references.get(event._index);
           let anchorNote =
+            eventReferences?.vocal?.[0]?.note ||
             eventReferences?.treble?.[0]?.note ||
             eventReferences?.bass?.[0]?.note;
           if (!anchorNote && (measure.voiceStreams || measure.staffVoiceStreams)) {
@@ -2869,6 +3070,7 @@
           anchors.set(event._index, {
             note: anchorNote,
             topStave,
+            middleStave,
             bottomStave: bottomStave || topStave,
             systemIndex,
             systemLayout,
@@ -2881,6 +3083,7 @@
         VF,
         context,
         firstTopStave,
+        firstMiddleStave,
         firstBottomStave,
         layout
       );
@@ -2892,7 +3095,7 @@
       [
         ...(score.ties || []),
         ...independentSatbTies(normalizedScore),
-        ...independentStaffTies(normalizedScore),
+        ...independentStaffTies(normalizedScore, layout),
       ],
       references,
       anchors
@@ -2937,6 +3140,13 @@
         "aria-hidden": "true",
       });
       drawBarNumbers(decorationGroup, target, score, hitMeasures);
+      drawSourceChordLabels(
+        decorationGroup,
+        target,
+        sourceChordLabels,
+        anchors
+      );
+      drawEndings(decorationGroup, target, score.endings, hitMeasures);
       hitMeasures.forEach((measure) => {
         if (!measure.keyLabel) return;
         decorationGroup.appendChild(createSvgElement("text", {

@@ -67,7 +67,7 @@
         question.source?.question === 'Question Two' &&
         question.source?.part === `(${String.fromCharCode(97 + index)})`
       ));
-      assert('exact-reference-count-grows-from-eight-to-eleven', validator?.referenceCount === 11 && questions.filter(question => question.sourceType === 'nzqa-reference' && question.source?.year === 2025).length === 6, validator);
+      assert('exact-reference-count-now-fourteen', validator?.referenceCount === 14 && questions.filter(question => question.sourceType === 'nzqa-reference' && question.source?.year === 2025).length === 9, validator);
 
       assert('q2a-has-supplied-i-plus-twelve-answer-positions',
         q2a.score.harmonicEvents.length === 13 &&
@@ -305,7 +305,7 @@
       finish(error);
     }
   });
-  frame.src = '../index.html?question=nzqa-2025-schubert-analysis&v=2026-09-score-ui-32';
+  frame.src = '../index.html?question=nzqa-2025-schubert-analysis&v=2026-09-score-ui-43';
 </script>
 </body>
 </html>

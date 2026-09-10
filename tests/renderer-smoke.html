@@ -46,10 +46,11 @@
     <script src="../exact-2025-q1-b.js?v=2026-09-score-ui-26"></script>
     <script src="../exact-2025-q1-c.js?v=2026-09-score-ui-26"></script>
     <script src="../exact-2025-q2.js?v=2026-09-score-ui-32"></script>
+    <script src="../exact-2025-q3.js?v=2026-09-score-ui-43"></script>
     <script src="../score-ui-consistency.js?v=2026-09-score-ui-26"></script>
     <script src="../satb-integrity.js?v=2026-09-score-ui-26"></script>
-    <script src="../score-renderer.js?v=2026-09-score-ui-32"></script>
-    <script src="../question-validator.js?v=2026-09-score-ui-32"></script>
+    <script src="../score-renderer.js?v=2026-09-score-ui-42"></script>
+    <script src="../question-validator.js?v=2026-09-score-ui-41"></script>
     <script>
       const renderer = window.CadenceScoreRenderer;
       const questions = window.CadenceData.questions;
@@ -284,7 +285,6 @@
       const adaptedPianoStudies = [
         "nzqa-2021-beethoven-piano",
         "nzqa-2023-novelette-piano",
-        "nzqa-2025-joel-piano",
       ].map((id) => questions.find((question) => question.id === id));
       const retainedReferences = questions.filter((question) =>
         ["nzqa-reference", "practice-assessment-reference"].includes(question.sourceType)
@@ -389,8 +389,9 @@
                 width,
               });
               const expectedBoxes = question.score.harmonicEvents.filter(
-                (event) => ["supplied", "editable"].includes(event.answerRole) ||
-                  event.paperChoiceBox === true
+                (event) => event.analysisBox !== false &&
+                  (["supplied", "editable"].includes(event.answerRole) ||
+                    event.paperChoiceBox === true)
               ).length;
               const actualBoxes = target.querySelectorAll(".analysis-box").length;
               if (actualBoxes !== expectedBoxes) {
@@ -574,11 +575,11 @@
           validatorReport.legacyCount === 0,
         exactReferenceCountsAreTruthful:
           JSON.stringify(referenceCounts) === JSON.stringify({
-            2021: 1, 2022: 1, 2023: 1, 2024: 2, 2025: 6,
-          }) && retainedReferences.length === 11 &&
-          validatorReport.referenceCount === 11 &&
+            2021: 1, 2022: 1, 2023: 1, 2024: 2, 2025: 9,
+          }) && retainedReferences.length === 14 &&
+          validatorReport.referenceCount === 14 &&
           validatorReport.practiceReferenceCount === 0,
-        exactQ1Q2AndAdaptedQ3AreClassifiedHonestly:
+        exact2025Q1Q2Q3AreClassifiedHonestly:
           [bach2025, bachModulation2025].every((question) =>
             question.sourceType === "nzqa-reference" &&
             question.sourceSpec.transcriptionMode === "exact" &&
@@ -587,15 +588,14 @@
           schubert2025.sourceType === "nzqa-reference" &&
           schubert2025.sourceSpec.transcriptionMode === "exact" &&
           schubert2025.score.layout === "piano" &&
-          [joel2025, joelContext2025]
-            .every((question) =>
-              question.sourceType === "original-practice" &&
-              question.source.adaptedFrom &&
-              /Original Cadence Lab adaptation/.test(question.score.caption)
-            ) &&
+          [joel2025, joelContext2025].every((question) =>
+            question.sourceType === "nzqa-reference" &&
+            question.sourceSpec.transcriptionMode === "exact" &&
+            question.score.layout === "vocal-piano"
+          ) &&
           bach2025.score.measures.length === 5 &&
           bachModulation2025.score.measures.length === 12 &&
-          joelContext2025.score.measures.length === 6,
+          joelContext2025.score.measures.length === 19,
         noApproximatePracticeAssessmentReferencesRemain:
           !questions.some((question) =>
             question.sourceType === "practice-assessment-reference"
@@ -645,7 +645,7 @@
           bach2025.sourceSpec.romanNumerals.length === 15 &&
           schubert2025.sourceSpec.romanNumerals.length === 13 &&
           JSON.stringify(joel2025.sourceSpec.chordSymbols) === JSON.stringify([
-            "C", "E7", "Am7", "Gm(add4)", "C7", "F", "A7", "Dm7",
+            "E7", "Am7", "Gm(add4)", "C7", "F", "A7", "Dm7",
             "B♭9", "B♭7", "C",
           ]),
         adaptedPianoStudiesPreservePaperCompletionContracts:

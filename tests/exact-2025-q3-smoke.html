@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en-NZ">
+<head><meta charset="utf-8"><title>2025 Q3 exact-source production smoke test</title></head>
+<body data-status="running">
+<iframe id="app" title="Cadence Lab production frame" style="width:1100px;height:950px"></iframe>
+<div id="responsive-renders" style="position:absolute;left:-3000px;top:0"></div>
+<pre id="results">Running…</pre>
+<script>
+  const frame = document.querySelector('#app');
+  const results = document.querySelector('#results');
+  const assertions = {};
+  const details = {};
+  const assert = (name, condition, detail = null) => {
+    assertions[name] = Boolean(condition);
+    if (!condition && detail != null) details[name] = detail;
+  };
+  function finish(error = null) {
+    if (error) details.error = error.stack || String(error);
+    const passed = !error && Object.values(assertions).every(Boolean);
+    document.body.dataset.status = passed ? 'pass' : 'fail';
+    results.textContent = JSON.stringify({passed, assertions, details}, null, 2);
+  }
+  addEventListener('error', event => finish(event.error || event.message));
+  addEventListener('unhandledrejection', event => finish(event.reason));
+
+  frame.addEventListener('load', async () => {
+    try {
+      const w = frame.contentWindow;
+      const d = frame.contentDocument;
+      const lab = w.CadenceLab;
+      const renderer = w.CadenceScoreRenderer;
+      const structured = w.CadenceStructuredAnswer;
+      const playback = w.CadencePlayback;
+      const validator = w.CadenceQuestionValidator?.report;
+      const questions = lab?.questions || [];
+      const byId = id => questions.find(question => question.id === id);
+      const eventSignature = event => {
+        const pitch = event.rest ? 'R' : (event.pitches || [event.pitch]).join('+');
+        const tuplet = event.tuplet ? `{${event.tuplet.numNotes}:${event.tuplet.notesOccupied}}` : '';
+        return `${pitch}/${event.duration}${tuplet}${event.tieToNext ? '~' : ''}`;
+      };
+      const streamSignatures = (measure, staff) => (measure.staffVoices[staff] || [])
+        .map(stream => stream.events.map(eventSignature).join('|'));
+      const ids = ['nzqa-2025-joel-chords', 'nzqa-2025-joel-context', 'nzqa-2025-joel-piano'];
+      const [q3a, q3b, q3c] = ids.map(byId);
+
+      assert('production-validator-valid', validator?.valid === true, validator?.errors);
+      assert('fourteen-exact-references-nine-from-2025', validator?.referenceCount === 14 && questions.filter(question => question.sourceType === 'nzqa-reference' && question.source?.year === 2025).length === 9, validator);
+      assert('three-existing-q3-ids-upgraded-in-place', ids.every(id => questions.filter(question => question.id === id).length === 1) && questions.length === 50);
+      assert('q3a-b-c-are-exact-question-three', [q3a, q3b, q3c].every((question, index) =>
+        question?.sourceType === 'nzqa-reference' && question.sourceSpec?.transcriptionMode === 'exact' &&
+        question.source?.question === 'Question Three' && question.source?.part === `(${String.fromCharCode(97 + index)})` &&
+        question.score.layout === 'vocal-piano'
+      ));
+
+      const exactChordRoute = ['E7', 'Am7', 'Gm(add4)', 'C7', 'F', 'A7', 'Dm7', 'B♭9', 'B♭7', 'C'];
+      assert('q3a-exact-ten-answer-route', JSON.stringify(q3a.sourceSpec.chordSymbols) === JSON.stringify(exactChordRoute) && q3a.score.harmonicEvents.filter(event => event.answerRole === 'editable').length === 10);
+      assert('q3a-supplied-symbols-are-not-answer-slots', JSON.stringify(q3a.score.sourceChordLabels.map(item => item.label)) === JSON.stringify(['C', 'E7(#9)']) && q3a.interaction.slots.length === 10);
+      assert('q3a-standard-builder-can-produce-every-answer', exactChordRoute.every((label, index) => {
+        const parsed = structured.parseJazzChordSymbol(label);
+        return parsed && structured.formatJazzChord(parsed) === q3a.interaction.slots[index].acceptedAnswers[0].label;
+      }));
+      assert('q3a-box-slot-onset-contract-is-one-to-one', (() => {
+        const editable = q3a.score.harmonicEvents.filter(event => event.answerRole === 'editable');
+        const eventSlots = editable.map(event => event.answerSlotId);
+        const interactionSlots = q3a.interaction.slots.map(slot => slot.id);
+        const onsets = editable.map(event => `${event.measure}:${event.beat}`);
+        return editable.length === 10 && new Set(eventSlots).size === 10 &&
+          JSON.stringify(eventSlots) === JSON.stringify(interactionSlots) && new Set(onsets).size === 10;
+      })());
+      assert('q3a-bar5-restores-the-printed-short-bass-run', JSON.stringify(streamSignatures(q3a.score.measures[0], 'bass')) === JSON.stringify([
+        'E3/h|E3+G3+C4/h',
+        'C2/h|R/h',
+      ]) && JSON.stringify(q3a.score.measures[0].staffVoices.bass[0].events[0].graceNotes) === JSON.stringify([
+        {pitch: 'G3', duration: '16'}, {pitch: 'Gb3', duration: '16'}, {pitch: 'F3', duration: '16'},
+      ]), streamSignatures(q3a.score.measures[0], 'bass'));
+      assert('q3a-bars6-13-do-not-duplicate-bass-chords-as-whole-note-treble-voices',
+        [1, 2, 4, 5, 6, 7].every(index => q3a.score.measures[index].staffVoices.treble.length === 1)
+      );
+      const q3aHintLabels = q3a.interaction.bank.map(token => token.label);
+      assert('q3a-optional-hint-is-limited-and-does-not-expose-the-ten-answer-route',
+        q3aHintLabels.length <= 5 && !exactChordRoute.every(label => q3aHintLabels.includes(label)), q3aHintLabels
+      );
+
+      assert('q3b-is-full-nineteen-bar-bridge', q3b.score.measures.length === 19 && q3b.score.barNumbers[0] === 24 && q3b.score.barNumbers.at(-1) === 42);
+      assert('q3b-has-two-large-written-fields', q3b.interaction.reflectionOnly === true && q3b.interaction.fields.length === 2 && q3b.interaction.fields.map(field => field.id).join(',') === 'harmonic-rhythm,tonality-features');
+      assert('q3b-does-not-request-a-duplicate-model-score', q3b.interaction.type === 'contextual-analysis' && !q3b.score.modelScore);
+      assert('q3b-prompts-do-not-leak-schedule-evidence', q3b.hiddenConceptTerms.every(term =>
+        ![q3b.studentTitle, q3b.studentContext, ...q3b.interaction.fields.flatMap(field => [field.label, field.prompt])]
+          .join(' ').toLowerCase().includes(term.toLowerCase())
+      ));
+
+      const targetMeasures = q3c.sourceSpec.completionContract.targetMeasures.map(number => q3c.score.measures[number - 1]);
+      assert('q3c-paper-only-ten-harmony-contract', q3c.interaction.type === 'paper-completion' && q3c.interaction.chordsToRealise === 10 && q3c.score.harmonicEvents.length === 10);
+      assert('q3c-bar14-and-second-ending-remain-supplied', JSON.stringify(q3c.score.measures[0].staffVoices) === JSON.stringify(q3c.score.measures[0].questionStaffVoices) && JSON.stringify(q3c.score.measures[9].staffVoices) === JSON.stringify(q3c.score.measures[9].questionStaffVoices));
+      assert('q3c-target-piano-is-masked-but-vocal-retained', targetMeasures.every(measure =>
+        measure.questionStaffVoices.treble.length === 0 && measure.questionStaffVoices.bass.length === 0 &&
+        JSON.stringify(measure.questionStaffVoices.vocal) === JSON.stringify(measure.staffVoices.vocal)
+      ));
+      assert('q3c-source-cues-and-navigation-preserved', q3c.score.rhythmCues.length === 12 && q3c.score.endings.length === 2 && q3c.score.endings[0].navigation === 'D.S. al Coda' && q3c.score.measures[8].endBarline === 'repeat-end');
+      assert('q3c-answer-heading-is-required-wording', q3c.answerHeading === 'One possible model completion');
+      const expectedQ3cTreble = [
+        ['A4/q|G4/h|R/8{3:2}|E4/8{3:2}|D4/8{3:2}', 'C4+E4/h|B3+C4+E4/h'],
+        ['E4/8|A4/qd|C5/8|B4/8|B4/q~', 'A3+C4/h|G3+C4/h'],
+        ['B4/h|R/h', 'F#3+A3+C4+E4/qd|E4/8|A4+C5/8|C5+E5/8|E4/8|A3/8'],
+        ['R/h|R/q|G4/8{3:2}|A4/8{3:2}|G4/8{3:2}', 'A3+C4+Eb4+G4/w'],
+        ['A4/8|B4/qd~|B4/q|A4/8|F4/8', 'G4/w'],
+        ['E4/h|R/h', 'G3+A3+C4+E4/hd|F#3+A3+C4+D4/q~'],
+        ['F#3+A3+C4+D4/qd|E4/8|B4+E5/8|C5+E5/8|E4/8|C4/8'],
+        ['G3+A3+C4+E4/hd|G3+B3+D4/q~'],
+        ['G3+B3+D4/q{3:2}|A3/8{3:2}|A3/8{3:2}|B3/8{3:2}|D4/8{3:2}|F3+A3+C4+D4/q|D4/q'],
+        ['G3+A3+C4+E4/hd|G3+B3+D4/q'],
+      ];
+      const expectedQ3cBass = [
+        ['A2+E3/h|G2+E3/h'], ['F2+C3/h|E2+C3/h'], ['D2/w'], ['F2/w'],
+        ['G2/h|F3+A3+B3+D4/h'], ['A2/hd|D2/q~'], ['D2/w'],
+        ['A2/hd|G2/q~'], ['G2/h|G2/h'], ['A2/hd|G2/q'],
+      ];
+      assert('q3c-bar14-independent-piano-voices-match-the-published-style-model',
+        JSON.stringify(streamSignatures(q3c.score.measures[0], 'treble')) === JSON.stringify(expectedQ3cTreble[0]) &&
+        JSON.stringify(streamSignatures(q3c.score.measures[0], 'bass')) === JSON.stringify(expectedQ3cBass[0]), {
+          treble: streamSignatures(q3c.score.measures[0], 'treble'), bass: streamSignatures(q3c.score.measures[0], 'bass'),
+        }
+      );
+      assert('q3c-model-bars15-22-lock-pitches-rhythms-tuplets-and-ties',
+        q3c.score.measures.every((measure, index) =>
+          JSON.stringify(streamSignatures(measure, 'treble')) === JSON.stringify(expectedQ3cTreble[index]) &&
+          JSON.stringify(streamSignatures(measure, 'bass')) === JSON.stringify(expectedQ3cBass[index])
+        ), q3c.score.measures.map((measure, index) => ({
+          bar: q3c.score.barNumbers[index], treble: streamSignatures(measure, 'treble'), bass: streamSignatures(measure, 'bass'),
+        }))
+      );
+      assert('q3c-source-tuplets-and-cross-bar-ties-are-explicit',
+        q3c.score.measures[0].staffVoices.treble[0].events.slice(-3).every(event => event.tuplet?.numNotes === 3) &&
+        q3c.score.measures[8].staffVoices.treble[0].events.slice(0, 5).every(event => event.tuplet?.numNotes === 3) &&
+        q3c.score.measures[5].staffVoices.treble[1].events.at(-1).tieToNext === true &&
+        q3c.score.measures[7].staffVoices.treble[0].events.at(-1).tieToNext === true
+      );
+      const bar19D7 = q3c.score.measures[5].staffVoices.treble[1].events.at(-1);
+      const bar20TiedD7 = q3c.score.measures[6].staffVoices.treble[0].events[0];
+      assert('q3c-bar19-to-20-ties-f-sharp-a-c-d-pitch-for-pitch',
+        bar19D7.tieToNext === true &&
+        JSON.stringify(bar19D7.pitches) === JSON.stringify(['F#3', 'A3', 'C4', 'D4']) &&
+        JSON.stringify(bar20TiedD7.pitches) === JSON.stringify(['F#3', 'A3', 'C4', 'D4']) &&
+        bar19D7.pitches.every((pitch, index) => pitch === bar20TiedD7.pitches[index]), {
+          from: bar19D7.pitches, to: bar20TiedD7.pitches,
+        }
+      );
+      const q3cQuestionTimeline = playback.buildTimeline(playback.questionOnlyScore(q3c.score));
+      const q3cModelTimeline = playback.buildTimeline(q3c.score);
+      assert('q3c-question-and-model-playback-timelines-validate',
+        q3cQuestionTimeline.totalBeats === 40 && q3cModelTimeline.totalBeats === 40 &&
+        q3cQuestionTimeline.notes.length < q3cModelTimeline.notes.length &&
+        [q3cQuestionTimeline, q3cModelTimeline].every(timeline => timeline.notes.every(note =>
+          note.startBeat + note.durationBeats <= timeline.totalBeats
+        ))
+      );
+
+      const responsive = document.querySelector('#responsive-renders');
+      [1000, 780, 390].forEach(width => {
+        [q3a, q3b, q3c].forEach(question => {
+          const target = document.createElement('div');
+          responsive.append(target);
+          renderer.render(target, question.score, {width, showAnswer:false});
+          assert(`${question.id}-renders-at-${width}`, target.dataset.layout === 'vocal-piano' && Number(target.dataset.systemCount) > 0 && Boolean(target.querySelector('svg')));
+          assert(`${question.id}-has-three-staff-voice-groups-at-${width}`, Number(target.dataset.independentStaffMeasureCount) === question.score.measures.length);
+          const expectedSystems = question.id === q3a.id ? [2, 3, 4] : question.id === q3b.id ? [5, 5, 5, 4] : [3, 4, 3];
+          assert(`${question.id}-retains-source-system-grouping-at-${width}`, target.dataset.systemMeasureCounts === JSON.stringify(expectedSystems), target.dataset.systemMeasureCounts);
+        });
+      });
+
+      lab.showQuestion(q3a.id);
+      const visibleHintLabels = [...d.querySelectorAll('#structured-controls .hint-bank .chord-token')].map(button => button.textContent.trim());
+      assert('q3a-visible-hint-content-does-not-contain-all-ten-model-symbols',
+        visibleHintLabels.length <= 5 && !exactChordRoute.every(label => visibleHintLabels.includes(label)), visibleHintLabels
+      );
+      assert('q3a-production-renders-ten-blank-boxes-and-two-source-labels',
+        d.querySelector('#score')?.dataset.blankEditableAnalysisBoxCount === '10' &&
+        d.querySelectorAll('#score .analysis-box-editable').length === 10 &&
+        d.querySelector('#score')?.dataset.sourceChordLabelCount === '2' &&
+        d.querySelectorAll('#score .source-chord-label').length === 2
+      );
+      assert('q3a-submit-succeeds', lab.submit({skipConfirmation:true, noScroll:true}) === true);
+      await new Promise(resolve => w.setTimeout(resolve, 0));
+      assert('q3a-published-model-labels-reveal-separately',
+        d.querySelector('#score')?.dataset.scoreMode === 'question' &&
+        d.querySelector('#model-score-wrap')?.hidden === false &&
+        d.querySelectorAll('#model-score .analysis-box-label').length === 10
+      );
+
+      lab.showQuestion(q3b.id);
+      assert('q3b-schedule-terms-remain-hidden-before-submit',
+        !d.body.innerText.includes('1–1–2') && !d.body.innerText.toLowerCase().includes('circle of fifths') &&
+        d.querySelector('#model-score-wrap')?.hidden === true
+      );
+      assert('q3b-submit-succeeds', lab.submit({skipConfirmation:true, noScroll:true}) === true);
+      await new Promise(resolve => w.setTimeout(resolve, 0));
+      assert('q3b-reveals-schedule-evidence-without-duplicate-score',
+        d.querySelector('#answer-copy')?.innerText.includes('1–1–2') &&
+        d.querySelector('#answer-copy')?.innerText.toLowerCase().includes('circle-of-fifths') &&
+        d.querySelector('#model-score-wrap')?.hidden === true
+      );
+
+      lab.showQuestion(q3c.id);
+      assert('q3c-question-renders-native-rhythm-cues', d.querySelector('#score')?.dataset.sourceRhythmCueCount === '12' && d.querySelectorAll('#score .vf-source-rhythm-cue').length === 12);
+      assert('q3c-question-renders-two-endings', d.querySelector('#score')?.dataset.sourceEndingCount === '2' && d.querySelectorAll('#score .source-ending-bracket').length === 2);
+      assert('q3c-all-printed-chord-indications-remain-visible', d.querySelectorAll('#score .source-chord-label').length === q3c.score.sourceChordLabels.length);
+      assert('q3c-question-shows-no-piano-model-pitches-in-target', q3c.sourceSpec.completionContract.blankTargetStaffVoices.join(',') === 'treble,bass');
+      lab.submit({skipConfirmation:true, noScroll:true});
+      assert('q3c-model-score-appears-only-after-submit', lab.isSubmitted() && !d.querySelector('#model-score-wrap').hidden && d.querySelector('#model-score')?.dataset.scoreMode === 'model');
+      assert('q3c-model-retains-ten-measure-layout', d.querySelector('#model-score')?.dataset.measureCount === '10');
+      finish();
+    } catch (error) { finish(error); }
+  });
+  frame.src = '../index.html?question=nzqa-2025-joel-chords&v=2026-09-score-ui-44';
+</script>
+</body>
+</html>

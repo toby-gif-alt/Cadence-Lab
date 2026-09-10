@@ -2,7 +2,7 @@
 <html lang="en-NZ">
 <head><meta charset="utf-8"><title>2025 Q1 production-loading smoke test</title></head>
 <body data-status="running">
-<iframe id="app" title="Cadence Lab production frame" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-26" style="width:1100px;height:950px"></iframe>
+<iframe id="app" title="Cadence Lab production frame" src="../index.html?question=nzqa-2025-bach-analysis&amp;v=2026-09-score-ui-38" style="width:1100px;height:950px"></iframe>
 <pre id="results">Running…</pre>
 <script>
   const frame = document.querySelector('#app');
@@ -33,10 +33,10 @@
       assert('production-app-loaded', Boolean(lab));
       assert('production-validator-valid', validator?.valid === true, validator?.errors);
       assert('production-display-audit-valid', displayAudit?.valid === true, displayAudit?.errors);
-      assert('production-has-eleven-exact-nzqa-references', validator?.referenceCount === 11, validator?.referenceCount);
+      assert('production-has-fourteen-exact-nzqa-references', validator?.referenceCount === 14, validator?.referenceCount);
       const yearState = lab.referenceYearState('nzqa-reference');
-      assert('production-has-six-2025-references', yearState.counts?.[2025] === 6, yearState);
-      assert('production-year-option-shows-2025-count', [...d.querySelector('#source-year').options].some(option => option.value === '2025' && option.textContent === '2025 (6)' && !option.disabled));
+      assert('production-has-nine-2025-references', yearState.counts?.[2025] === 9, yearState);
+      assert('production-year-option-shows-2025-count', [...d.querySelector('#source-year').options].some(option => option.value === '2025' && option.textContent === '2025 (9)' && !option.disabled));
 
       let current = lab.getCurrentQuestion();
       assert('q1a-request-loads-exact-reference', current?.id === 'nzqa-2025-bach-analysis' && current.sourceSpec?.transcriptionMode === 'exact');

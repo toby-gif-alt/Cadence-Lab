@@ -152,17 +152,24 @@
       const bankLabels = (interaction.bank || []).map((token) => token.label);
       const requiredLabels = slots.map((slot) => slot.acceptedAnswers[0]?.label);
       const count = (items, value) => items.filter((item) => item === value).length;
-      [...new Set(requiredLabels)].forEach((label) => {
-        if (count(bankLabels, label) !== count(requiredLabels, label)) {
-          errors.push(`${question.id}: chord bank multiplicity for ${label} does not match editable answers`);
+      if (interaction.hintBankMode === "limited-vocabulary") {
+        if (!bankLabels.length || bankLabels.length > 6 ||
+            requiredLabels.every((label) => bankLabels.includes(label))) {
+          errors.push(`${question.id}: limited vocabulary hint must remain small and must not expose the full answer route`);
         }
-      });
-      const accepted = new Set(slots.flatMap((slot) =>
-        slot.acceptedAnswers.map((answer) => answer.label)
-      ));
-      const distractors = bankLabels.filter((label) => !requiredLabels.includes(label));
-      if (!distractors.length || distractors.some((label) => accepted.has(label))) {
-        errors.push(`${question.id}: chord bank needs controlled, non-answer distractors`);
+      } else {
+        [...new Set(requiredLabels)].forEach((label) => {
+          if (count(bankLabels, label) !== count(requiredLabels, label)) {
+            errors.push(`${question.id}: chord bank multiplicity for ${label} does not match editable answers`);
+          }
+        });
+        const accepted = new Set(slots.flatMap((slot) =>
+          slot.acceptedAnswers.map((answer) => answer.label)
+        ));
+        const distractors = bankLabels.filter((label) => !requiredLabels.includes(label));
+        if (!distractors.length || distractors.some((label) => accepted.has(label))) {
+          errors.push(`${question.id}: chord bank needs controlled, non-answer distractors`);
+        }
       }
     }
   }
@@ -356,12 +363,15 @@
         return;
       }
       if (measure.staffVoices) {
+        const staffNames = question.score.layout === "vocal-piano"
+          ? ["vocal", "treble", "bass"]
+          : ["treble", "bass"];
         [
           ["staffVoices", measure.staffVoices],
           ["questionStaffVoices", measure.questionStaffVoices],
         ].forEach(([sourceName, staffStreams]) => {
           if (!staffStreams) return;
-          ["treble", "bass"].forEach((staff) => {
+          staffNames.forEach((staff) => {
             (staffStreams[staff] || []).forEach((voice, voiceIndex) => {
               const actual = (voice.events || []).reduce(
                 (sum, event) =>
@@ -403,10 +413,23 @@
       }
       const noteEvent = noteEvents.get(harmonicEvent._index);
       if (harmonicEvent.validationPitches) {
-        const displayedPitches = SATB_NAMES.flatMap((voiceName) => {
-          const value = noteEvent?.voices?.[voiceName];
-          return value == null ? [] : Array.isArray(value) ? value : [value];
-        }).concat(noteEvent?.treble || [], noteEvent?.bass || []);
+        const spanEvents = harmonicEvent.validationScope === "harmonic-span"
+          ? (() => {
+              const startBeat = harmonicEvent.beat || 1;
+              const nextBeat = harmonicEvents.find((candidate) =>
+                candidate.measure === harmonicEvent.measure &&
+                (candidate.beat || 1) > startBeat
+              )?.beat || Infinity;
+              return (normalized.measures[harmonicEvent.measure - 1]?.events || [])
+                .filter((event) => event._beat >= startBeat && event._beat < nextBeat);
+            })()
+          : [noteEvent];
+        const displayedPitches = spanEvents.flatMap((event) =>
+          SATB_NAMES.flatMap((voiceName) => {
+            const value = event?.voices?.[voiceName];
+            return value == null ? [] : Array.isArray(value) ? value : [value];
+          }).concat(event?.treble || [], event?.bass || [])
+        );
         const displayedPitchClasses = new Set(
           displayedPitches.map((pitch) =>
             renderer.pitchClass(renderer.parsePitch(pitch))
@@ -1102,7 +1125,7 @@
         });
       });
       if (measure.staffVoices && measure.questionStaffVoices) {
-        ["treble", "bass"].forEach((staff) => {
+        Object.keys(measure.staffVoices).forEach((staff) => {
           (measure.questionStaffVoices[staff] || []).forEach((questionVoice) => {
             const modelVoice = (measure.staffVoices[staff] || []).find(
               (voice) => voice.role === questionVoice.role
@@ -1263,6 +1286,19 @@
         (measure) => measure.staffVoices
       );
       if (usesIndependentStaffVoices) {
+        const staffNames = spec.staffLayout === "vocal-piano"
+          ? ["vocal", "treble", "bass"]
+          : ["treble", "bass"];
+        compareList("staffNames", staffNames);
+        if (question.score.measures.some((measure) =>
+          !measure.staffVoices || staffNames.some(
+            (staff) => !Array.isArray(measure.staffVoices[staff])
+          )
+        )) {
+          sourceFidelityErrors.push(
+            `${question.id}: exact ${spec.staffLayout || "staff"} reference omits a required staff stream`
+          );
+        }
         if (!Array.isArray(spec.perMeasureStaffVoiceEventCounts) ||
             !Array.isArray(spec.staffVoiceRhythmSignatures)) {
           sourceFidelityErrors.push(
@@ -1270,7 +1306,7 @@
           );
         }
         const staffVoiceCounts = (sourceName) => question.score.measures.map(
-          (measure) => Object.fromEntries(["treble", "bass"].map((staff) => [
+          (measure) => Object.fromEntries(staffNames.map((staff) => [
             staff,
             (measure[sourceName]?.[staff] || []).map(
               (voice) => (voice.events || []).length
@@ -1278,7 +1314,7 @@
           ]))
         );
         const staffVoiceRhythms = (sourceName) => question.score.measures.map(
-          (measure) => Object.fromEntries(["treble", "bass"].map((staff) => [
+          (measure) => Object.fromEntries(staffNames.map((staff) => [
             staff,
             (measure[sourceName]?.[staff] || []).map(
               (voice) => durationSignature(voice.events)
@@ -1336,6 +1372,10 @@
     compareList(
       "suppliedLabels",
       harmonicEvents.map((event) => event.questionLabel).filter(Boolean)
+    );
+    compareList(
+      "sourceChordLabels",
+      (question.score.sourceChordLabels || []).map((event) => event.label)
     );
     compareList(
       "sections",
@@ -1586,7 +1626,9 @@
           const containsPitch = (staffVoice) => staffVoice.events?.some(
             (event) => event.pitch || event.pitches?.length
           );
-          return treble.filter(containsPitch).length >= 2 && bass.some(containsPitch);
+          const requiredTrebleVoices = question.score.layout === "vocal-piano" ? 1 : 2;
+          return treble.filter(containsPitch).length >= requiredTrebleVoices &&
+            bass.some(containsPitch);
         }
         return measure?.events?.some((event) =>
           (event.treble || []).length && (event.bass || []).length
@@ -1612,6 +1654,24 @@
         if (!targetsAreBlank) {
           sourceFidelityErrors.push(
             `${question.id}: source completion contract leaks model voice pitches into the target region`
+          );
+        }
+      }
+      if (Array.isArray(contract.blankTargetStaffVoices)) {
+        const targetsAreBlank = targetMeasures.every(({ measure }) =>
+          measure?.questionStaffVoices &&
+          contract.blankTargetStaffVoices.every((staff) =>
+            Array.isArray(measure.questionStaffVoices[staff]) &&
+            measure.questionStaffVoices[staff].every((voice) =>
+              (voice.events || []).every(
+                (event) => !event.pitch && !event.pitches?.length
+              )
+            )
+          )
+        );
+        if (!targetsAreBlank) {
+          sourceFidelityErrors.push(
+            `${question.id}: source completion contract leaks model piano pitches into the target region`
           );
         }
       }

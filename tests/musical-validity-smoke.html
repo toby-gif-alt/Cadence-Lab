@@ -2,7 +2,7 @@
 <html lang="en-NZ">
 <head><meta charset="utf-8"><title>Cadence Lab musical-validity production smoke test</title></head>
 <body data-status="running">
-<iframe id="app" title="Cadence Lab production application" src="../index.html?question=nzqa-2025-bach-satb&amp;v=2026-09-score-ui-26" style="width:1100px;height:1000px"></iframe>
+<iframe id="app" title="Cadence Lab production application" src="../index.html?question=nzqa-2025-bach-satb&amp;v=2026-09-score-ui-38" style="width:1100px;height:1000px"></iframe>
 <pre id="results">Running…</pre>
 <script>
 const frame=document.querySelector('#app'),out=document.querySelector('#results'),assertions={},details={};
@@ -74,9 +74,9 @@ frame.addEventListener('load',async()=>{try{
   unplayable.score.measures[1].staffVoices.treble.find(voice=>voice.role==='inner').events[1].pitches=['C4','E6'];
   const unplayableWarnings=validator.reviewPianoPlayability(unplayable,renderer.normalizeMeasures(unplayable.score));
   assert('piano-audit-warns-for-wide-or-misassigned-inner-voicing',unplayableWarnings.some(warning=>warning.code==='hand-span-over-octave')&&unplayableWarnings.some(warning=>warning.code==='inner-above-melody'),unplayableWarnings);
-  const joelPiano=byId('nzqa-2025-joel-piano'),f9=joelPiano.score.measures[3].events[0];
+  const joelPiano=byId('nzqa-2025-joel-piano'),f9=joelPiano.score.measures[3].staffVoices.treble[0].events[0],f9Bass=joelPiano.score.measures[3].staffVoices.bass[0].events[0];
   const midi=pitch=>{const parsed=renderer.parsePitch(pitch);return(parsed.octave+1)*12+renderer.pitchClass(parsed);};
-  assert('joel-f9-is-close-playable-and-preserves-top-and-bass',Math.max(...f9.treble.map(midi))-Math.min(...f9.treble.map(midi))<=12&&f9.treble.at(-1)==='G5'&&f9.bass[0]==='F2');
+  assert('joel-f9-is-close-playable-and-preserves-top-and-bass',Math.max(...f9.pitches.map(midi))-Math.min(...f9.pitches.map(midi))<=12&&f9.pitches.at(-1)==='G4'&&f9Bass.pitch==='F2',{f9,f9Bass});
 
   const ashFunction=byId('practice-2022-asharp-function');
   assert('asharp-function-uses-displayed-location-without-redundant-pitch-field',ashFunction.studentContext.includes('displayed bar 1')&&!ashFunction.interaction.fields.some(field=>field.id==='altered-note'));
