@@ -1805,12 +1805,12 @@ const questionBank = [
     homeKey: "C major",
     keyRegions: [
       { section: "X", localKey: "G major", modelRelationship: "dominant" },
-      { section: "Y", localKey: "E minor", modelRelationship: "mediant minor" },
+      { section: "Y", localKey: "E minor", modelRelationship: "relative minor of the dominant" },
     ],
     sourceType: "original-practice",
     source: originalSource("Two temporary key centres from C major"),
     family: "Keys and modulation",
-    title: "Original: dominant then mediant minor",
+    title: "Original: dominant then relative minor of the dominant",
     context:
       "Identify X and Y, give exact cadence evidence, and state each relationship to the C-major tonic.",
     score: measuredScore({
@@ -1840,7 +1840,7 @@ const questionBank = [
     answerHeading: "Keys, evidence and relationships",
     answer: [
       "<strong>X: G major.</strong> F♯ and the D7–G perfect cadence establish the dominant key.",
-      "<strong>Y: E minor.</strong> D♯ and B7–Em establish the mediant minor, which is also G major’s relative minor.",
+      "<strong>Y: E minor.</strong> D♯ and B7–Em establish the relative minor of the dominant.",
     ],
   }),
   createQuestion({
@@ -4184,6 +4184,58 @@ const questionBank = [
     answerHeading: "Practice-schedule contextual evidence",
     answer: ["The practice schedule's tonal route is E minor–A major–B major–E minor. This original adaptation demonstrates it with the A-major melody in displayed bar 2 sequenced a step higher in B major in displayed bar 3, then a dominant-to-tonic return. Marker 1 is a G–A–G upper neighbour, marker 2 is the unaccented A–B–C♯ passing note, and marker 3 is the accented D♯–E–F♯ passing note. In this Cadence Lab adaptation only, the two half-note harmonies in the final bar quicken the harmonic rhythm into the cadence."],
   }),
+  // These three shells reserve stable production IDs. exact-2024-q2.js replaces
+  // every source, score, interaction and answer field before validation runs.
+  ...[
+    ["nzqa-2024-rimsky-analysis", "analysis", "(a)(i)", "Roman analysis of Extract Four"],
+    ["nzqa-2024-rimsky-context", "features", "(a)(ii)", "Contextual analysis of Extract Four"],
+    ["nzqa-2024-rimsky-piano", "piano", "(b)", "Piano completion of Extract Five"],
+  ].map(([id, category, part, title]) => createQuestion({
+    id,
+    category,
+    sourceType: "nzqa-reference",
+    source: nzqaSource(
+      2024,
+      "Question Two",
+      part,
+      part.startsWith("(a)") ? "Extract Four" : "Extract Five",
+      "Nikolai Rimsky-Korsakov",
+      "Two Piano Pieces",
+      "exam pp.4–6; schedule pp.6–7",
+      part.startsWith("(a)") ? "1–25" : "90–96"
+    ),
+    family: title,
+    title: `Reference: ${title}`,
+    context: "Exact 2024 Question Two source data loads with the production bank.",
+    presentation: {
+      title: `Reference: ${title}`,
+      context: "Exact 2024 Question Two source data loads with the production bank.",
+      hiddenConceptTerms: [],
+    },
+    sourceSpec: {
+      transcriptionMode: "exact",
+      year: 2024,
+      provider: "NZQA",
+      question: "Question Two",
+      part,
+      bars: part.startsWith("(a)") ? "1–25" : "90–96",
+      printedBars: part.startsWith("(a)") ? "1–25" : "90–96",
+      printedMeasureCount: part.startsWith("(a)") ? 25 : 7,
+      staffLayout: "piano",
+      perMeasureStaffVoiceEventCounts: [],
+      staffVoiceRhythmSignatures: [],
+    },
+    score: measuredScore({
+      key: "F♯ minor",
+      keySignature: "F#m",
+      timeSignature: "3/4",
+      layout: "piano",
+      measures: [],
+      harmonicEvents: [],
+    }),
+    answerHeading: "Published schedule evidence",
+    answer: [],
+  })),
 ];
 
 window.CadenceData = Object.freeze({

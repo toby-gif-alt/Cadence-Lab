@@ -56,9 +56,10 @@
 
       const nzqaRefs = questions.filter(question => question.sourceType === 'nzqa-reference');
       const practiceRefs = questions.filter(question => question.sourceType === 'practice-assessment-reference');
-      assert('current-source-counts-are-production-counts', nzqaRefs.length === 14 && practiceRefs.length === 0, {nzqa:nzqaRefs.length, practice:practiceRefs.length});
+      assert('current-source-counts-are-production-counts', nzqaRefs.length === 17 && practiceRefs.length === 0, {nzqa:nzqaRefs.length, practice:practiceRefs.length});
       assert('every-retained-reference-is-exact', nzqaRefs.every(question => question.sourceSpec?.transcriptionMode === 'exact'));
       assert('nine-exact-2025-references-are-live', nzqaRefs.filter(question => question.source?.year === 2025).length === 9);
+      assert('five-exact-2024-references-are-live', nzqaRefs.filter(question => question.source?.year === 2024).length === 5);
 
       const sourceSelect = d.querySelector('#source-type');
       const yearSelect = d.querySelector('#source-year');
@@ -77,12 +78,13 @@
       change(sourceSelect, 'nzqa-reference');
       const yearOptions = Object.fromEntries([...yearSelect.options].map(option => [option.value || 'all', {text:option.textContent, disabled:option.disabled}]));
       assert('nzqa-filter-shows-current-examination-years', !yearField.hidden && yearLabel.textContent === 'Examination year' &&
-        yearOptions.all.text === 'All years (14)' && yearOptions['2025'].text === '2025 (9)' && !yearOptions['2025'].disabled,
+        yearOptions.all.text === 'All years (17)' && yearOptions['2024'].text === '2024 (5)' &&
+        yearOptions['2025'].text === '2025 (9)' && !yearOptions['2025'].disabled,
         yearOptions);
 
       change(sourceSelect, 'nzqa-reference');
       change(yearSelect, '2024');
-      change(categorySelect, 'piano');
+      change(categorySelect, 'modulation');
       assert('empty-category-fallback-preserves-source-and-year', categorySelect.value === 'mixed' &&
         lab.getCurrentQuestion()?.sourceType === 'nzqa-reference' && lab.getCurrentQuestion()?.source?.year === 2024,
         {category:categorySelect.value, question:lab.getCurrentQuestion()?.id});
@@ -110,14 +112,22 @@
 
       const relationshipChecks = [
         ['G minor','B♭ major','relative major'],
-        ['G minor','E♭ major','submediant'],
+        ['C major','E minor','relative minor of the dominant'],
+        ['G major','B minor','relative minor of the dominant'],
+        ['G minor','F major','relative major of the dominant'],
+        ['G minor','E♭ major','relative major of the subdominant'],
+        ['C minor','A♭ major','relative major of the subdominant'],
         ['B♭ major','E♭ major','subdominant'],
         ['A major','F♯ minor','relative minor'],
       ];
       assert('semantic-key-relationships-remain-correct', relationshipChecks.every(([home, local, expected]) => {
         const result = relationships.relationshipBetween(home, local);
-        return result.canonical === expected || result.acceptedLabels.includes(expected);
+        return result.canonical === expected && result.acceptedLabels.includes(expected);
       }), relationshipChecks.map(([home,local]) => relationships.relationshipBetween(home,local)));
+      assert('compound-related-key-preference-retains-generic-aliases',
+        relationships.relationshipBetween('C major','E minor').acceptedLabels.includes('mediant') &&
+        relationships.relationshipBetween('G minor','E♭ major').acceptedLabels.includes('VI')
+      );
 
       const authoredJazz = questions.filter(question => question.interaction?.type === 'jazz-chord-placement');
       const unsupportedJazz = [];

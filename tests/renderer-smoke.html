@@ -40,16 +40,17 @@
       });
     </script>
     <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-    <script src="../key-relationships.js?v=2026-09-score-ui-26"></script>
-    <script src="../question-bank.js?v=2026-09-score-ui-26"></script>
+    <script src="../key-relationships.js?v=2026-09-score-ui-44"></script>
+    <script src="../question-bank.js?v=2026-09-score-ui-44"></script>
     <script src="../exact-2025-q1-a.js?v=2026-09-score-ui-26"></script>
     <script src="../exact-2025-q1-b.js?v=2026-09-score-ui-26"></script>
     <script src="../exact-2025-q1-c.js?v=2026-09-score-ui-26"></script>
+    <script src="../exact-2024-q2.js?v=2026-09-score-ui-44"></script>
     <script src="../exact-2025-q2.js?v=2026-09-score-ui-32"></script>
     <script src="../exact-2025-q3.js?v=2026-09-score-ui-43"></script>
     <script src="../score-ui-consistency.js?v=2026-09-score-ui-26"></script>
     <script src="../satb-integrity.js?v=2026-09-score-ui-26"></script>
-    <script src="../score-renderer.js?v=2026-09-score-ui-42"></script>
+    <script src="../score-renderer.js?v=2026-09-score-ui-44"></script>
     <script src="../question-validator.js?v=2026-09-score-ui-41"></script>
     <script>
       const renderer = window.CadenceScoreRenderer;
@@ -575,9 +576,9 @@
           validatorReport.legacyCount === 0,
         exactReferenceCountsAreTruthful:
           JSON.stringify(referenceCounts) === JSON.stringify({
-            2021: 1, 2022: 1, 2023: 1, 2024: 2, 2025: 9,
-          }) && retainedReferences.length === 14 &&
-          validatorReport.referenceCount === 14 &&
+            2021: 1, 2022: 1, 2023: 1, 2024: 5, 2025: 9,
+          }) && retainedReferences.length === 17 &&
+          validatorReport.referenceCount === 17 &&
           validatorReport.practiceReferenceCount === 0,
         exact2025Q1Q2Q3AreClassifiedHonestly:
           [bach2025, bachModulation2025].every((question) =>

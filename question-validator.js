@@ -1794,11 +1794,27 @@
 
       const signature = JSON.stringify(question.score.measures);
       if (signatures.has(signature)) {
-        errors.push(
-          `${question.id}: notation duplicates ${signatures.get(signature)}`
+        const existing = signatures.get(signature);
+        const sharedSourceId = question.score.sharedSourceId ||
+          question.sourceSpec?.sharedSourceId;
+        const existingSharedSourceId = existing.score.sharedSourceId ||
+          existing.sourceSpec?.sharedSourceId;
+        const deliberatelySharedSource = Boolean(
+          sharedSourceId &&
+          sharedSourceId === existingSharedSourceId &&
+          question.sourceType === "nzqa-reference" &&
+          existing.sourceType === "nzqa-reference" &&
+          question.source?.year === existing.source?.year &&
+          question.source?.extract === existing.source?.extract &&
+          question.source?.bars === existing.source?.bars
         );
+        if (!deliberatelySharedSource) {
+          errors.push(
+            `${question.id}: notation duplicates ${existing.id}`
+          );
+        }
       } else {
-        signatures.set(signature, question.id);
+        signatures.set(signature, question);
       }
 
     });

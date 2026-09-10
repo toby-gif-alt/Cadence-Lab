@@ -59,7 +59,7 @@
       const completionRoute = ['V', 'ii', 'iib', 'vii°⁷', 'V', 'I', 'V⁷', 'I'];
 
       assert('production-app-and-validator-load', Boolean(lab && renderer) && validator?.valid === true, validator);
-      assert('three-existing-q2-ids-are-upgraded-in-place', ids.every(id => questions.filter(question => question.id === id).length === 1) && questions.length === 50);
+      assert('three-existing-q2-ids-are-upgraded-in-place', ids.every(id => questions.filter(question => question.id === id).length === 1) && questions.length === 53);
       assert('q2a-b-c-are-exact-nzqa-references', [q2a, q2b, q2c].every((question, index) =>
         question?.sourceType === 'nzqa-reference' &&
         question.sourceSpec?.transcriptionMode === 'exact' &&
@@ -67,7 +67,7 @@
         question.source?.question === 'Question Two' &&
         question.source?.part === `(${String.fromCharCode(97 + index)})`
       ));
-      assert('exact-reference-count-now-fourteen', validator?.referenceCount === 14 && questions.filter(question => question.sourceType === 'nzqa-reference' && question.source?.year === 2025).length === 9, validator);
+      assert('exact-reference-count-now-seventeen', validator?.referenceCount === 17 && questions.filter(question => question.sourceType === 'nzqa-reference' && question.source?.year === 2025).length === 9, validator);
 
       assert('q2a-has-supplied-i-plus-twelve-answer-positions',
         q2a.score.harmonicEvents.length === 13 &&
