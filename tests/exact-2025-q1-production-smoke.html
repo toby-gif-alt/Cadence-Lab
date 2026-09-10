@@ -33,7 +33,7 @@
       assert('production-app-loaded', Boolean(lab));
       assert('production-validator-valid', validator?.valid === true, validator?.errors);
       assert('production-display-audit-valid', displayAudit?.valid === true, displayAudit?.errors);
-      assert('production-has-fourteen-exact-nzqa-references', validator?.referenceCount === 14, validator?.referenceCount);
+      assert('production-has-seventeen-exact-nzqa-references', validator?.referenceCount === 17, validator?.referenceCount);
       const yearState = lab.referenceYearState('nzqa-reference');
       assert('production-has-nine-2025-references', yearState.counts?.[2025] === 9, yearState);
       assert('production-year-option-shows-2025-count', [...d.querySelector('#source-year').options].some(option => option.value === '2025' && option.textContent === '2025 (9)' && !option.disabled));

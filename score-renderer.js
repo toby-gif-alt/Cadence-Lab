@@ -776,6 +776,25 @@
     note.addModifier(group);
   }
 
+  function attachOrnament(VF, note, event) {
+    if (!event.ornament || note instanceof VF.GhostNote) return;
+    const type = {
+      trill: "tr",
+      tr: "tr",
+      mordent: "mordent",
+    }[event.ornament];
+    if (!type) throw new Error(`Unsupported ornament: ${event.ornament}`);
+    note.addModifier(new VF.Ornament(type), 0);
+  }
+
+  function attachArpeggio(VF, note, event) {
+    if (!event.arpeggio || note instanceof VF.GhostNote) return;
+    const type = event.arpeggio === "down"
+      ? VF.Stroke.Type.ROLL_DOWN
+      : VF.Stroke.Type.ROLL_UP;
+    note.addModifier(new VF.Stroke(type), 0);
+  }
+
   function splitSatbPitches(pitches, staff, eventIndex) {
     if (!pitches.length) return { upper: [], lower: [] };
     if (pitches.length === 1) {
@@ -1560,6 +1579,8 @@
               staff === "bass" ? "bass" : "treble",
               stemDirection
             );
+            attachOrnament(VF, note, event);
+            attachArpeggio(VF, note, event);
             if (Number.isInteger(event._anchorIndex)) {
               addReference(
                 VF,
@@ -1957,6 +1978,105 @@
       count += 1;
     });
     target.dataset.sourceChordLabelCount = String(count);
+  }
+
+  function drawSourceSlurs(group, target, slurs, references, anchors) {
+    let count = 0;
+    (slurs || []).forEach((slur) => {
+      const first = resolveTieReference(
+        references,
+        slur._fromIndex,
+        slur.staff || "treble",
+        slur.role
+      );
+      const last = resolveTieReference(
+        references,
+        slur._toIndex,
+        slur.staff || "treble",
+        slur.role
+      );
+      const firstAnchor = anchors.get(slur._fromIndex);
+      const lastAnchor = anchors.get(slur._toIndex);
+      if (!first?.note || !last?.note ||
+          firstAnchor?.systemIndex !== lastAnchor?.systemIndex) return;
+      const above = slur.position !== "below";
+      const firstYs = first.note.getYs?.() || [];
+      const lastYs = last.note.getYs?.() || [];
+      if (!firstYs.length || !lastYs.length) return;
+      const firstY = (above ? Math.min(...firstYs) : Math.max(...firstYs)) +
+        (above ? -7 : 7);
+      const lastY = (above ? Math.min(...lastYs) : Math.max(...lastYs)) +
+        (above ? -7 : 7);
+      const firstX = first.note.getAbsoluteX();
+      const lastX = last.note.getAbsoluteX();
+      const arcHeight = Math.max(12, Math.min(28, Math.abs(lastX - firstX) * 0.12));
+      const controlY = (firstY + lastY) / 2 + (above ? -arcHeight : arcHeight);
+      group.appendChild(createSvgElement("path", {
+        class: "source-phrase-slur",
+        d: `M ${firstX} ${firstY} Q ${(firstX + lastX) / 2} ${controlY} ${lastX} ${lastY}`,
+        fill: "none",
+        stroke: "#172033",
+        "stroke-width": 1.25,
+        "stroke-linecap": "round",
+        "data-from-measure": slur.from.measure,
+        "data-to-measure": slur.to.measure,
+      }));
+      count += 1;
+    });
+    target.dataset.sourceSlurCount = String(count);
+  }
+
+  function drawSourceTextAnnotations(group, target, annotations, hitMeasures) {
+    let count = 0;
+    (annotations || []).forEach((annotation) => {
+      const measure = hitMeasures.find(
+        (candidate) => candidate.measure === annotation.measure
+      );
+      if (!measure) return;
+      const beatSpan = Math.max(1, measure.expectedBeats || 4);
+      const beat = Number(annotation.beat) || 1;
+      const endBeat = Number(annotation.endBeat) || beat + 1;
+      const xAtBeat = (value) =>
+        measure.x + ((value - 1) / beatSpan) * (measure.endX - measure.x);
+      const x = xAtBeat(beat);
+      const y = annotation.position === "above"
+        ? measure.topY - 33
+        : annotation.staff === "bass"
+          ? measure.bottomY + 58
+          : measure.bottomY == null
+            ? measure.topY + 64
+            : (measure.topY + measure.bottomY) / 2 + 8;
+      if (["crescendo", "diminuendo"].includes(annotation.type)) {
+        const endX = xAtBeat(endBeat);
+        const startHalfGap = annotation.type === "crescendo" ? 1 : 6;
+        const endHalfGap = annotation.type === "crescendo" ? 6 : 1;
+        [-1, 1].forEach((direction) => {
+          group.appendChild(createSvgElement("path", {
+            class: `source-hairpin source-${annotation.type}`,
+            d: `M ${x} ${y + direction * startHalfGap} L ${endX} ${y + direction * endHalfGap}`,
+            fill: "none",
+            stroke: "#172033",
+            "stroke-width": 1.1,
+            "stroke-linecap": "round",
+            "data-measure": annotation.measure,
+          }));
+        });
+      } else {
+        group.appendChild(createSvgElement("text", {
+          class: "source-text-annotation",
+          x,
+          y,
+          "font-family": "Georgia, 'Times New Roman', serif",
+          "font-size": annotation.size || 13,
+          "font-style": annotation.italic === false ? "normal" : "italic",
+          "font-weight": annotation.bold ? 700 : 400,
+          "data-measure": annotation.measure,
+          "data-beat": beat,
+        }, annotation.text));
+      }
+      count += 1;
+    });
+    target.dataset.sourceTextAnnotationCount = String(count);
   }
 
   function drawEndings(group, target, endings, hitMeasures) {
@@ -2549,7 +2669,9 @@
         ((score.endings || []).length ? 30 : 0);
       // Reserve enough space for boxes after their final y-position is derived
       // from the rendered lower-staff note geometry.
-      const bottomPadding = hasBottomBoxes ? 94 : 8;
+      const bottomPadding = hasBottomBoxes
+        ? Math.max(94, Number(score.bottomAnalysisPadding) || 0)
+        : 8;
       const height = hasTwoStaves
         ? topPadding + staffDistance + 106 + bottomPadding
         : topPadding + 92 + bottomPadding;
@@ -2642,6 +2764,11 @@
     const sourceChordLabels = (score.sourceChordLabels || []).map((label) => ({
       ...label,
       _index: resolveEventIndex(label, normalizedScore),
+    }));
+    const sourceSlurs = (score.sourceSlurs || []).map((slur) => ({
+      ...slur,
+      _fromIndex: resolveEventIndex(slur.from, normalizedScore),
+      _toIndex: resolveEventIndex(slur.to, normalizedScore),
     }));
     if (!score.skipChordValidation) {
       validateHarmonicEvents(normalizedScore, harmonicEvents);
@@ -3145,6 +3272,19 @@
         target,
         sourceChordLabels,
         anchors
+      );
+      drawSourceSlurs(
+        decorationGroup,
+        target,
+        sourceSlurs,
+        references,
+        anchors
+      );
+      drawSourceTextAnnotations(
+        decorationGroup,
+        target,
+        score.sourceTextAnnotations,
+        hitMeasures
       );
       drawEndings(decorationGroup, target, score.endings, hitMeasures);
       hitMeasures.forEach((measure) => {

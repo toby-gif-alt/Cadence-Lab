@@ -12,22 +12,22 @@ The app is entirely static. It has no API key, database, package-manager install
 
 ## Question bank and sources
 
-`question-bank.js` contains 50 hand-authored templates:
+`question-bank.js` contains 53 hand-authored templates:
 
 | Family | Count |
 | --- | ---: |
-| Roman-numeral analysis | 9 |
+| Roman-numeral analysis | 10 |
 | Keys and modulation | 8 |
 | SATB / vocal completion | 5 |
-| Piano completion | 8 |
+| Piano completion | 9 |
 | Jazz / rock notation | 8 |
-| Harmonic or tonal feature | 12 |
+| Harmonic or tonal feature | 13 |
 
-Authored questions are classified as `nzqa-reference`, `practice-assessment-reference` or `original-practice`; generated chord sets are separately labelled `generated-practice`. The bank currently retains fourteen exact official references: 2021 Bach Q1(a), 2022 Bach Q1(a), 2023 Bach Q1(b), 2024 Bach Q1(a), 2024 Bach Q1(c), and all nine 2025 subquestions across Bach Q1, Schubert Q2 and Billy Joel Q3. No Learning Ideas item currently meets the exact-transcription contract, so those useful reductions are labelled adapted original practice and the practice-reference count is zero. Each retained reference records provider, year, question, part, extract, creator, title, bars, source kind, source-page location and acknowledgement metadata. The PDFs are external source material and are not stored in the repository. [`docs/source-audit-2021-2025.md`](docs/source-audit-2021-2025.md) is the full question/schedule manifest; `docs/nzqa-task-map.md` retains the concise official-task overview.
+Authored questions are classified as `nzqa-reference`, `practice-assessment-reference` or `original-practice`; generated chord sets are separately labelled `generated-practice`. The bank currently retains seventeen exact official references: 2021 Bach Q1(a), 2022 Bach Q1(a), 2023 Bach Q1(b), 2024 Bach Q1(a), Bach Q1(c), and Rimsky-Korsakov Q2(a)(i), Q2(a)(ii), and Q2(b), plus all nine 2025 subquestions across Bach Q1, Schubert Q2 and Billy Joel Q3. No Learning Ideas item currently meets the exact-transcription contract, so those useful reductions are labelled adapted original practice and the practice-reference count is zero. Each retained reference records provider, year, question, part, extract, creator, title, bars, source kind, source-page location and acknowledgement metadata. The PDFs are external source material and are not stored in the repository. [`docs/source-audit-2021-2025.md`](docs/source-audit-2021-2025.md) is the full question/schedule manifest; `docs/nzqa-task-map.md` retains the concise official-task overview.
 
 The retained reference templates are page-checked transcriptions of the named published extracts, preserving the printed bars, metre, rhythmic surface, score layout, supplied labels, blank analysis positions and schedule evidence. Reduced, selected, reconstructed or otherwise uncertain surfaces—including all current Learning Ideas studies—are explicitly classified as adapted original practice and do not count as references. Empty reference filters are disabled while the source taxonomy remains available for future exact additions. The year selector appears only for a selected examination or practice-assessment reference source, uses source-specific counts, and never treats an adapted exercise's provenance year as a reference-year match.
 
-The 50 source-based and original questions remain fully authored. A separate controlled generator creates four independent vertical chord-identification prompts from a verified semantic catalogue; it does not generate SATB, modulation or Bach-style passages and never alters a reference.
+The 53 source-based and original questions remain fully authored. A separate controlled generator creates four independent vertical chord-identification prompts from a verified semantic catalogue; it does not generate SATB, modulation or Bach-style passages and never alters a reference.
 
 ## Notation architecture
 

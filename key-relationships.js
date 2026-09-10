@@ -144,35 +144,43 @@
 
     const degree = ROMAN_DEGREES[local.mode][degreeIndex];
     const degreeName = DEGREE_NAMES[degreeIndex];
-    const labels = [];
+    const labels = [degreeName, `${degreeName} ${local.mode}`, degree];
     let canonical = degreeName;
+    const directRelative = keysEqual(local, relativeKey(home));
+    const compoundRelationships = ["dominant", "subdominant"].flatMap(
+      (functionName) => {
+        const functionRelative = relativeKey(functionalKey(home, functionName));
+        if (!keysEqual(local, functionRelative)) return [];
+        return [
+          `${functionRelative.mode === "major" ? "relative major" : "relative minor"} of the ${functionName}`,
+        ];
+      }
+    );
+    const directFunction = degreeIndex === 4
+      ? (local.mode === "minor" ? "dominant minor" : "dominant")
+      : degreeIndex === 3
+        ? "subdominant"
+        : null;
 
     if (keysEqual(local, home)) {
       canonical = "tonic";
       labels.push("tonic", degree);
-    } else if (keysEqual(local, relativeKey(home))) {
+    } else if (directRelative) {
       canonical = home.mode === "major" ? "relative minor" : "relative major";
       labels.push(canonical, degreeName, `${degreeName} ${local.mode}`, degree);
-    } else if (degreeIndex === 4 && local.mode === "minor") {
-      canonical = "dominant minor";
-      labels.push(canonical, degree);
-    } else {
-      labels.push(degreeName, `${degreeName} ${local.mode}`, degree);
+    } else if (compoundRelationships.length) {
+      canonical = compoundRelationships[0];
+      labels.push(...compoundRelationships);
+    } else if (directFunction) {
+      canonical = directFunction;
+      labels.push(directFunction);
     }
 
     if ([0, 1, 2, 3, 4, 5, 6].includes(degreeIndex)) {
       labels.push(`${canonical} / ${degree}`);
     }
 
-    ["dominant", "subdominant"].forEach((functionName) => {
-      const functionKey = functionalKey(home, functionName);
-      const functionRelative = relativeKey(functionKey);
-      if (keysEqual(local, functionRelative)) {
-        labels.push(
-          `${functionRelative.mode === "major" ? "relative major" : "relative minor"} of the ${functionName}`
-        );
-      }
-    });
+    labels.push(...compoundRelationships);
 
     return Object.freeze({
       homeKey,

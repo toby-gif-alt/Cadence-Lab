@@ -19,11 +19,12 @@
   addEventListener('unhandledrejection', event => finish(event.reason));
 </script>
 <script src="../vendor/vexflow-bravura-4.2.5.js"></script>
-<script src="../key-relationships.js?v=2026-09-score-ui-26"></script>
-<script src="../question-bank.js?v=2026-09-score-ui-26"></script>
+<script src="../key-relationships.js?v=2026-09-score-ui-44"></script>
+<script src="../question-bank.js?v=2026-09-score-ui-44"></script>
 <script src="../exact-2025-q1-a.js?v=2026-09-score-ui-26"></script>
 <script src="../exact-2025-q1-b.js?v=2026-09-score-ui-26"></script>
 <script src="../exact-2025-q1-c.js?v=2026-09-score-ui-26"></script>
+<script src="../exact-2024-q2.js?v=2026-09-score-ui-44"></script>
 <script src="../exact-2025-q2.js?v=2026-09-score-ui-32"></script>
 <script src="../exact-2025-q3.js?v=2026-09-score-ui-43"></script>
 <script src="../score-ui-consistency.js?v=2026-09-score-ui-26"></script>
@@ -41,7 +42,7 @@ try {
   const bar8ReturnPivot = a.score.harmonicEvents.find(e => String(e.modelLabel).includes('G: V⁷d'));
   const bar8ReturnSlot = a.interaction.slots.find(slot => slot.id === bar8ReturnPivot?.answerSlotId);
   assert('validator-valid', window.CadenceQuestionValidator.report.valid);
-  assert('fourteen-exact-nzqa-references', window.CadenceQuestionValidator.report.referenceCount === 14);
+  assert('seventeen-exact-nzqa-references', window.CadenceQuestionValidator.report.referenceCount === 17);
   assert('nine-2025-references', refs2025.length === 9);
   assert('q1a-exact-satb-five-measures', a.sourceSpec.transcriptionMode === 'exact' && a.score.layout === 'satb' && a.score.measures.length === 5);
   assert('q1a-twelve-editable-analyses', a.score.harmonicEvents.filter(e => e.answerRole === 'editable').length === 12);
