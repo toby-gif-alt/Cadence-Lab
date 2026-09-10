@@ -399,7 +399,11 @@
     },
     {
       upper: [],
-      inner: d9PianoFigure(),
+      inner: [
+        chord(["F#3", "A3", "C4", "D4"], "qd"), note("E4", "8"),
+        chord(["B4", "E5"], "8"), chord(["C5", "E5"], "8"),
+        note("E4", "8"), note("C4", "8"),
+      ],
       bass: [note("D2", "w")],
     },
     {

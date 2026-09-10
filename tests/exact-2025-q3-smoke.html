@@ -106,7 +106,7 @@
         ['R/h|R/q|G4/8{3:2}|A4/8{3:2}|G4/8{3:2}', 'A3+C4+Eb4+G4/w'],
         ['A4/8|B4/qd~|B4/q|A4/8|F4/8', 'G4/w'],
         ['E4/h|R/h', 'G3+A3+C4+E4/hd|F#3+A3+C4+D4/q~'],
-        ['F#3+A3+C4+E4/qd|E4/8|A4+C5/8|C5+E5/8|E4/8|A3/8'],
+        ['F#3+A3+C4+D4/qd|E4/8|B4+E5/8|C5+E5/8|E4/8|C4/8'],
         ['G3+A3+C4+E4/hd|G3+B3+D4/q~'],
         ['G3+B3+D4/q{3:2}|A3/8{3:2}|A3/8{3:2}|B3/8{3:2}|D4/8{3:2}|F3+A3+C4+D4/q|D4/q'],
         ['G3+A3+C4+E4/hd|G3+B3+D4/q'],
@@ -135,6 +135,16 @@
         q3c.score.measures[8].staffVoices.treble[0].events.slice(0, 5).every(event => event.tuplet?.numNotes === 3) &&
         q3c.score.measures[5].staffVoices.treble[1].events.at(-1).tieToNext === true &&
         q3c.score.measures[7].staffVoices.treble[0].events.at(-1).tieToNext === true
+      );
+      const bar19D7 = q3c.score.measures[5].staffVoices.treble[1].events.at(-1);
+      const bar20TiedD7 = q3c.score.measures[6].staffVoices.treble[0].events[0];
+      assert('q3c-bar19-to-20-ties-f-sharp-a-c-d-pitch-for-pitch',
+        bar19D7.tieToNext === true &&
+        JSON.stringify(bar19D7.pitches) === JSON.stringify(['F#3', 'A3', 'C4', 'D4']) &&
+        JSON.stringify(bar20TiedD7.pitches) === JSON.stringify(['F#3', 'A3', 'C4', 'D4']) &&
+        bar19D7.pitches.every((pitch, index) => pitch === bar20TiedD7.pitches[index]), {
+          from: bar19D7.pitches, to: bar20TiedD7.pitches,
+        }
       );
       const q3cQuestionTimeline = playback.buildTimeline(playback.questionOnlyScore(q3c.score));
       const q3cModelTimeline = playback.buildTimeline(q3c.score);
@@ -202,7 +212,7 @@
       finish();
     } catch (error) { finish(error); }
   });
-  frame.src = '../index.html?question=nzqa-2025-joel-chords&v=2026-09-score-ui-43';
+  frame.src = '../index.html?question=nzqa-2025-joel-chords&v=2026-09-score-ui-44';
 </script>
 </body>
 </html>
