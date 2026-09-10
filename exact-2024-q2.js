@@ -248,7 +248,7 @@
     layout: "piano",
     measuresPerSystem: 5,
     authoredSystemBreaks: true,
-    minimumEngravingWidth: 760,
+    minimumEngravingWidth: 1120,
     bottomAnalysisPadding: 120,
     barNumbers: Array.from({ length: 25 }, (_, index) => index + 1),
     sourceKeyCentres: ["F♯ minor", "A major"],

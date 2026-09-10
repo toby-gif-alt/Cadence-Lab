@@ -16,6 +16,8 @@ These load the real `../index.html`, so they exercise the same script order and 
 
 `renderer-smoke.html` loads the base authoring files directly and remains useful for low-level VexFlow, notation, validator and engraving regressions. Its local `CadenceData` is a base-bank fixture rather than the final composed production bank, so current source counts should be checked through the production-order tests above.
 
+`engraving-cleanup-smoke.html` checks accidental clearance around displaced noteheads in stacked seconds, the desktop and narrow-system spacing of the 2024 Rimsky-Korsakov extract, and representative SATB, piano and vocal-piano renders.
+
 `exact-2025-q1-smoke.html` is the focused data/renderer fixture for the 2025 Q1 overlays themselves.
 
 `visual-gallery.html` is for manual engraving review and can be filtered by category/source/year where supported.
