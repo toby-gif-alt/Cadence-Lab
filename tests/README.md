@@ -2,6 +2,8 @@
 
 Cadence Lab has production-order tests plus lower-level renderer fixtures.
 
+`rhythm-cue-smoke.html` audits every production `score.rhythmCues` consumer at 1000, 780 and 390 pixels. It locks the 2025 Bach cue count, durations, beats, learner mask and model bass, checks the 2025 Billy Joel vocal-piano completion, verifies layout-aware cue lanes, system association, SVG bounds and collision clearance, and exercises fractional, flagged and dotted duration-only cues.
+
 ## Production-order tests
 
 These load the real `../index.html`, so they exercise the same script order and composed question bank that learners receive on GitHub Pages. **Use these when checking current reference counts, exact-source overlays, filters, bar numbering, answer boxes, submit/reveal behaviour, playback permissions, and learner interaction.**
