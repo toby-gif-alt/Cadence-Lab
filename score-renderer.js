@@ -514,6 +514,9 @@
           effectiveKeySignature: currentKeySignature,
           cancelKeySignature: measure.cancelKeySignature || null,
           timeSignature: measure.timeSignature || null,
+          timeSignatureDisplay:
+            measure.timeSignatureDisplay ||
+            (measureIndex === 0 ? score.timeSignatureDisplay : null),
           effectiveTimeSignature: currentTimeSignature,
           beginBarline: measure.beginBarline || null,
           endBarline: measure.endBarline || measure.barline || null,
@@ -795,6 +798,16 @@
       ? VF.Stroke.Type.ROLL_DOWN
       : VF.Stroke.Type.ROLL_UP;
     note.addModifier(new VF.Stroke(type), 0);
+  }
+
+  function attachFermata(VF, note, event) {
+    if (!event.fermata || note instanceof VF.GhostNote) return;
+    const below = event.fermata === "below";
+    const articulation = new VF.Articulation(below ? "a@u" : "a@a")
+      .setPosition(
+        below ? VF.Modifier.Position.BELOW : VF.Modifier.Position.ABOVE
+      );
+    note.addModifier(articulation, 0);
   }
 
   function splitSatbPitches(pitches, staff, eventIndex) {
@@ -1642,6 +1655,7 @@
             );
             attachOrnament(VF, note, event);
             attachArpeggio(VF, note, event);
+            attachFermata(VF, note, event);
             if (Number.isInteger(event._anchorIndex)) {
               addReference(
                 VF,
@@ -1756,6 +1770,7 @@
             }[role.name]
           );
           note.setStave(stave);
+          attachFermata(VF, note, event);
           if (Number.isInteger(event._anchorIndex)) {
             addReference(
               VF,
@@ -1871,7 +1886,9 @@
     }
     if (shouldShowTime) {
       stave.addTimeSignature(
-        measure.timeSignature || measure.effectiveTimeSignature.text
+        measure.timeSignatureDisplay ||
+          measure.timeSignature ||
+          measure.effectiveTimeSignature.text
       );
     }
   }
@@ -2904,6 +2921,9 @@
         (event) => durationDetails(event.duration || "q").dots > 0
       ).length
     );
+    target.dataset.fermataEventCount = String(
+      notationEvents.filter((event) => event.fermata).length
+    );
     target.dataset.restEventCount = String(
       notationEvents.filter(
         (event) =>
@@ -2942,6 +2962,8 @@
     target.dataset.measureKeyLabels = JSON.stringify(
       normalizedScore.measures.map((measure) => measure.keyLabel)
     );
+    target.dataset.timeSignatureDisplay =
+      score.timeSignatureDisplay || score.timeSignature || DEFAULT_TIME_SIGNATURE;
 
     const caption = document.createElement("div");
     caption.className = "score-caption";

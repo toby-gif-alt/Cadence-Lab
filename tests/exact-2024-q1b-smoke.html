@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+  <meta charset="utf-8">
+  <title>2024 Q1(b) exact-source and interaction smoke test</title>
+  <style>
+    body { margin: 20px; font-family: system-ui, sans-serif; }
+    #app { position: absolute; left: -12000px; top: 0; width: 1100px; height: 1100px; }
+    #responsive-renders { position: absolute; left: -12000px; top: 1200px; }
+    #desktop { width: 1000px; }
+    #phone { width: 390px; }
+    #results { white-space: pre-wrap; }
+  </style>
+</head>
+<body data-status="running">
+  <iframe id="app" title="Cadence Lab production app" src="../index.html?question=nzqa-2024-bach-key-regions&amp;v=2026-09-q1b-1"></iframe>
+  <div id="responsive-renders"><div id="desktop"></div><div id="phone"></div></div>
+  <pre id="results">Running…</pre>
+<script>
+  const frame = document.querySelector('#app');
+  const results = document.querySelector('#results');
+  const assertions = {};
+  const details = {};
+  const assert = (name, condition, detail = null) => {
+    assertions[name] = Boolean(condition);
+    if (!condition && detail != null) details[name] = detail;
+  };
+  const finish = (error = null) => {
+    if (error) details.error = error.stack || String(error);
+    const passed = !error && Object.values(assertions).every(Boolean);
+    document.body.dataset.status = passed ? 'pass' : 'fail';
+    results.textContent = JSON.stringify({passed, assertions, details}, null, 2);
+  };
+  addEventListener('error', event => finish(event.error || event.message));
+  addEventListener('unhandledrejection', event => finish(event.reason));
+  const nextTurn = w => new Promise(resolve => w.setTimeout(resolve, 0));
+  const voiceNames = ['soprano', 'alto', 'tenor', 'bass'];
+  const rhythmSignature = measure => Object.fromEntries(voiceNames.map(voice => [
+    voice,
+    measure.voices[voice].map(event => event.duration).join(' '),
+  ]));
+  const pitchSignature = measure => Object.fromEntries(voiceNames.map(voice => [
+    voice,
+    measure.voices[voice].map(event => event.rest ? '_' : event.pitch).join(' '),
+  ]));
+
+  frame.addEventListener('load', async () => {
+    try {
+      const w = frame.contentWindow;
+      const d = frame.contentDocument;
+      const lab = w.CadenceLab;
+      const renderer = w.CadenceScoreRenderer;
+      const validator = w.CadenceQuestionValidator?.report;
+      const questions = lab?.questions || [];
+      const question = questions.find(candidate => candidate.id === 'nzqa-2024-bach-key-regions');
+
+      assert('production-app-and-validator-load', Boolean(lab && renderer && question) && validator?.valid === true, validator?.errors);
+      assert('new-reference-is-present-once', questions.filter(candidate => candidate.id === question?.id).length === 1 && questions.length === 54);
+      assert('reference-counts-include-six-exact-2024-items', validator?.referenceCount === 18 && questions.filter(candidate => candidate.sourceType === 'nzqa-reference' && candidate.source?.year === 2024).length === 6, validator);
+      assert('source-metadata-is-exact-2024-q1b',
+        question.sourceType === 'nzqa-reference' && question.sourceSpec.transcriptionMode === 'exact' &&
+        question.source.provider === 'NZQA' && question.source.year === 2024 &&
+        question.source.question === 'Question One' && question.source.part === '(b)' &&
+        question.source.extract === 'Extract Two' && question.source.bars === '6–9' &&
+        question.sourceSpec.printedBars === '6–9' && question.sourceSpec.printedMeasureCount === 4
+      );
+      assert('printed-four-bar-layout-and-partial-opening-are-preserved',
+        question.score.layout === 'satb' && question.score.timeSignature === '4/4' &&
+        question.score.timeSignatureDisplay === 'C' && question.score.keySignature === 'C' && question.score.measures.length === 4 &&
+        question.score.measures[0].expectedBeats === 1 &&
+        JSON.stringify(question.score.barNumbers) === '[6,7,8,9]' &&
+        JSON.stringify(question.sourceSpec.partialMeasures) === '[{"bar":6,"expectedBeats":1}]'
+      );
+
+      const expectedRhythms = [
+        {soprano:'q',alto:'q',tenor:'q',bass:'8 8'},
+        {soprano:'q q q 8 8',alto:'q q q q',tenor:'8 8 8 8 qd 8',bass:'qd 8 8 8 8 8'},
+        {soprano:'qd 8 q q',alto:'q q q q',tenor:'8 8 q q q',bass:'8 8 8 8 q 8 8'},
+        {soprano:'q q 8 8 8 8',alto:'q q q q',tenor:'q q q 8 8',bass:'8 8 8 8 q q'},
+      ];
+      const expectedPitches = [
+        {soprano:'C5',alto:'G4',tenor:'E4',bass:'C4 B3'},
+        {soprano:'C5 D5 C5 A4 B4',alto:'A4 B4 A4 E4',tenor:'E4 C4 F4 E4 E4 D4',bass:'A3 G#3 A3 B3 C4 B3'},
+        {soprano:'C5 C5 B4 B4',alto:'E4 D4 D4 G4',tenor:'C4 B3 A3 G3 D4',bass:'A3 G3 F#3 D3 G3 G3 F3'},
+        {soprano:'C5 D5 C5 B4 A4 B4',alto:'G4 G4 G4 F4',tenor:'E4 F4 E4 A3 G#3',bass:'E3 D3 C3 B2 C3 D3'},
+      ];
+      assert('all-independent-voice-rhythms-match-the-paper', JSON.stringify(question.score.measures.map(rhythmSignature)) === JSON.stringify(expectedRhythms), question.score.measures.map(rhythmSignature));
+      assert('all-independent-voice-pitches-match-the-paper', JSON.stringify(question.score.measures.map(pitchSignature)) === JSON.stringify(expectedPitches), question.score.measures.map(pitchSignature));
+      assert('source-contract-locks-pitches-and-rhythms-independently',
+        JSON.stringify(question.sourceSpec.measureRhythmSignatures) === JSON.stringify(expectedRhythms) &&
+        JSON.stringify(question.sourceSpec.measurePitchSignatures) === JSON.stringify(expectedPitches)
+      );
+      const fermatas = question.score.measures.flatMap((measure, measureIndex) => voiceNames.flatMap(voice => {
+        let beat = 1;
+        return measure.voices[voice].flatMap(event => {
+          const found = event.fermata ? [{bar:measureIndex + 6, beat, voice, pitch:event.pitch}] : [];
+          beat += renderer.eventDurationInBeats(event, 4);
+          return found;
+        });
+      }));
+      assert('bar-eight-cadence-retains-both-printed-fermatas', JSON.stringify(fermatas) === JSON.stringify([
+        {bar:8,beat:3,voice:'soprano',pitch:'B4'},
+        {bar:8,beat:3,voice:'bass',pitch:'G3'},
+      ]), fermatas);
+
+      assert('x-and-y-regions-match-the-printed-spans', JSON.stringify(question.score.brackets) === JSON.stringify([
+        {start:{measure:2,beat:1},end:{measure:2,beat:4.5},label:'X',key:'A minor'},
+        {start:{measure:3,beat:1},end:{measure:3,beat:3},label:'Y',key:'G major'},
+      ]), question.score.brackets);
+      assert('published-key-evidence-relationship-answers-are-source-locked',
+        JSON.stringify(question.keyRegions.map(region => ({section:region.section,key:region.localKey,evidence:region.modelEvidence,relationship:region.modelRelationship}))) === JSON.stringify([
+          {section:'X',key:'A minor',evidence:'Raised leading note G♯, perfect cadence in A minor',relationship:'relative minor'},
+          {section:'Y',key:'G major',evidence:'Raised leading note F♯, perfect cadence in G',relationship:'dominant'},
+        ]) &&
+        question.answer.join(' ').includes('G♯') && question.answer.join(' ').includes('F♯') &&
+        question.answer.join(' ').includes('perfect cadence in A minor') && question.answer.join(' ').includes('perfect cadence in G')
+      );
+      assert('interaction-has-key-evidence-and-relationship-for-each-region',
+        question.interaction.type === 'key-modulation' &&
+        question.interaction.fields.map(field => `${field.id}:${field.kind}`).join(',') ===
+          'x-key:key,x-evidence:text,x-relationship:relationship,y-key:key,y-evidence:text,y-relationship:relationship'
+      );
+      assert('relationship-choices-are-small-and-source-appropriate', question.interaction.fields.filter(field => field.kind === 'relationship').every(field =>
+        field.choices.length === 5 && field.choices.includes(field.modelRelationship) &&
+        field.choices.filter(choice => field.acceptedAnswers.some(answer => answer.label === choice)).length === 1
+      ));
+
+      const untouched = ['nzqa-2024-bach-analysis','nzqa-2024-bach-satb','nzqa-2024-rimsky-analysis','nzqa-2024-rimsky-context','nzqa-2024-rimsky-piano'].map(id => questions.find(candidate => candidate.id === id));
+      assert('existing-exact-2024-q1a-q1c-and-q2-remain-present', untouched.every(candidate => candidate?.sourceSpec?.transcriptionMode === 'exact') &&
+        untouched.map(candidate => candidate.score.measures.length).join(',') === '5,3,25,25,7'
+      );
+
+      const desktop = document.querySelector('#desktop');
+      const phone = document.querySelector('#phone');
+      renderer.render(desktop, question.score, {width:1000, showAnswer:false});
+      renderer.render(phone, question.score, {width:390, showAnswer:false});
+      assert('desktop-render-is-one-complete-four-bar-system', desktop.dataset.systemCount === '1' && desktop.dataset.measureCount === '4' && desktop.dataset.independentVoiceMeasureCount === '4' && desktop.dataset.timeSignatureDisplay === 'C', desktop.dataset);
+      assert('phone-render-reflows-without-dropping-bars-or-voices', Number(phone.dataset.systemCount) > 1 && phone.dataset.measureCount === '4' && phone.dataset.independentVoiceMeasureCount === '4', phone.dataset);
+      assert('both-responsive-renders-retain-one-x-and-one-y-label', [desktop, phone].every(target =>
+        [...target.querySelectorAll('.analysis-bracket-label')].map(label => label.textContent).sort().join('') === 'XY'
+      ));
+      assert('vexflow-renders-the-two-fermata-modifiers-at-both-widths', [desktop, phone].every(target =>
+        target.dataset.fermataEventCount === '2' &&
+        [...target.querySelectorAll('.vf-stavenote')].filter(note =>
+          [...note.children].some(child => !child.getAttribute('class'))
+        ).length >= 2
+      ), {desktop:desktop.dataset.fermataEventCount,phone:phone.dataset.fermataEventCount});
+
+      assert('production-loads-q1b-with-source-only-information-visible', lab.getCurrentQuestion()?.id === question.id &&
+        d.querySelector('#answer-panel')?.hidden === true && d.querySelector('#model-score-wrap')?.hidden === true &&
+        d.querySelector('#question-context')?.textContent.includes('begins in C major') &&
+        d.querySelector('#source-attribution')?.textContent.includes('bars 6–9') &&
+        d.querySelector('#score')?.dataset.barNumbers === '[6,7,8,9]'
+      );
+      const controls = [...d.querySelectorAll('#structured-controls [data-field-id]')];
+      assert('production-presents-six-unanswered-x-y-controls', controls.length === 6 && controls.filter(control => control.matches('textarea')).length === 2 && controls.every(control => !control.value));
+      const responses = {
+        'x-key':'A minor',
+        'x-evidence':'Raised leading note G♯, perfect cadence in A minor',
+        'x-relationship':'relative minor',
+        'y-key':'G major',
+        'y-evidence':'Raised leading note F♯, perfect cadence in G',
+        'y-relationship':'dominant',
+      };
+      controls.forEach(control => {
+        control.value = responses[control.dataset.fieldId];
+        control.dispatchEvent(new w.Event(control.matches('textarea') ? 'input' : 'change', {bubbles:true}));
+      });
+      assert('production-records-all-six-semantic-responses', Object.values(lab.getStructuredAnswer().fields).every(Boolean), lab.getStructuredAnswer());
+      assert('submit-reveals-the-published-answer', lab.submit({skipConfirmation:true,noScroll:true}) === true);
+      await nextTurn(w);
+      assert('all-six-published-responses-match', d.querySelectorAll('#student-comparison .comparison-item[data-status="matches"]').length === 6, d.querySelector('#student-comparison')?.textContent);
+      assert('revealed-prose-preserves-the-published-schedule-evidence',
+        d.querySelector('#answer-copy')?.textContent.includes('A minor') &&
+        d.querySelector('#answer-copy')?.textContent.includes('G♯') &&
+        d.querySelector('#answer-copy')?.textContent.includes('relative minor') &&
+        d.querySelector('#answer-copy')?.textContent.includes('G major') &&
+        d.querySelector('#answer-copy')?.textContent.includes('F♯') &&
+        d.querySelector('#answer-copy')?.textContent.includes('dominant')
+      );
+      assert('modulation-reveal-does-not-duplicate-the-unchanged-score', d.querySelector('#model-score-wrap')?.hidden === true && d.querySelector('#score')?.dataset.scoreMode === 'question');
+
+      finish();
+    } catch (error) {
+      finish(error);
+    }
+  });
+</script>
+</body>
+</html>

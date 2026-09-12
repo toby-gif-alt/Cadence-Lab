@@ -315,6 +315,17 @@
           relationshipField.semanticRelationship?.degree !== relationship.degree) {
         errors.push(`${question.id}: region ${region.section} semantic relationship metadata is inconsistent`);
       }
+      if (region.modelEvidence) {
+        const evidenceField = question.interaction.fields.find(
+          (field) => field.id === `${region.section.toLowerCase()}-evidence`
+        );
+        const expectedEvidence = region.acceptedEvidence || [region.modelEvidence];
+        if (!evidenceField || evidenceField.kind !== "text" ||
+            JSON.stringify(evidenceField.acceptedAnswers.map((answer) => answer.label)) !==
+              JSON.stringify(expectedEvidence)) {
+          errors.push(`${question.id}: region ${region.section} does not preserve its authored evidence response`);
+        }
+      }
     });
   }
 
@@ -1262,6 +1273,17 @@
         ))
       );
       compareList(
+        "measurePitchSignatures",
+        question.score.measures.map((measure) => Object.fromEntries(
+          SATB_NAMES.map((voiceName) => [
+            voiceName,
+            (measure.voices?.[voiceName] || [])
+              .map((event) => event.rest ? "_" : event.pitch)
+              .join(" "),
+          ])
+        ))
+      );
+      compareList(
         "questionVoiceEventCounts",
         question.score.measures.map((measure) => Object.fromEntries(
           SATB_NAMES.map((voiceName) => [
@@ -1442,6 +1464,40 @@
         localKey: region.localKey,
         acceptedLabels: region.acceptedRelationshipLabels || [],
       }))
+    );
+    compareList(
+      "keyEvidence",
+      (question.keyRegions || [])
+        .filter((region) => region.modelEvidence)
+        .map((region) => ({
+          section: region.section,
+          evidence: region.modelEvidence,
+        }))
+    );
+    compareList(
+      "fermataPositions",
+      question.score.measures.flatMap((measure, measureIndex) =>
+        SATB_NAMES.flatMap((voiceName) => {
+          let beat = 1;
+          return (measure.voices?.[voiceName] || []).flatMap((event) => {
+            const position = event.fermata
+              ? [{
+                  bar: question.score.barNumbers?.[measureIndex] ?? measureIndex + 1,
+                  beat,
+                  voice: voiceName,
+                  pitch: event.pitch,
+                }]
+              : [];
+            beat += renderer.eventDurationInBeats(
+              event,
+              Number(String(
+                measure.timeSignature || question.score.timeSignature || "4/4"
+              ).split("/")[1]) || 4
+            );
+            return position;
+          });
+        })
+      )
     );
 
     if (

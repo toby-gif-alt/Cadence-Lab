@@ -53,7 +53,7 @@ The in-app checklists use these observable progressions. They deliberately avoid
 | Exam task | Published source and location | Schedule evidence | Cadence Lab use |
 | --- | --- | --- | --- |
 | Q1(a) pivot and diminished-seventh function | J. S. Bach, *Herzlich lieb hab’ ich dich, o Herr*, bars 1–4; exam p.2 | 13 chords; pivot; diminished seventh decorates or strengthens the perfect cadence; schedule p.3 | Reference analysis transcription with the five supplied labels and 13 answer positions. |
-| Q1(b) keys X/Y | Bach continuation; exam p.3 | A minor (relative minor) and G major (dominant), with leading-note and cadence evidence; schedule p.3 | Modulation family. |
+| Q1(b) keys X/Y | Bach continuation, bars 6–9; exam p.3 | A minor (relative minor) with G-sharp and a perfect cadence; G major (dominant) with F-sharp and a perfect cadence; schedule p.3 | Exact reference transcription with the published X/Y spans and key/evidence/relationship workflow. |
 | Q1(c) chorale realisation | Bach continuation, bars 18–19; exam p.3 | Eight chords including two passing notes; schedule p.4 | Reference SATB completion, preceded by the supplied bar 17 texture. |
 | Q2(a) piano analysis and features | Rimsky-Korsakov, *Two Piano Pieces*, bars 1–25; exam pp.4–5 | 13 chords; direct move from F-sharp minor to A major without pivot; pedal and varied non-harmonic notes; schedule pp.6–7 | Exact reference transcription split into Roman-analysis and contextual-analysis workflows. |
 | Q2(b) piano completion | Rimsky-Korsakov continuation, bars 90–96; exam p.6 | Eight-chord sample realisation; schedule p.7 | Exact reference preserves the printed melody, opening texture, eight indications and published model. |
@@ -66,12 +66,12 @@ All nine official 2025 subquestions now use exact transcriptions checked against
 
 ## Reference set in the bank
 
-Cadence Lab currently includes seventeen official reference transcriptions:
+Cadence Lab currently includes eighteen official reference transcriptions:
 
 - 2021: Bach Q1(a)
 - 2022: Bach Q1(a)
 - 2023: Bach Q1(b)
-- 2024: Bach Q1(a), Bach Q1(c), Rimsky-Korsakov Q2(a)(i), Q2(a)(ii) and Q2(b)
+- 2024: Bach Q1(a–c), Rimsky-Korsakov Q2(a)(i), Q2(a)(ii) and Q2(b)
 - 2025: Bach Q1(a–c), Schubert Q2(a–c), and Billy Joel Q3(a–c)
 
 Each is labelled `nzqa-reference` with provider, year, question, part, extract, bars, source-page location and acknowledgement metadata. Every retained reference declares exact transcription mode, printed bars/measures, staff layout and a source-derived event/rhythm signature in addition to its schedule-answer specification. Bach references use independent soprano, alto, tenor and bass rhythmic streams. The source PDFs remain external and the app does not claim official NZQA status.
