@@ -14,6 +14,9 @@
   const LEGACY_EVENT_MIN_WIDTH = 90;
   const MARGIN_X = 42;
   const VOICE_LABEL_MARGIN_X = 58;
+  const RHYTHM_CUE_POINT = 36;
+  const RHYTHM_CUE_STEM_LENGTH = 26;
+  const RHYTHM_CUE_COLOUR = "#667085";
   const SATB_VOICE_NAMES = ["soprano", "alto", "tenor", "bass"];
   const STAFF_NAMES = ["treble", "bass"];
   const VOCAL_PIANO_STAFF_NAMES = ["vocal", "treble", "bass"];
@@ -101,6 +104,53 @@
       addition /= 2;
     }
     return quarterBeats * multiplier * (denominator / 4);
+  }
+
+  function normalizeRhythmCues(score, normalizedScore) {
+    if (score.rhythmCues == null) return [];
+    if (!Array.isArray(score.rhythmCues)) {
+      throw new Error("score.rhythmCues must be an array.");
+    }
+    return score.rhythmCues.map((source, index) => {
+      if (!source || typeof source !== "object" || Array.isArray(source)) {
+        throw new Error(`Rhythm cue ${index + 1} is invalid.`);
+      }
+      const measureNumber = Number(source.measure);
+      const beat = Number(source.beat);
+      if (!Number.isInteger(measureNumber) || measureNumber < 1) {
+        throw new Error(`Rhythm cue ${index + 1} has an invalid measure.`);
+      }
+      const measure = normalizedScore.measures[measureNumber - 1];
+      if (!measure) {
+        throw new Error(
+          `Rhythm cue ${index + 1} refers to missing measure ${measureNumber}.`
+        );
+      }
+      const duration = normalizeDuration(source.duration);
+      const beatSpan =
+        measure.expectedBeats || measure.effectiveTimeSignature.numerator;
+      const durationBeats = durationInBeats(
+        duration,
+        measure.effectiveTimeSignature.denominator
+      );
+      if (!Number.isFinite(beat) || beat < 1 || beat > beatSpan + 0.001) {
+        throw new Error(
+          `Rhythm cue ${index + 1} has beat ${source.beat} outside measure ${measureNumber}.`
+        );
+      }
+      if (beat - 1 + durationBeats > beatSpan + 0.001) {
+        throw new Error(
+          `Rhythm cue ${index + 1} extends beyond measure ${measureNumber}.`
+        );
+      }
+      return {
+        ...source,
+        measure: measureNumber,
+        beat,
+        duration,
+        _durationBeats: durationBeats,
+      };
+    });
   }
 
   function tupletScale(event) {
@@ -1981,7 +2031,40 @@
     return boxGroup;
   }
 
-  function positionBottomAnalysisBoxes(systems, references, anchors) {
+  function rhythmCueLanePolicy(layout) {
+    // Duration cues belong to the completion staff, not to an invented pitch.
+    // Keep this policy layout-based so every question receives the same treatment.
+    if (layout === "vocal-piano") {
+      return {
+        lane: "piano-interstaff",
+        associatedStaff: "piano",
+        stemDirection: 1,
+      };
+    }
+    if (["piano", "grand"].includes(layout)) {
+      return {
+        lane: "interstaff",
+        associatedStaff: "piano",
+        stemDirection: 1,
+      };
+    }
+    return {
+      lane: "below-lower-staff",
+      associatedStaff: layout === "treble" ? "treble" : "bass",
+      stemDirection: -1,
+    };
+  }
+
+  function positionBottomAnalysisBoxes(
+    systems,
+    references,
+    anchors,
+    hitMeasures,
+    layout,
+    rhythmCues,
+    showAnswer
+  ) {
+    const cuePolicy = rhythmCueLanePolicy(layout);
     systems.forEach((system, systemIndex) => {
       const bottomStave = system.firstBottomStave || system.firstTopStave;
       let lowestNotationY = bottomStave?.getYForLine(4) || 0;
@@ -1999,9 +2082,27 @@
       });
       const staveFloor = (bottomStave?.getYForLine(4) || lowestNotationY) + 46;
       const geometryFloor = lowestNotationY + 28;
+      const systemMeasureNumbers = new Set(
+        hitMeasures
+          .filter((measure) => measure.system === systemIndex)
+          .map((measure) => measure.measure)
+      );
+      const hasExternalRhythmCues =
+        !showAnswer &&
+        cuePolicy.lane === "below-lower-staff" &&
+        rhythmCues.some((cue) => systemMeasureNumbers.has(cue.measure));
+      system.layout.rhythmCueLaneY = hasExternalRhythmCues
+        ? Math.max(
+            (bottomStave?.getYForLine(4) || lowestNotationY) + 24,
+            lowestNotationY + 18
+          )
+        : null;
+      const cueFloor = system.layout.rhythmCueLaneY == null
+        ? 0
+        : system.layout.rhythmCueLaneY + RHYTHM_CUE_STEM_LENGTH + 28;
       system.layout.lowestNotationY = lowestNotationY;
       system.layout.bottomAnalysisY = Math.min(
-        Math.max(staveFloor, geometryFloor),
+        Math.max(staveFloor, geometryFloor, cueFloor),
         system.layout.yOffset + system.layout.height - 22
       );
     });
@@ -2196,56 +2297,177 @@
     target.dataset.sourceEndingCount = String(count);
   }
 
+  function rhythmCueLaneY(measure, policy) {
+    if (["interstaff", "piano-interstaff"].includes(policy.lane)) {
+      const upperY = policy.lane === "piano-interstaff"
+        ? measure.middleY
+        : measure.topY;
+      const upperSpacing = policy.lane === "piano-interstaff"
+        ? measure.middleSpacing
+        : measure.topSpacing;
+      const upperFloor = upperY + upperSpacing * 4;
+      const gap = measure.bottomY - upperFloor;
+      return clamp(
+        upperFloor + gap * 0.58,
+        upperFloor + RHYTHM_CUE_STEM_LENGTH + 4,
+        measure.bottomY - 10
+      );
+    }
+    const lowerY = measure.bottomY ?? measure.topY;
+    const lowerSpacing = measure.bottomSpacing ?? measure.topSpacing;
+    return measure.systemLayout.rhythmCueLaneY ?? lowerY + lowerSpacing * 4 + 24;
+  }
+
+  function rhythmCueX(cue, measure, normalizedScore, anchors) {
+    const normalizedMeasure = normalizedScore.measures[cue.measure - 1];
+    const exactEvent = normalizedMeasure?.events.find(
+      (event) => Math.abs(event._beat - cue.beat) < 0.001
+    );
+    const exactAnchor = Number.isInteger(exactEvent?._index)
+      ? anchors.get(exactEvent._index)?.note
+      : null;
+    const anchoredX = exactAnchor?.getAbsoluteX?.();
+    const beatSpan = Math.max(1, measure.expectedBeats || 4);
+    const proportionalX =
+      measure.x + ((cue.beat - 1) / beatSpan) * (measure.endX - measure.x);
+    return {
+      x: clamp(
+        Number.isFinite(anchoredX) ? anchoredX : proportionalX,
+        measure.x + 12,
+        measure.endX - 12
+      ),
+      source: Number.isFinite(anchoredX)
+        ? "formatted-onset"
+        : "measure-proportion",
+    };
+  }
+
+  function drawDurationOnlyCue(
+    VF,
+    context,
+    cueGroup,
+    x,
+    y,
+    duration,
+    stemDirection
+  ) {
+    // VexFlow StaveNote requires a pitch and staff position. Compose the
+    // duration-only symbol directly from the bundled Bravura glyphs instead.
+    const details = durationDetails(duration);
+    const noteheadCode = details.base === "w"
+      ? "noteheadWhole"
+      : details.base === "h"
+        ? "noteheadHalf"
+        : "noteheadBlack";
+    const noteheadWidth = VF.Glyph.getWidth(noteheadCode, RHYTHM_CUE_POINT);
+    const noteheadLeft = x - noteheadWidth / 2;
+    const noteheadGroup = context.openGroup("rhythm-cue-notehead");
+    noteheadGroup.dataset.durationOnly = "true";
+    VF.Glyph.renderGlyph(
+      context,
+      noteheadLeft,
+      y,
+      RHYTHM_CUE_POINT,
+      noteheadCode
+    );
+    context.closeGroup();
+
+    if (details.base !== "w") {
+      const stemX = stemDirection > 0
+        ? noteheadLeft + noteheadWidth - 0.8
+        : noteheadLeft + 0.8;
+      const stemEndY = y - stemDirection * RHYTHM_CUE_STEM_LENGTH;
+      cueGroup.appendChild(createSvgElement("path", {
+        class: "rhythm-cue-stem",
+        d: `M ${stemX} ${y} L ${stemX} ${stemEndY}`,
+        fill: "none",
+        stroke: RHYTHM_CUE_COLOUR,
+        "stroke-width": 1.4,
+        "stroke-linecap": "butt",
+      }));
+      const flagCodes = {
+        "8": "flag8th",
+        "16": "flag16th",
+        "32": "flag32nd",
+        "64": "flag64th",
+      };
+      const flagBase = flagCodes[details.base];
+      if (flagBase) {
+        const flagGroup = context.openGroup("rhythm-cue-flag");
+        VF.Glyph.renderGlyph(
+          context,
+          stemX,
+          stemEndY,
+          RHYTHM_CUE_POINT,
+          `${flagBase}${stemDirection > 0 ? "Up" : "Down"}`
+        );
+        context.closeGroup();
+      }
+    }
+
+    for (let dotIndex = 0; dotIndex < details.dots; dotIndex += 1) {
+      const dotGroup = context.openGroup("rhythm-cue-dot");
+      VF.Glyph.renderGlyph(
+        context,
+        noteheadLeft + noteheadWidth + 4 + dotIndex * 5,
+        y,
+        RHYTHM_CUE_POINT,
+        "augmentationDot"
+      );
+      context.closeGroup();
+    }
+  }
+
   function drawRhythmCues(
     VF,
     context,
-    group,
     target,
-    score,
+    layout,
+    rhythmCues,
+    normalizedScore,
     hitMeasures,
-    showAnswer,
-    scoreHeight
+    anchors,
+    showAnswer
   ) {
     let count = 0;
     if (!showAnswer) {
-      (score.rhythmCues || []).forEach((cue) => {
+      const policy = rhythmCueLanePolicy(layout);
+      rhythmCues.forEach((cue) => {
         const measure = hitMeasures.find((candidate) => candidate.measure === cue.measure);
-        if (!measure || measure.bottomY == null) return;
-        const beatSpan = Math.max(1, measure.expectedBeats || 4);
-        const x = clamp(
-          measure.x + ((cue.beat - 1) / beatSpan) * (measure.endX - measure.x),
-          measure.x + 16,
-          measure.endX - 16
+        if (!measure) return;
+        const horizontal = rhythmCueX(
+          cue,
+          measure,
+          normalizedScore,
+          anchors
         );
-        const noteY = clamp(
-          measure.bottomY + (measure.bottomSpacing || 10) * 4.4,
-          measure.bottomY + 24,
-          scoreHeight - 34
-        );
+        const laneY = rhythmCueLaneY(measure, policy);
+        context.save();
+        context.setFillStyle(RHYTHM_CUE_COLOUR);
+        context.setStrokeStyle(RHYTHM_CUE_COLOUR);
         const cueGroup = context.openGroup("source-rhythm-cue");
         cueGroup.dataset.rhythmCue = cue.label || cue.duration;
+        cueGroup.dataset.kind = "duration-only";
         cueGroup.dataset.measure = String(cue.measure);
         cueGroup.dataset.beat = String(cue.beat);
         cueGroup.dataset.duration = cue.duration;
-        const cueStave = new VF.Stave(x - 16, noteY - 40, 32);
-        cueStave.setNoteStartX(x);
-        const cueNote = makeStaveNote(
+        cueGroup.dataset.system = String(measure.system);
+        cueGroup.dataset.lane = policy.lane;
+        cueGroup.dataset.associatedStaff = policy.associatedStaff;
+        cueGroup.dataset.x = horizontal.x.toFixed(3);
+        cueGroup.dataset.laneY = laneY.toFixed(3);
+        cueGroup.dataset.positionSource = horizontal.source;
+        drawDurationOnlyCue(
           VF,
-          ["B4"],
-          "treble",
+          context,
+          cueGroup,
+          horizontal.x,
+          laneY,
           cue.duration,
-          VF.Stem.UP,
-          false
+          policy.stemDirection
         );
-        cueNote.setStave(cueStave);
-        const cueVoice = new VF.Voice({ num_beats: 4, beat_value: 4 })
-          .setStrict(false)
-          .addTickables([cueNote]);
-        new VF.Formatter()
-          .joinVoices([cueVoice])
-          .formatToStave([cueVoice], cueStave);
-        cueVoice.draw(context, cueStave);
         context.closeGroup();
+        context.restore();
         count += 1;
       });
     }
@@ -2692,6 +2914,7 @@
     harmonicEvents,
     brackets,
     noteAnnotations,
+    rhythmCues,
     showAnswer,
     hasTwoStaves
   ) {
@@ -2724,6 +2947,13 @@
             (eventIndex) => eventIndex >= bracket.start && eventIndex <= bracket.end
           )
       );
+      const measureNumbers = new Set(
+        system.measures.map((measure) => measure.index + 1)
+      );
+      const hasExternalRhythmCues =
+        !showAnswer &&
+        rhythmCueLanePolicy(layout).lane === "below-lower-staff" &&
+        rhythmCues.some((cue) => measureNumbers.has(cue.measure));
       const maximumPreferredWidth = Math.max(...system.preferredWidths, 0);
       const maximumCollisions = Math.max(
         ...system.metrics.map((metric) => metric.closeCollisions),
@@ -2749,7 +2979,9 @@
       // from the rendered lower-staff note geometry.
       const bottomPadding = hasBottomBoxes
         ? Math.max(94, Number(score.bottomAnalysisPadding) || 0)
-        : 8;
+        : hasExternalRhythmCues
+          ? 20
+          : 8;
       const height = hasTwoStaves
         ? topPadding + staffDistance + 106 + bottomPadding
         : topPadding + 92 + bottomPadding;
@@ -2763,9 +2995,11 @@
         hasBottomBoxes,
         hasAnnotations,
         hasBrackets,
+        hasExternalRhythmCues,
         annotationY: 0,
         bracketY: 0,
         bottomAnalysisY: 0,
+        rhythmCueLaneY: null,
       };
       yOffset += height;
     });
@@ -2849,6 +3083,7 @@
       MAX_RENDER_WIDTH
     ));
     const normalizedScore = normalizeMeasures(score);
+    const rhythmCues = normalizeRhythmCues(score, normalizedScore);
     validateScoreData(normalizedScore, layout);
     const harmonicEvents = normalizeHarmonicEvents(score, normalizedScore);
     const brackets = normalizeBrackets(score, normalizedScore);
@@ -2896,6 +3131,7 @@
       harmonicEvents,
       brackets,
       noteAnnotations,
+      rhythmCues,
       showAnswer,
       hasTwoStaves
     );
@@ -3148,6 +3384,7 @@
           timeSignature: measure.effectiveTimeSignature.text,
           keyLabel: measure.keyLabel,
           keySignature: measure.effectiveKeySignature,
+          systemLayout,
         });
 
         if (!firstTopStave) {
@@ -3335,7 +3572,15 @@
       anchors
     );
 
-    positionBottomAnalysisBoxes(systems, references, anchors);
+    positionBottomAnalysisBoxes(
+      systems,
+      references,
+      anchors,
+      hitMeasures,
+      layout,
+      rhythmCues,
+      showAnswer
+    );
 
     const diagnostics = layoutDiagnostics(anchors, references);
     target.dataset.minimumRhythmicGap =
@@ -3426,12 +3671,13 @@
       drawRhythmCues(
         VF,
         context,
-        decorationGroup,
         target,
-        score,
+        layout,
+        rhythmCues,
+        normalizedScore,
         hitMeasures,
-        showAnswer,
-        height
+        anchors,
+        showAnswer
       );
       let editableAnalysisBoxCount = 0;
       let blankEditableAnalysisBoxCount = 0;
@@ -3521,6 +3767,7 @@
     parseChordSymbol,
     pitchClass,
     normalizeDuration,
+    normalizeRhythmCues,
     durationInBeats,
     eventDurationInBeats,
     normalizeMeasures,
