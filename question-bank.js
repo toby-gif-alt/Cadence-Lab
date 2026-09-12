@@ -213,6 +213,12 @@ const studentPresentationById = {
       "Analyse the 13 blank positions after the five supplied labels, show how the shared harmony connects the stated key areas, and explain chord X's cadential function.",
     hiddenConceptTerms: ["pivot chord", "diminished seventh", "pivot and diminished seventh"],
   },
+  "nzqa-2024-bach-key-regions": {
+    title: "Reference: identify and support the key regions",
+    context:
+      "The music begins in C major and modulates through several keys. For regions X and Y, identify the key, give musical evidence, and state its relationship to the tonic key of C major.",
+    hiddenConceptTerms: [],
+  },
   "modulation-d-g-f": {
     title: "Original: identify two related key regions",
     context:
@@ -786,6 +792,16 @@ function modulationInteraction(config) {
         localKey: region.localKey,
         acceptedAnswers: [{ label: region.localKey }],
       },
+      ...(region.modelEvidence
+        ? [{
+            id: `${region.section.toLowerCase()}-evidence`,
+            label: `${region.section} evidence`,
+            kind: "text",
+            prompt: "Identify the leading-note and cadence evidence printed in the extract.",
+            acceptedAnswers: (region.acceptedEvidence || [region.modelEvidence])
+              .map((label) => ({ label })),
+          }]
+        : []),
       {
         id: `${region.section.toLowerCase()}-relationship`,
         label: `${region.section} relationship`,
@@ -971,6 +987,31 @@ const exactTranscriptionContracts = {
       { soprano: "q q q q", alto: "q q q 8 8", tenor: "8 8 q q 8 8", bass: "8 8 8 8 q q" },
       { soprano: "q q q 8 8", alto: "q 8 8 q 8 8", tenor: "8 8 q q q", bass: "q q q 8 8" },
       { soprano: "q q q q", alto: "8 8 8 8 8 8 q", tenor: "8 8 8 8 q 8 8", bass: "8 8 8 8 q q" },
+    ],
+  },
+  "nzqa-2024-bach-key-regions": {
+    transcriptionMode: "exact",
+    printedBars: "6–9",
+    printedMeasureCount: 4,
+    staffLayout: "satb",
+    voiceNames: ["soprano", "alto", "tenor", "bass"],
+    perMeasureVoiceEventCounts: [
+      { soprano: 1, alto: 1, tenor: 1, bass: 2 },
+      { soprano: 5, alto: 4, tenor: 6, bass: 6 },
+      { soprano: 4, alto: 4, tenor: 5, bass: 7 },
+      { soprano: 6, alto: 4, tenor: 5, bass: 6 },
+    ],
+    measureRhythmSignatures: [
+      { soprano: "q", alto: "q", tenor: "q", bass: "8 8" },
+      { soprano: "q q q 8 8", alto: "q q q q", tenor: "8 8 8 8 qd 8", bass: "qd 8 8 8 8 8" },
+      { soprano: "qd 8 q q", alto: "q q q q", tenor: "8 8 q q q", bass: "8 8 8 8 q 8 8" },
+      { soprano: "q q 8 8 8 8", alto: "q q q q", tenor: "q q q 8 8", bass: "8 8 8 8 q q" },
+    ],
+    measurePitchSignatures: [
+      { soprano: "C5", alto: "G4", tenor: "E4", bass: "C4 B3" },
+      { soprano: "C5 D5 C5 A4 B4", alto: "A4 B4 A4 E4", tenor: "E4 C4 F4 E4 E4 D4", bass: "A3 G#3 A3 B3 C4 B3" },
+      { soprano: "C5 C5 B4 B4", alto: "E4 D4 D4 G4", tenor: "C4 B3 A3 G3 D4", bass: "A3 G3 F#3 D3 G3 G3 F3" },
+      { soprano: "C5 D5 C5 B4 A4 B4", alto: "G4 G4 G4 F4", tenor: "E4 F4 E4 A3 G#3", bass: "E3 D3 C3 B2 C3 D3" },
     ],
   },
   "nzqa-2023-bach-key-regions": {
@@ -1593,6 +1634,138 @@ const questionBank = [
     answer: [
       "<strong>Analysis after the five supplied labels:</strong> C: IV–IVb–I–vi–iii–IV–Vb–I–vi / E minor: iv–V7–IVb–♯vii°7–i. The A-minor chord is the pivot: vi in C major and iv in E minor.",
       "The diminished seventh adds harmonic interest and decorates or strengthens the perfect cadence by embellishing the dominant. Other well-supported explanations are possible.",
+    ],
+  }),
+  createQuestion({
+    id: "nzqa-2024-bach-key-regions",
+    category: "modulation",
+    homeKey: "C major",
+    keyRegions: [
+      {
+        section: "X",
+        localKey: "A minor",
+        modelRelationship: "relative minor",
+        modelEvidence: "Raised leading note G♯, perfect cadence in A minor",
+        relationshipChoices: [
+          "relative minor",
+          "dominant",
+          "subdominant",
+          "tonic minor",
+          "mediant",
+        ],
+      },
+      {
+        section: "Y",
+        localKey: "G major",
+        modelRelationship: "dominant",
+        modelEvidence: "Raised leading note F♯, perfect cadence in G",
+        relationshipChoices: [
+          "dominant",
+          "subdominant",
+          "relative minor",
+          "tonic minor",
+          "mediant",
+        ],
+      },
+    ],
+    sourceType: "nzqa-reference",
+    source: nzqaSource(
+      2024,
+      "Question One",
+      "(b)",
+      "Extract Two",
+      "J. S. Bach",
+      "Herzlich lieb hab’ ich dich, o Herr",
+      "bars 6–9, exam p.3; schedule p.3",
+      "6–9"
+    ),
+    family: "Keys and modulation",
+    title: "Reference: A minor and G major from C major",
+    context:
+      "The music begins in C major. For X and Y, identify the key, give musical evidence, and state its relationship to C major.",
+    tasks: {
+      A: [
+        "For each of regions X and Y, identify the key.",
+        "Give musical evidence for each key, then state its relationship to the tonic key of C major.",
+      ],
+      M: [],
+      E: [],
+    },
+    sourceSpec: {
+      year: 2024,
+      provider: "NZQA",
+      question: "Question One",
+      part: "(b)",
+      bars: "6–9",
+      sections: ["X", "Y"],
+      keyCentres: ["A minor", "G major"],
+      keyRelationships: [
+        { section: "X", homeKey: "C major", localKey: "A minor", acceptedLabels: [] },
+        { section: "Y", homeKey: "C major", localKey: "G major", acceptedLabels: [] },
+      ],
+      keyEvidence: [
+        { section: "X", evidence: "Raised leading note G♯, perfect cadence in A minor" },
+        { section: "Y", evidence: "Raised leading note F♯, perfect cadence in G" },
+      ],
+      sectionRanges: [
+        { label: "X", key: "A minor", start: { measure: 2, beat: 1 }, end: { measure: 2, beat: 4.5 } },
+        { label: "Y", key: "G major", start: { measure: 3, beat: 1 }, end: { measure: 3, beat: 3 } },
+      ],
+      measureCount: 4,
+      partialMeasures: [{ bar: 6, expectedBeats: 1 }],
+      fermataPositions: [
+        { bar: 8, beat: 3, voice: "soprano", pitch: "B4" },
+        { bar: 8, beat: 3, voice: "bass", pitch: "G3" },
+      ],
+      independentSatb: true,
+    },
+    score: measuredScore({
+      key: "C major with regions X and Y",
+      keySignature: "C",
+      timeSignature: "4/4",
+      timeSignatureDisplay: "C",
+      layout: "satb",
+      minimumEngravingWidth: 900,
+      authoredSystemBreaks: true,
+      voiceLabels: { treble: ["S", "A"], bass: ["T", "B"] },
+      labelPosition: "bottom",
+      caption: "NZQA examination reference • 2024 Q1(b), Extract Two • bars 6–9 transcription",
+      brackets: [
+        { start: { measure: 2, beat: 1 }, end: { measure: 2, beat: 4.5 }, label: "X", key: "A minor" },
+        { start: { measure: 3, beat: 1 }, end: { measure: 3, beat: 3 }, label: "Y", key: "G major" },
+      ],
+      measures: [
+        { expectedBeats: 1, voices: {
+          soprano: [{ pitch: "C5", duration: "q" }],
+          alto: [{ pitch: "G4", duration: "q" }],
+          tenor: [{ pitch: "E4", duration: "q" }],
+          bass: [{ pitch: "C4", duration: "8" }, { pitch: "B3", duration: "8" }],
+        } },
+        { voices: {
+          soprano: [{ pitch: "C5", duration: "q" }, { pitch: "D5", duration: "q" }, { pitch: "C5", duration: "q" }, { pitch: "A4", duration: "8" }, { pitch: "B4", duration: "8" }],
+          alto: [{ pitch: "A4", duration: "q" }, { pitch: "B4", duration: "q" }, { pitch: "A4", duration: "q" }, { pitch: "E4", duration: "q" }],
+          tenor: [{ pitch: "E4", duration: "8" }, { pitch: "C4", duration: "8" }, { pitch: "F4", duration: "8" }, { pitch: "E4", duration: "8" }, { pitch: "E4", duration: "qd" }, { pitch: "D4", duration: "8" }],
+          bass: [{ pitch: "A3", duration: "qd" }, { pitch: "G#3", duration: "8" }, { pitch: "A3", duration: "8" }, { pitch: "B3", duration: "8" }, { pitch: "C4", duration: "8" }, { pitch: "B3", duration: "8" }],
+        } },
+        { voices: {
+          soprano: [{ pitch: "C5", duration: "qd" }, { pitch: "C5", duration: "8" }, { pitch: "B4", duration: "q", fermata: "above" }, { pitch: "B4", duration: "q" }],
+          alto: [{ pitch: "E4", duration: "q" }, { pitch: "D4", duration: "q" }, { pitch: "D4", duration: "q" }, { pitch: "G4", duration: "q" }],
+          tenor: [{ pitch: "C4", duration: "8" }, { pitch: "B3", duration: "8" }, { pitch: "A3", duration: "q" }, { pitch: "G3", duration: "q" }, { pitch: "D4", duration: "q" }],
+          bass: [{ pitch: "A3", duration: "8" }, { pitch: "G3", duration: "8" }, { pitch: "F#3", duration: "8" }, { pitch: "D3", duration: "8" }, { pitch: "G3", duration: "q", fermata: "above" }, { pitch: "G3", duration: "8" }, { pitch: "F3", duration: "8" }],
+        } },
+        { endBarline: "final", voices: {
+          soprano: [{ pitch: "C5", duration: "q" }, { pitch: "D5", duration: "q" }, { pitch: "C5", duration: "8" }, { pitch: "B4", duration: "8" }, { pitch: "A4", duration: "8" }, { pitch: "B4", duration: "8" }],
+          alto: [{ pitch: "G4", duration: "q" }, { pitch: "G4", duration: "q" }, { pitch: "G4", duration: "q" }, { pitch: "F4", duration: "q" }],
+          tenor: [{ pitch: "E4", duration: "q" }, { pitch: "F4", duration: "q" }, { pitch: "E4", duration: "q" }, { pitch: "A3", duration: "8" }, { pitch: "G#3", duration: "8" }],
+          bass: [{ pitch: "E3", duration: "8" }, { pitch: "D3", duration: "8" }, { pitch: "C3", duration: "8" }, { pitch: "B2", duration: "8" }, { pitch: "C3", duration: "q" }, { pitch: "D3", duration: "q" }],
+        } },
+      ],
+      harmonicEvents: [],
+    }),
+    answerHeading: "Published keys, evidence and relationships",
+    answer: [
+      "<strong>X:</strong> A minor — raised leading note G♯; perfect cadence in A minor — relative minor.",
+      "<strong>Y:</strong> G major — raised leading note F♯; perfect cadence in G — dominant.",
     ],
   }),
   createQuestion({
