@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+  <meta charset="utf-8">
+  <title>Cadence Lab rhythm-cue engraving smoke test</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    #fixtures { position: absolute; left: -10000px; top: 0; }
+    #results { white-space: pre-wrap; }
+  </style>
+</head>
+<body data-status="running">
+<div id="fixtures" aria-hidden="true"></div>
+<pre id="results">Running…</pre>
+<script>
+  const results = document.querySelector('#results');
+  const assertions = {};
+  const details = {};
+  const assert = (name, condition, detail = null) => {
+    assertions[name] = Boolean(condition);
+    if (!condition && detail != null) details[name] = detail;
+  };
+  function finish(error = null) {
+    if (error) details.error = error.stack || String(error);
+    const passed = !error && Object.values(assertions).every(Boolean);
+    document.body.dataset.status = passed ? 'pass' : 'fail';
+    results.textContent = JSON.stringify({passed, assertions, details}, null, 2);
+  }
+  addEventListener('error', event => finish(event.error || event.message));
+  addEventListener('unhandledrejection', event => finish(event.reason));
+</script>
+<script src="../vendor/vexflow-bravura-4.2.5.js"></script>
+<script src="../key-relationships.js?v=2026-09-score-ui-44"></script>
+<script src="../question-bank.js?v=2026-09-q1b-1"></script>
+<script src="../exact-2025-q1-a.js?v=2026-09-score-ui-26"></script>
+<script src="../exact-2025-q1-b.js?v=2026-09-score-ui-26"></script>
+<script src="../exact-2025-q1-c.js?v=2026-09-score-ui-26"></script>
+<script src="../exact-2024-q2.js?v=2026-09-engraving-1"></script>
+<script src="../exact-2025-q2.js?v=2026-09-score-ui-32"></script>
+<script src="../exact-2025-q3.js?v=2026-09-score-ui-43"></script>
+<script src="../score-ui-consistency.js?v=2026-09-score-ui-26"></script>
+<script src="../satb-integrity.js?v=2026-09-score-ui-26"></script>
+<script src="../score-renderer.js?v=2026-09-rhythm-cues-1"></script>
+<script src="../question-validator.js?v=2026-09-q1b-1"></script>
+<script>
+try {
+  const renderer = window.CadenceScoreRenderer;
+  const questions = window.CadenceData.questions;
+  const byId = id => questions.find(question => question.id === id);
+  const bach = byId('nzqa-2025-bach-satb');
+  const joel = byId('nzqa-2025-joel-piano');
+  const fixtures = document.querySelector('#fixtures');
+  const widths = [1000, 780, 390];
+  const overlaps = (first, second, padding = 0) => !(
+    first.x + first.width + padding <= second.x ||
+    second.x + second.width + padding <= first.x ||
+    first.y + first.height + padding <= second.y ||
+    second.y + second.height + padding <= first.y
+  );
+  const pitchSignature = score => score.measures.map(measure =>
+    measure.voices.bass.map(event => `${event.pitch || 'R'}/${event.duration}`).join(',')
+  );
+
+  function renderScore(score, width, showAnswer = false) {
+    const target = document.createElement('div');
+    fixtures.append(target);
+    renderer.render(target, score, {width, showAnswer});
+    return target;
+  }
+
+  function cueGeometry(target, expectedCount, expectedLane, expectedStaff) {
+    const svg = target.querySelector('svg');
+    const [, , viewWidth, viewHeight] = svg.getAttribute('viewBox')
+      .split(/\s+/).map(Number);
+    const cues = [...target.querySelectorAll('.vf-source-rhythm-cue')];
+    const obstacles = [...target.querySelectorAll(
+      '.vf-stavenote, .analysis-box-group, .source-chord-label, .source-ending-bracket'
+    )];
+    const checks = cues.map(cue => {
+      const box = cue.getBBox();
+      const measure = target._cadenceHitMap.measures.find(
+        candidate => candidate.measure === Number(cue.dataset.measure)
+      );
+      const x = Number(cue.dataset.x);
+      const laneY = Number(cue.dataset.laneY);
+      const lowerStaffFloor = (measure.bottomY ?? measure.topY) +
+        (measure.bottomSpacing ?? measure.topSpacing) * 4;
+      const pianoUpperFloor = expectedLane === 'piano-interstaff'
+        ? measure.middleY + measure.middleSpacing * 4
+        : measure.topY + measure.topSpacing * 4;
+      const laneIsClear = expectedLane === 'below-lower-staff'
+        ? box.y > lowerStaffFloor + 4
+        : box.y >= pianoUpperFloor - 0.5 &&
+          box.y + box.height <= measure.bottomY + 0.5;
+      return {
+        durationOnly:
+          cue.dataset.kind === 'duration-only' &&
+          cue.dataset.lane === expectedLane &&
+          cue.dataset.associatedStaff === expectedStaff &&
+          cue.querySelectorAll('.vf-rhythm-cue-notehead').length === 1 &&
+          !cue.querySelector('.vf-stavenote, .vf-stave, .vf-clef, [data-pitch]') &&
+          cue.textContent === '',
+        measureAndSystem:
+          measure &&
+          Number(cue.dataset.system) === measure.system &&
+          x >= measure.x - 0.5 && x <= measure.endX + 0.5,
+        insideViewBox:
+          box.x >= -0.5 && box.y >= -0.5 &&
+          box.x + box.width <= viewWidth + 0.5 &&
+          box.y + box.height <= viewHeight + 0.5,
+        laneIsClear,
+        avoidsNotation: obstacles
+          .filter(obstacle => !cue.contains(obstacle))
+          .every(obstacle => !overlaps(box, obstacle.getBBox(), 1)),
+        laneY,
+        box: {x: box.x, y: box.y, width: box.width, height: box.height},
+      };
+    });
+    const lanesBySystem = new Map();
+    cues.forEach(cue => {
+      const system = cue.dataset.system;
+      if (!lanesBySystem.has(system)) lanesBySystem.set(system, new Set());
+      lanesBySystem.get(system).add(cue.dataset.laneY);
+    });
+    return {
+      valid:
+        cues.length === expectedCount &&
+        checks.every(check =>
+          check.durationOnly && check.measureAndSystem &&
+          check.insideViewBox && check.laneIsClear && check.avoidsNotation
+        ) &&
+        [...lanesBySystem.values()].every(values => values.size === 1),
+      count: cues.length,
+      checks,
+      lanesBySystem: [...lanesBySystem].map(([system, values]) => [system, [...values]]),
+    };
+  }
+
+  assert('bach-cue-source-contract-is-four-q-q-h-q-at-bars-22-23',
+    JSON.stringify(bach.score.rhythmCues.map(cue => [cue.measure, cue.beat, cue.duration])) ===
+      JSON.stringify([[2, 1, 'q'], [2, 2, 'q'], [2, 3, 'h'], [3, 1, 'q']]) &&
+    bach.sourceSpec.bassDurationCues.join(' ') === 'q q h q'
+  );
+  assert('bach-hidden-bass-pitches-remain-absent-in-question-data',
+    bach.score.measures.slice(1, 3).every(measure =>
+      measure.questionVoices.bass.every(event => !event.pitch)
+    )
+  );
+  const expectedBachBass = [
+    'C3/8,A2/8,D3/q,G2/q,D3/q',
+    'G2/8,A2/8,B2/q,C3/h',
+    'G3/q,F#3/q,G3/8,F#3/8,E3/8,D3/8',
+    'C3/8,A2/8,D3/q,G2/q',
+  ];
+  assert('bach-model-bass-content-is-unchanged',
+    JSON.stringify(pitchSignature(bach.score)) === JSON.stringify(expectedBachBass),
+    pitchSignature(bach.score)
+  );
+  assert('joel-is-the-only-non-satb-rhythm-cue-consumer',
+    questions.filter(question => question.score.rhythmCues?.length)
+      .map(question => [question.id, question.score.layout]).join('|') ===
+      'nzqa-2025-bach-satb,satb|nzqa-2025-joel-piano,vocal-piano'
+  );
+  assert('joel-retains-twelve-source-rhythm-cues',
+    joel.score.rhythmCues.length === 12 &&
+    joel.sourceSpec.rhythmCueCount === 12
+  );
+  assert('joel-target-piano-pitches-remain-hidden-in-question-data',
+    joel.sourceSpec.completionContract.targetMeasures.every(number => {
+      const voices = joel.score.measures[number - 1].questionStaffVoices;
+      return voices.treble.length === 0 && voices.bass.length === 0;
+    })
+  );
+
+  widths.forEach(width => {
+    const bachTarget = renderScore(bach.score, width);
+    const bachGeometry = cueGeometry(
+      bachTarget,
+      4,
+      'below-lower-staff',
+      'bass'
+    );
+    assert(`bach-duration-only-cues-are-clear-at-${width}`,
+      bachGeometry.valid,
+      bachGeometry
+    );
+    assert(`bach-cues-retain-source-order-at-${width}`,
+      [...bachTarget.querySelectorAll('.vf-source-rhythm-cue')]
+        .map(cue => `${cue.dataset.measure}:${cue.dataset.beat}/${cue.dataset.duration}`)
+        .join('|') === '2:1/q|2:2/q|2:3/h|3:1/q'
+    );
+
+    const joelTarget = renderScore(joel.score, width);
+    const joelGeometry = cueGeometry(
+      joelTarget,
+      12,
+      'piano-interstaff',
+      'piano'
+    );
+    assert(`joel-duration-only-cues-are-clear-at-${width}`,
+      joelGeometry.valid,
+      joelGeometry
+    );
+    assert(`responsive-cues-stay-with-their-measures-at-${width}`,
+      [bachTarget, joelTarget].every(target =>
+        [...target.querySelectorAll('.vf-source-rhythm-cue')].every(cue => {
+          const measure = target._cadenceHitMap.measures.find(
+            candidate => candidate.measure === Number(cue.dataset.measure)
+          );
+          return measure && Number(cue.dataset.system) === measure.system;
+        })
+      )
+    );
+  });
+
+  [bach, joel].forEach(question => {
+    const model = renderScore(question.score, 1000, true);
+    assert(`${question.id}-model-has-no-cue-remnants-or-duplicates`,
+      model.dataset.sourceRhythmCueCount === '0' &&
+      model.querySelectorAll('.vf-source-rhythm-cue').length === 0
+    );
+  });
+
+  const subdivisionScore = {
+    key: 'C major', keySignature: 'C', timeSignature: '4/4', layout: 'piano',
+    measures: Array.from({length: 4}, (_, index) => ({
+      events: [{treble: ['C5'], bass: ['C3'], duration: 'w'}],
+      ...(index === 3 ? {endBarline: 'final'} : {}),
+    })),
+    rhythmCues: [
+      {measure: 1, beat: 1.5, duration: '8d'},
+      {measure: 2, beat: 2.25, duration: '16'},
+      {measure: 3, beat: 3, duration: 'qdd'},
+      {measure: 4, beat: 3.5, duration: '32'},
+    ],
+    harmonicEvents: [],
+  };
+  const subdivisionTarget = renderScore(subdivisionScore, 780);
+  const subdivisionCues = [...subdivisionTarget.querySelectorAll('.vf-source-rhythm-cue')];
+  assert('fractional-beat-cues-use-measure-timing-fallback',
+    subdivisionCues.every((cue, index) => {
+      const source = subdivisionScore.rhythmCues[index];
+      const measure = subdivisionTarget._cadenceHitMap.measures
+        .find(candidate => candidate.measure === source.measure);
+      const expectedX = measure.x + ((source.beat - 1) / measure.expectedBeats) *
+        (measure.endX - measure.x);
+      return cue.dataset.positionSource === 'measure-proportion' &&
+        Math.abs(Number(cue.dataset.x) - expectedX) < 0.01;
+    })
+  );
+  assert('eighth-sixteenth-thirty-second-and-dots-render-as-bravura-parts',
+    subdivisionCues[0].querySelectorAll('.vf-rhythm-cue-flag').length === 1 &&
+    subdivisionCues[0].querySelectorAll('.vf-rhythm-cue-dot').length === 1 &&
+    subdivisionCues[1].querySelectorAll('.vf-rhythm-cue-flag').length === 1 &&
+    subdivisionCues[2].querySelectorAll('.vf-rhythm-cue-dot').length === 2 &&
+    subdivisionCues[3].querySelectorAll('.vf-rhythm-cue-flag').length === 1
+  );
+
+  const normalizedSubdivision = renderer.normalizeMeasures(subdivisionScore);
+  let invalidMeasureRejected = false;
+  let overrunRejected = false;
+  try {
+    renderer.normalizeRhythmCues(
+      {...subdivisionScore, rhythmCues: [{measure: 5, beat: 1, duration: 'q'}]},
+      normalizedSubdivision
+    );
+  } catch (error) {
+    invalidMeasureRejected = /missing measure 5/.test(error.message);
+  }
+  try {
+    renderer.normalizeRhythmCues(
+      {...subdivisionScore, rhythmCues: [{measure: 1, beat: 4, duration: 'h'}]},
+      normalizedSubdivision
+    );
+  } catch (error) {
+    overrunRejected = /extends beyond measure 1/.test(error.message);
+  }
+  assert('invalid-rhythm-cue-locations-fail-fast',
+    invalidMeasureRejected && overrunRejected
+  );
+
+  finish();
+} catch (error) {
+  finish(error);
+}
+</script>
+</body>
+</html>
