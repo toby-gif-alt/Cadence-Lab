@@ -202,7 +202,7 @@
       );
 
       lab.showQuestion(q3c.id);
-      assert('q3c-question-renders-native-rhythm-cues', d.querySelector('#score')?.dataset.sourceRhythmCueCount === '12' && d.querySelectorAll('#score .vf-source-rhythm-cue').length === 12);
+      assert('q3c-question-renders-duration-only-cues-in-piano-lane', d.querySelector('#score')?.dataset.sourceRhythmCueCount === '12' && d.querySelectorAll('#score .vf-source-rhythm-cue').length === 12 && [...d.querySelectorAll('#score .vf-source-rhythm-cue')].every(cue => cue.dataset.kind === 'duration-only' && cue.dataset.lane === 'piano-interstaff' && cue.dataset.associatedStaff === 'piano' && !cue.querySelector('.vf-stavenote,[data-pitch]')));
       assert('q3c-question-renders-two-endings', d.querySelector('#score')?.dataset.sourceEndingCount === '2' && d.querySelectorAll('#score .source-ending-bracket').length === 2);
       assert('q3c-all-printed-chord-indications-remain-visible', d.querySelectorAll('#score .source-chord-label').length === q3c.score.sourceChordLabels.length);
       assert('q3c-question-shows-no-piano-model-pitches-in-target', q3c.sourceSpec.completionContract.blankTargetStaffVoices.join(',') === 'treble,bass');
