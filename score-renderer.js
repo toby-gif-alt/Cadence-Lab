@@ -567,6 +567,8 @@
           timeSignatureDisplay:
             measure.timeSignatureDisplay ||
             (measureIndex === 0 ? score.timeSignatureDisplay : null),
+          showTimeSignature:
+            measure.showTimeSignature ?? score.showTimeSignature ?? true,
           effectiveTimeSignature: currentTimeSignature,
           beginBarline: measure.beginBarline || null,
           endBarline: measure.endBarline || measure.barline || null,
@@ -1515,7 +1517,7 @@
     harmonicEvents,
     noteAnnotations
   ) {
-    const leftMargin = score.voiceLabels && layout === "satb"
+    const leftMargin = (score.voiceLabels && layout === "satb") || score.staffLabels
       ? VOICE_LABEL_MARGIN_X
       : MARGIN_X;
     const availableWidth = width - leftMargin - MARGIN_X;
@@ -1555,7 +1557,9 @@
       normalizedScore.measures.forEach((measure, index) => {
         const metric = metrics[index];
         const nextTotal = preferredTotal + metric.preferredWidth;
-        const honourAuthoredBreaks = score.authoredSystemBreaks && width >= 720;
+        const authoredBreakMinWidth = Number(score.authoredBreakMinWidth) || 720;
+        const honourAuthoredBreaks = score.authoredSystemBreaks &&
+          width >= authoredBreakMinWidth;
         if (!honourAuthoredBreaks && systemMeasures.length && nextTotal > availableWidth) {
           flush();
         }
@@ -1680,7 +1684,9 @@
           : measure.staffVoiceStreams;
         return visibleStreams[staff].map((stream, streamIndex) => {
           const fallbackDirection = staff === "bass" ? VF.Stem.DOWN : VF.Stem.UP;
-          const stemDirection = stream.stemDirection === "down"
+          const stemDirection = stream.stemDirection === "auto"
+            ? undefined
+            : stream.stemDirection === "down"
             ? VF.Stem.DOWN
             : stream.stemDirection === "up"
               ? VF.Stem.UP
@@ -1756,6 +1762,8 @@
             role: stream.role || `${staff}-${streamIndex + 1}`,
             independent: true,
             timeSignature,
+            beam: stream.beam !== false,
+            beamGroups: stream.beamGroups || null,
           };
         });
       }
@@ -1924,6 +1932,7 @@
     const isSystemStart = measureIndexInSystem === 0;
     const shouldShowKey = isSystemStart || measure.keySignature;
     const shouldShowTime =
+      measure.showTimeSignature !== false &&
       scoreMode === "explicit" &&
       ((systemIndex === 0 && measureIndexInSystem === 0) ||
         Boolean(measure.timeSignature));
@@ -2117,6 +2126,7 @@
     let count = 0;
     if (score.showBarNumbers !== false) {
       hitMeasures.forEach((measure, index) => {
+        if (score.barNumberMode === "system-start" && !measure.systemStart) return;
         const number = numbers[index];
         if (number == null) return;
         group.appendChild(createSvgElement("text", {
@@ -2157,6 +2167,47 @@
       count += 1;
     });
     target.dataset.sourceChordLabelCount = String(count);
+  }
+
+  function drawSourceLyrics(group, target, lyrics, anchors) {
+    let count = 0;
+    lyrics.forEach((lyric) => {
+      const anchor = anchors.get(lyric._index);
+      if (!anchor?.note) return;
+      group.appendChild(createSvgElement("text", {
+        class: "source-lyric",
+        x: anchor.note.getAbsoluteX(),
+        y: anchor.topStave.getYForLine(4) + 23,
+        "text-anchor": "middle",
+        "font-family": "Georgia, 'Times New Roman', serif",
+        "font-size": 11.5,
+        "data-measure": lyric.measure,
+        "data-beat": lyric.beat || 1,
+      }, lyric.text));
+      count += 1;
+    });
+    target.dataset.sourceLyricCount = String(count);
+  }
+
+  function drawStaffLabels(group, target, score, topStave, middleStave, bottomStave, systemIndex) {
+    if (!score.staffLabels || systemIndex > 0) return;
+    const x = topStave.getX() - 12;
+    const labels = [
+      [score.staffLabels.vocal, topStave.getYForLine(2) + 4],
+      [score.staffLabels.piano, middleStave && bottomStave
+        ? (middleStave.getYForLine(2) + bottomStave.getYForLine(2)) / 2 + 4
+        : null],
+    ].filter(([label, y]) => label && Number.isFinite(y));
+    labels.forEach(([label, y]) => group.appendChild(createSvgElement("text", {
+      class: "source-staff-label",
+      x,
+      y,
+      "text-anchor": "end",
+      "font-family": "Georgia, 'Times New Roman', serif",
+      "font-size": 12,
+      "font-weight": 700,
+    }, label)));
+    target.dataset.sourceStaffLabelCount = String(labels.length);
   }
 
   function drawSourceSlurs(group, target, slurs, references, anchors) {
@@ -3092,6 +3143,10 @@
       ...label,
       _index: resolveEventIndex(label, normalizedScore),
     }));
+    const sourceLyrics = (score.lyrics || []).map((lyric) => ({
+      ...lyric,
+      _index: resolveEventIndex(lyric, normalizedScore),
+    }));
     const sourceSlurs = (score.sourceSlurs || []).map((slur) => ({
       ...slur,
       _fromIndex: resolveEventIndex(slur.from, normalizedScore),
@@ -3200,6 +3255,7 @@
     );
     target.dataset.timeSignatureDisplay =
       score.timeSignatureDisplay || score.timeSignature || DEFAULT_TIME_SIGNATURE;
+    target.dataset.showTimeSignature = String(score.showTimeSignature !== false);
 
     const caption = document.createElement("div");
     caption.className = "score-caption";
@@ -3492,6 +3548,10 @@
             bundle.beams = [];
             return;
           }
+          if (bundle.beam === false) {
+            bundle.beams = [];
+            return;
+          }
           const beamOptions = {
             beam_rests: false,
             beam_middle_only: true,
@@ -3502,6 +3562,12 @@
             beamOptions.groups = VF.Beam.getDefaultBeamGroups(
               bundle.timeSignature.text
             );
+          }
+          if (bundle.beamGroups?.length) {
+            beamOptions.groups = bundle.beamGroups.map((group) => {
+              const [numerator, denominator] = String(group).split("/").map(Number);
+              return new VF.Fraction(numerator, denominator);
+            });
           }
           bundle.beams = VF.Beam.generateBeams(
             bundle.tickables,
@@ -3632,6 +3698,7 @@
         sourceChordLabels,
         anchors
       );
+      drawSourceLyrics(decorationGroup, target, sourceLyrics, anchors);
       drawSourceSlurs(
         decorationGroup,
         target,
@@ -3726,15 +3793,24 @@
           resolvedAnnotationCount += 1;
         }
       });
-      systems.forEach((system, systemIndex) =>
+      systems.forEach((system, systemIndex) => {
         drawVoiceLabels(
           decorationGroup,
           score,
           system.firstTopStave,
           system.firstBottomStave,
           systemIndex
-        )
-      );
+        );
+        drawStaffLabels(
+          decorationGroup,
+          target,
+          score,
+          system.firstTopStave,
+          system.firstMiddleStave,
+          system.firstBottomStave,
+          systemIndex
+        );
+      });
       svg.appendChild(decorationGroup);
       target.dataset.resolvedNoteAnnotationCount = String(
         resolvedAnnotationCount

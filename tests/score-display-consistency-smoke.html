@@ -80,7 +80,13 @@
         const score = d.querySelector('#score');
         const expectedBarCount = (question.score.barNumbers || []).filter(value => value != null).length;
         const actualNumbers = [...d.querySelectorAll('#score .measure-bar-number')].map(node => Number(node.dataset.barNumber));
-        const expectedNumbers = (question.score.barNumbers || []).filter(value => value != null);
+        const expectedNumbers = (question.score.barNumbers || []).filter((value, index) =>
+          value != null && (
+            question.score.barNumberMode !== 'system-start' ||
+            index === 0 ||
+            question.score.measures[index - 1]?.systemBreakAfter
+          )
+        );
         const editableCount = question.score.harmonicEvents.filter(event => event.answerRole === 'editable' && event.analysisBox !== false).length;
         const actualEditable = d.querySelectorAll('#score .analysis-box-editable').length;
         if (question.score.showBarNumbers !== false && expectedBarCount &&
@@ -116,7 +122,7 @@
         d.querySelector('#model-score')?.childNodes.length > 0
       );
 
-      const jazzQuestion = questions.find(question => question.interaction?.type === 'jazz-chord-placement' && question.sourceType !== 'generated-practice');
+      const jazzQuestion = questions.find(question => question.interaction?.type === 'jazz-chord-placement' && question.sourceType !== 'generated-practice' && question.interaction.showModelScore !== false);
       if (jazzQuestion) {
         lab.showQuestion(jazzQuestion.id);
         assert('jazz-submit-succeeds', lab.submit({skipConfirmation:true, noScroll:true}) === true);

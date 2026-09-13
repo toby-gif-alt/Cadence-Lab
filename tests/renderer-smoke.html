@@ -46,6 +46,7 @@
     <script src="../exact-2025-q1-b.js?v=2026-09-score-ui-26"></script>
     <script src="../exact-2025-q1-c.js?v=2026-09-score-ui-26"></script>
     <script src="../exact-2024-q2.js?v=2026-09-engraving-1"></script>
+    <script src="../exact-2024-q3a.js?v=2026-09-q3a-6"></script>
     <script src="../exact-2025-q2.js?v=2026-09-score-ui-32"></script>
     <script src="../exact-2025-q3.js?v=2026-09-score-ui-43"></script>
     <script src="../score-ui-consistency.js?v=2026-09-score-ui-26"></script>
@@ -265,12 +266,13 @@
       const commercialSequence = commercialStudy.score.harmonicEvents.map(
         (event) => event.modelLabel
       );
-      const eSharpDiminishedPitches = [
-        ...commercialStudy.score.measures[6].staffVoices.treble[0].events[0].pitches,
-        commercialStudy.score.measures[6].staffVoices.bass[0].events[0].pitch,
-      ];
-      const commercialBracketTarget = document.createElement("div");
-      renderer.render(commercialBracketTarget, commercialStudy.score, {
+      const eSharpDiminishedPitches = ["treble", "bass"].flatMap((staff) =>
+        commercialStudy.score.measures[9].staffVoices[staff].flatMap((voice) =>
+          voice.events.flatMap((event) => event.pitches || (event.pitch ? [event.pitch] : []))
+        )
+      );
+      const commercialTarget = document.createElement("div");
+      renderer.render(commercialTarget, commercialStudy.score, {
         showAnswer: false,
         width: 390,
       });
@@ -577,9 +579,9 @@
           validatorReport.legacyCount === 0,
         exactReferenceCountsAreTruthful:
           JSON.stringify(referenceCounts) === JSON.stringify({
-            2021: 1, 2022: 1, 2023: 1, 2024: 6, 2025: 9,
-          }) && retainedReferences.length === 18 &&
-          validatorReport.referenceCount === 18 &&
+            2021: 1, 2022: 1, 2023: 1, 2024: 7, 2025: 9,
+          }) && retainedReferences.length === 19 &&
+          validatorReport.referenceCount === 19 &&
           validatorReport.practiceReferenceCount === 0,
         exact2025Q1Q2Q3AreClassifiedHonestly:
           [bach2025, bachModulation2025].every((question) =>
@@ -674,10 +676,12 @@
         commercialSequenceMatchesPublishedSchedule:
           JSON.stringify(commercialSequence) ===
           JSON.stringify(expectedCommercialSequence),
-        commercialSpanningBracketShowsOneTextLabel:
-          commercialStudy.score.brackets[0].repeatLabel === false &&
-          commercialBracketTarget.querySelectorAll(".analysis-bracket").length > 1 &&
-          commercialBracketTarget.querySelectorAll(".analysis-bracket-label").length === 1,
+        commercialExactSourceSurfaceIsRendered:
+          commercialStudy.sourceType === "nzqa-reference" &&
+          commercialStudy.sourceSpec.transcriptionMode === "exact" &&
+          commercialStudy.score.layout === "vocal-piano" &&
+          commercialTarget.querySelectorAll(".analysis-box-editable").length === 11 &&
+          commercialTarget.querySelectorAll(".source-lyric").length === commercialStudy.score.lyrics.length,
         eSharpDiminishedSpellingPreserved:
           eSharpDiminishedPitches.includes("E#4") &&
           eSharpDiminishedPitches.includes("E#2") &&
