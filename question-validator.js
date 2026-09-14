@@ -1397,6 +1397,36 @@
           "questionStaffVoiceRhythmSignatures",
           staffVoiceRhythms("questionStaffVoices")
         );
+        const questionStaffVoiceSignatures = (valueForEvent) =>
+          question.score.measures.map((measure) => Object.fromEntries(
+            staffNames.map((staff) => [
+              staff,
+              (measure.questionStaffVoices?.[staff] || []).map((voice) =>
+                (voice.events || []).map(valueForEvent).join(" ")
+              ),
+            ])
+          ));
+        compareList(
+          "questionStaffVoicePitchSignatures",
+          questionStaffVoiceSignatures(eventPitchText)
+        );
+        compareList(
+          "questionStaffVoiceTieSignatures",
+          questionStaffVoiceSignatures(eventTieText)
+        );
+        compareList(
+          "questionStaffVoiceBeamPolicies",
+          question.score.measures.map((measure) => Object.fromEntries(
+            staffNames.map((staff) => [
+              staff,
+              (measure.questionStaffVoices?.[staff] || []).map((voice) => ({
+                role: voice.role,
+                beam: voice.beam !== false,
+                beamGroups: voice.beamGroups || null,
+              })),
+            ])
+          ))
+        );
       } else {
         if (!Array.isArray(spec.perMeasureEventCounts) ||
             !Array.isArray(spec.measureRhythmSignatures)) {

@@ -80,7 +80,9 @@ Reference metadata records `provider`, `year`, `question`, `part`, `extract`, `c
 | NZQA 2024 Q2(b) | Extract Five, Rimsky-Korsakov, “Two Piano Pieces” | Piano completion; D major → E major → F♯ minor → A major | Bars 90–92, melody, eight indications and opening texture | Complete bars 93–96 | 8 chord moments in the published model | Fluent stylistic continuation | `nzqa-2024-rimsky-piano` / existing exact |
 | NZQA 2024 Q3(a)(i) | Extract Six, Phillip Norman, “Love is Commercial” | Jazz/rock chord analysis | Bars 16–28 vocal/piano score and three opening Dmaj7 labels | Analyse 11 positions in bars 19–28 | C♯m(add9), Dmaj7, Bm9, G♯dim/B, C♯7sus4, C♯7, F♯m, E♯dim7, F♯m/E, D♯m7(♭5), Dmaj7 | Extended exact source analysis | `nzqa-2024-commercial-chromatic-bass` / existing exact |
 | NZQA 2024 Q3(a)(ii) | Same extract | Chromatic bass/harmonic rhythm | Exact score | Identify the device in bars 24–28 and explain its effect | Descending chromatic bass contrasts with the preceding static bass; one chord per bar creates momentum and forward direction | Evidence-linked contextual effect | existing exact with Q3(a) |
-| NZQA 2024 Q3(b) | Extract Seven, piano | Piano completion | Chord indications and opening style | Complete bars 33–39 | 9 chord moments | Idiomatic full phrase | defer |
+| NZQA 2024 Q3(b) | Extract Seven, Phillip Norman, “Love is Commercial”, bars 32–40 | Piano completion in D major | Bar 32 vocal/piano style model, vocal line throughout, nine chord indications, and supplied bar 40 | Complete both piano staves in bars 33–39 | D7/F♯, G7, D, Em7, G♯dim7, F♯m, G, E7/G♯, A9; exact published sample realisation | Idiomatic full phrase preserving the printed rhythm, register and voicing style | `nzqa-2024-commercial-piano` / existing exact |
+
+All official 2024 and 2025 AS 91421 examination subquestions are now represented as exact NZQA reference practice in Cadence Lab.
 
 ### 2025
 

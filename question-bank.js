@@ -4409,6 +4409,52 @@ const questionBank = [
     answerHeading: "Published schedule evidence",
     answer: [],
   })),
+  createQuestion({
+    id: "nzqa-2024-commercial-piano",
+    category: "piano",
+    sourceType: "nzqa-reference",
+    source: nzqaSource(
+      2024,
+      "Question Three",
+      "(b)",
+      "Extract Seven",
+      "Phillip Norman",
+      "Love is Commercial",
+      "exam p.10; schedule p.10",
+      "32–40"
+    ),
+    family: "Piano completion",
+    title: "Reference: Phillip Norman piano completion",
+    context: "Exact 2024 Question Three (b) source data loads with the production bank.",
+    presentation: {
+      title: "Reference: Phillip Norman piano completion",
+      context: "Exact 2024 Question Three (b) source data loads with the production bank.",
+      hiddenConceptTerms: [],
+    },
+    sourceSpec: {
+      transcriptionMode: "exact",
+      year: 2024,
+      provider: "NZQA",
+      question: "Question Three",
+      part: "(b)",
+      bars: "32–40",
+      printedBars: "32–40",
+      printedMeasureCount: 9,
+      staffLayout: "vocal-piano",
+      perMeasureStaffVoiceEventCounts: [],
+      staffVoiceRhythmSignatures: [],
+    },
+    score: measuredScore({
+      key: "D major",
+      keySignature: "D",
+      timeSignature: "3/4",
+      layout: "vocal-piano",
+      measures: [],
+      harmonicEvents: [],
+    }),
+    answerHeading: "One possible model completion",
+    answer: [],
+  }),
 ];
 
 window.CadenceData = Object.freeze({

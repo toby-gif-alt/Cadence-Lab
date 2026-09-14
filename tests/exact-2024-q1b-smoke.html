@@ -55,8 +55,8 @@
       const question = questions.find(candidate => candidate.id === 'nzqa-2024-bach-key-regions');
 
       assert('production-app-and-validator-load', Boolean(lab && renderer && question) && validator?.valid === true, validator?.errors);
-      assert('new-reference-is-present-once', questions.filter(candidate => candidate.id === question?.id).length === 1 && questions.length === 54);
-      assert('reference-counts-include-seven-exact-2024-items', validator?.referenceCount === 19 && questions.filter(candidate => candidate.sourceType === 'nzqa-reference' && candidate.source?.year === 2024).length === 7, validator);
+      assert('new-reference-is-present-once', questions.filter(candidate => candidate.id === question?.id).length === 1 && questions.length === 55);
+      assert('reference-counts-include-eight-exact-2024-items', validator?.referenceCount === 20 && questions.filter(candidate => candidate.sourceType === 'nzqa-reference' && candidate.source?.year === 2024).length === 8, validator);
       assert('source-metadata-is-exact-2024-q1b',
         question.sourceType === 'nzqa-reference' && question.sourceSpec.transcriptionMode === 'exact' &&
         question.source.provider === 'NZQA' && question.source.year === 2024 &&
