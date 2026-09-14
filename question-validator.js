@@ -152,7 +152,11 @@
       const bankLabels = (interaction.bank || []).map((token) => token.label);
       const requiredLabels = slots.map((slot) => slot.acceptedAnswers[0]?.label);
       const count = (items, value) => items.filter((item) => item === value).length;
-      if (interaction.hintBankMode === "limited-vocabulary") {
+      if (interaction.hintBankMode === "none") {
+        if (bankLabels.length) {
+          errors.push(`${question.id}: a disabled hint bank must not retain learner-visible chord tokens`);
+        }
+      } else if (interaction.hintBankMode === "limited-vocabulary") {
         if (!bankLabels.length || bankLabels.length > 6 ||
             requiredLabels.every((label) => bankLabels.includes(label))) {
           errors.push(`${question.id}: limited vocabulary hint must remain small and must not expose the full answer route`);
@@ -1351,6 +1355,40 @@
           "staffVoiceRhythmSignatures",
           staffVoiceRhythms("staffVoices")
         );
+        const eventPitchText = (event) => event.rest
+          ? "_"
+          : (event.pitches || (event.pitch ? [event.pitch] : [])).join("+");
+        const eventTieText = (event) => event.tieToNext ? "1" : "0";
+        const staffVoiceSignatures = (valueForEvent) =>
+          question.score.measures.map((measure) => Object.fromEntries(
+            staffNames.map((staff) => [
+              staff,
+              (measure.staffVoices?.[staff] || []).map((voice) =>
+                (voice.events || []).map(valueForEvent).join(" ")
+              ),
+            ])
+          ));
+        compareList(
+          "staffVoicePitchSignatures",
+          staffVoiceSignatures(eventPitchText)
+        );
+        compareList(
+          "staffVoiceTieSignatures",
+          staffVoiceSignatures(eventTieText)
+        );
+        compareList(
+          "staffVoiceBeamPolicies",
+          question.score.measures.map((measure) => Object.fromEntries(
+            staffNames.map((staff) => [
+              staff,
+              (measure.staffVoices?.[staff] || []).map((voice) => ({
+                role: voice.role,
+                beam: voice.beam !== false,
+                beamGroups: voice.beamGroups || null,
+              })),
+            ])
+          ))
+        );
         compareList(
           "questionStaffVoiceEventCounts",
           staffVoiceCounts("questionStaffVoices")
@@ -1398,6 +1436,22 @@
     compareList(
       "sourceChordLabels",
       (question.score.sourceChordLabels || []).map((event) => event.label)
+    );
+    compareList(
+      "sourceLyrics",
+      (question.score.lyrics || []).map((lyric) => ({
+        measure: lyric.measure,
+        beat: lyric.beat,
+        text: lyric.text,
+      }))
+    );
+    compareList(
+      "analysisLocations",
+      harmonicEvents.map((event) => ({
+        bar: question.score.barNumbers?.[event.measure - 1] ?? event.measure,
+        beat: event.beat || 1,
+        answerRole: event.answerRole,
+      }))
     );
     compareList(
       "sections",

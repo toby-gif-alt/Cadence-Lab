@@ -57,7 +57,7 @@ The in-app checklists use these observable progressions. They deliberately avoid
 | Q1(c) chorale realisation | Bach continuation, bars 18–19; exam p.3 | Eight chords including two passing notes; schedule p.4 | Reference SATB completion, preceded by the supplied bar 17 texture. |
 | Q2(a) piano analysis and features | Rimsky-Korsakov, *Two Piano Pieces*, bars 1–25; exam pp.4–5 | 13 chords; direct move from F-sharp minor to A major without pivot; pedal and varied non-harmonic notes; schedule pp.6–7 | Exact reference transcription split into Roman-analysis and contextual-analysis workflows. |
 | Q2(b) piano completion | Rimsky-Korsakov continuation, bars 90–96; exam p.6 | Eight-chord sample realisation; schedule p.7 | Exact reference preserves the printed melody, opening texture, eight indications and published model. |
-| Q3(a) jazz analysis and harmonic device | Phillip Norman, *Love is Commercial*, bars 16–28; exam pp.8–9 | Published sequence: C♯m(add9), Dmaj7, Bm9, G♯dim/B, C♯7sus4, C♯7, F♯m, E♯dim7, F♯m/E, D♯m7(♭5), Dmaj7; frequent harmonic changes and descending chromatic bass create momentum; schedule p.9 | Adapted original chromatic-bass study; exact vocal/piano reference deferred. |
+| Q3(a) jazz analysis and harmonic device | Phillip Norman, *Love is Commercial*, bars 16–28; exam pp.8–9 | Published sequence: C♯m(add9), Dmaj7, Bm9, G♯dim/B, C♯7sus4, C♯7, F♯m, E♯dim7, F♯m/E, D♯m7(♭5), Dmaj7; the descending chromatic bass contrasts with the preceding static bass and one chord per bar creates momentum and forward direction; schedule p.9 | Exact vocal/piano reference with eleven blank chord positions and a spoiler-safe device/effect response. |
 | Q3(b) jazz completion | Song continuation, bars 33–39; exam p.10 | Nine-chord sample realisation; schedule p.10 | Jazz-completion family. |
 
 ## 2025
@@ -66,12 +66,12 @@ All nine official 2025 subquestions now use exact transcriptions checked against
 
 ## Reference set in the bank
 
-Cadence Lab currently includes eighteen official reference transcriptions:
+Cadence Lab currently includes nineteen official reference transcriptions:
 
 - 2021: Bach Q1(a)
 - 2022: Bach Q1(a)
 - 2023: Bach Q1(b)
-- 2024: Bach Q1(a–c), Rimsky-Korsakov Q2(a)(i), Q2(a)(ii) and Q2(b)
+- 2024: Bach Q1(a–c), Rimsky-Korsakov Q2(a)(i), Q2(a)(ii), Q2(b), and Phillip Norman Q3(a)
 - 2025: Bach Q1(a–c), Schubert Q2(a–c), and Billy Joel Q3(a–c)
 
 Each is labelled `nzqa-reference` with provider, year, question, part, extract, bars, source-page location and acknowledgement metadata. Every retained reference declares exact transcription mode, printed bars/measures, staff layout and a source-derived event/rhythm signature in addition to its schedule-answer specification. Bach references use independent soprano, alto, tenor and bass rhythmic streams. The source PDFs remain external and the app does not claim official NZQA status.

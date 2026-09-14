@@ -67,7 +67,7 @@
         question.source?.question === 'Question Two' &&
         question.source?.part === `(${String.fromCharCode(97 + index)})`
       ));
-      assert('exact-reference-count-now-eighteen', validator?.referenceCount === 18 && questions.filter(question => question.sourceType === 'nzqa-reference' && question.source?.year === 2025).length === 9, validator);
+      assert('exact-reference-count-now-nineteen', validator?.referenceCount === 19 && questions.filter(question => question.sourceType === 'nzqa-reference' && question.source?.year === 2025).length === 9, validator);
 
       assert('q2a-has-supplied-i-plus-twelve-answer-positions',
         q2a.score.harmonicEvents.length === 13 &&

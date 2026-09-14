@@ -173,6 +173,7 @@
 
   function showsSeparateModelScore(question = currentQuestion) {
     if (!question) return false;
+    if (question.interaction?.showModelScore === false) return false;
     if (isPaperCompletion(question)) return true;
     return ["roman-analysis", "jazz-chord-placement"].includes(
       question.interaction?.type
@@ -590,12 +591,12 @@
           </div>`;
         }).join("")}
       </div>
-      <details class="hint-bank"${structuredAnswer.hintBankVisible ? " open" : ""}>
+      ${interaction.hintBankMode === "none" ? "" : `<details class="hint-bank"${structuredAnswer.hintBankVisible ? " open" : ""}>
         <summary>Need a hint? Show chord choices</summary>
         <div class="chord-bank" aria-label="Shuffled chord choices">
           ${structuredAnswer.bank.map((token) => `<button type="button" class="chord-token" draggable="true" data-token-id="${token.id}"${usedTokenIds.has(token.id) ? " disabled" : ""}>${escapeText(token.label)}</button>`).join("")}
         </div>
-      </details>
+      </details>`}
       <div class="builder-actions"><button type="button" class="button button-ghost" data-reset-structured>Reset placements</button></div>`;
     structuredBuilder.hidden = false;
     structuredBuilder.innerHTML = `
@@ -655,7 +656,7 @@
     structuredControls.querySelector("[data-reset-structured]").addEventListener("click", () =>
       commitStructured(structuredModel.reset(structuredAnswer), "Placements reset.")
     );
-    structuredControls.querySelector(".hint-bank").addEventListener("toggle", (event) => {
+    structuredControls.querySelector(".hint-bank")?.addEventListener("toggle", (event) => {
       if (submitted) return;
       structuredAnswer = structuredModel.setHintBankVisible(structuredAnswer, event.currentTarget.open);
     });

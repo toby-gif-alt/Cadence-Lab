@@ -56,10 +56,10 @@
 
       const nzqaRefs = questions.filter(question => question.sourceType === 'nzqa-reference');
       const practiceRefs = questions.filter(question => question.sourceType === 'practice-assessment-reference');
-      assert('current-source-counts-are-production-counts', nzqaRefs.length === 18 && practiceRefs.length === 0, {nzqa:nzqaRefs.length, practice:practiceRefs.length});
+      assert('current-source-counts-are-production-counts', nzqaRefs.length === 19 && practiceRefs.length === 0, {nzqa:nzqaRefs.length, practice:practiceRefs.length});
       assert('every-retained-reference-is-exact', nzqaRefs.every(question => question.sourceSpec?.transcriptionMode === 'exact'));
       assert('nine-exact-2025-references-are-live', nzqaRefs.filter(question => question.source?.year === 2025).length === 9);
-      assert('six-exact-2024-references-are-live', nzqaRefs.filter(question => question.source?.year === 2024).length === 6);
+      assert('seven-exact-2024-references-are-live', nzqaRefs.filter(question => question.source?.year === 2024).length === 7);
 
       const sourceSelect = d.querySelector('#source-type');
       const yearSelect = d.querySelector('#source-year');
@@ -78,14 +78,14 @@
       change(sourceSelect, 'nzqa-reference');
       const yearOptions = Object.fromEntries([...yearSelect.options].map(option => [option.value || 'all', {text:option.textContent, disabled:option.disabled}]));
       assert('nzqa-filter-shows-current-examination-years', !yearField.hidden && yearLabel.textContent === 'Examination year' &&
-        yearOptions.all.text === 'All years (18)' && yearOptions['2024'].text === '2024 (6)' &&
+        yearOptions.all.text === 'All years (19)' && yearOptions['2024'].text === '2024 (7)' &&
         yearOptions['2025'].text === '2025 (9)' && !yearOptions['2025'].disabled,
         yearOptions);
 
       change(sourceSelect, 'nzqa-reference');
       change(yearSelect, '2024');
       change(categorySelect, 'jazz');
-      assert('empty-category-fallback-preserves-source-and-year', categorySelect.value === 'mixed' &&
+      assert('available-category-preserves-source-and-year', categorySelect.value === 'jazz' &&
         lab.getCurrentQuestion()?.sourceType === 'nzqa-reference' && lab.getCurrentQuestion()?.source?.year === 2024,
         {category:categorySelect.value, question:lab.getCurrentQuestion()?.id});
 

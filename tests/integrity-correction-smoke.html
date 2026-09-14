@@ -57,11 +57,10 @@ frame.addEventListener('load',async()=>{try{
   assert('valentine-z-keeps-f-minor-through-unaccented-passing-motion',valentine.score.measures[5].events.map(event=>event.duration).join(',')==='q,q,h'&&valentine.score.measures[5].events.every(event=>event.bass?.[0]==='F2')&&valentine.score.nonHarmonicNotes.find(note=>note.measure===6&&note.pitch==='G4')?.chordSymbol==='Fm');
 
   const commercial=byId('nzqa-2024-commercial-chromatic-bass');
-  assert('commercial-adapted-bars-one-to-ten',commercial.sourceType==='original-practice'&&commercial.score.barNumbers.join(',')==='1,2,3,4,5,6,7,8,9,10');
-  assert('commercial-single-sane-displayed-region',commercial.score.brackets.length===1&&commercial.score.brackets[0].label.includes('displayed bars 6–10')&&commercial.score.brackets[0].repeatLabel===false);
+  assert('commercial-is-now-the-exact-bars-sixteen-to-twenty-eight-reference',commercial.sourceType==='nzqa-reference'&&commercial.sourceSpec.transcriptionMode==='exact'&&commercial.score.barNumbers.join(',')==='16,17,18,19,20,21,22,23,24,25,26,27,28');
+  assert('commercial-preserves-eleven-printed-answer-positions',commercial.score.harmonicEvents.length===11&&commercial.score.harmonicEvents.every(event=>event.answerRole==='editable')&&!commercial.score.brackets?.length);
   lab.showQuestion(commercial.id);await turn(w);
-  const commercialBracketLines=d.querySelectorAll('#score .analysis-bracket'),commercialBracketLabels=d.querySelectorAll('#score .analysis-bracket-label');
-  assert('commercial-spanning-bracket-renders-one-visible-label',commercialBracketLines.length>1&&commercialBracketLabels.length===1&&commercialBracketLabels[0].textContent.includes('displayed bars 6–10'));
+  assert('commercial-question-renders-the-exact-vocal-piano-surface',d.querySelectorAll('#score .analysis-box-editable').length===11&&d.querySelectorAll('#score .source-lyric').length===commercial.score.lyrics.length&&d.querySelectorAll('#score .source-staff-label').length===2);
 
   const adapted=lab.questions.filter(question=>question.sourceType==='original-practice'&&question.source?.adaptedFrom);
   assert('all-adapted-scores-use-practice-numbering',adapted.every(question=>question.score.barNumbers.every((number,index)=>number===index+1)&&question.sourceSpec?.displayedBars===`1–${question.score.measures.length}`));
