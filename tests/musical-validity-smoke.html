@@ -52,7 +52,7 @@ frame.addEventListener('load',async()=>{try{
 
   const commercial=byId('nzqa-2024-commercial-chromatic-bass'),commercialNormalized=renderer.normalizeMeasures(commercial.score),commercialHarmonies=renderer.normalizeHarmonicEvents(commercial.score,commercialNormalized);
   const chromaticBassPitches=commercial.sourceSpec.bassDescent.map(item=>item.pitch),chromaticBassClasses=chromaticBassPitches.map(pitch=>renderer.pitchClass(renderer.parsePitch(pitch)));
-  assert('commercial-exact-source-contract-pins-the-descending-chromatic-bass',commercial.sourceSpec.bassDescent.map(item=>item.bar).join(',')==='24,25,26,27,28'&&chromaticBassPitches.join(',')==='F#2,E#2,E2,D#2,D3'&&chromaticBassClasses.slice(1).every((pitch,index)=>pitch===(chromaticBassClasses[index]+11)%12),{chromaticBassPitches,chromaticBassClasses});
+  assert('commercial-exact-source-contract-pins-the-descending-chromatic-bass',commercial.sourceSpec.bassDescent.map(item=>item.bar).join(',')==='24,25,26,27,28'&&chromaticBassPitches.join(',')==='F#2,E#3,E3,D#3,D3'&&chromaticBassClasses.slice(1).every((pitch,index)=>pitch===(chromaticBassClasses[index]+11)%12),{chromaticBassPitches,chromaticBassClasses});
   assert('commercial-published-harmonies-pass-the-theory-validator',commercialHarmonies.length===11&&validator.report.musicTheoryErrors.every(error=>!error.includes(commercial.id)),validator.report.musicTheoryErrors.filter(error=>error.includes(commercial.id)));
   assert('commercial-model-preserves-the-published-device-and-effect',/descending chromatic bass line in bars 24–28/i.test(commercial.answer.join(' '))&&/one chord per bar creates momentum and forward direction/i.test(commercial.answer.join(' ')));
 

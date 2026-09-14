@@ -122,8 +122,8 @@
         note("E#4", "8"), note("G#4", "8"), note("B4", "8"), note("D5", "8", { tieToNext: true }), note("D5", "h"),
       ], { beamGroups: ["2/4"] })],
       [voice("piano-bass", "down", [
-        chord(["E#2", "B2", "D3"], "hd"),
-        chord(["E#2", "B2", "D3"], "q"),
+        chord(["E#3", "B3", "D4"], "hd"),
+        chord(["E#3", "B3", "D4"], "q"),
       ])],
       { systemBreakAfter: true }
     ),
@@ -133,9 +133,9 @@
         note("F#4", "qd"), note("G#4", "8"), note("A4", "8"), note("G#4", "8"), chord(["F#4", "C#5"], "q", { tieToNext: true }),
       ])],
       [voice("piano-bass", "down", [
-        chord(["E2", "A2", "C#3"], "qd"),
-        chord(["E2", "A2", "C#3"], "8", { tieToNext: true }),
-        chord(["E2", "A2", "C#3"], "h"),
+        chord(["E3", "A3", "C#4"], "qd"),
+        chord(["E3", "A3", "C#4"], "8", { tieToNext: true }),
+        chord(["E3", "A3", "C#4"], "h"),
       ])]
     ),
     staffMeasure(
@@ -146,10 +146,10 @@
         note("C#4", "8"), note("D4", "8"), note("E4", "8"),
       ], { beamGroups: ["2/4"] })],
       [voice("piano-bass", "down", [
-        chord(["D#2", "A2", "C#3"], "q"),
+        chord(["D#3", "A3", "C#4"], "q"),
         rest("8"),
-        chord(["D#2", "A2", "C#3"], "8", { tieToNext: true }),
-        chord(["D#2", "A2", "C#3"], "h"),
+        chord(["D#3", "A3", "C#4"], "8", { tieToNext: true }),
+        chord(["D#3", "A3", "C#4"], "h"),
       ])]
     ),
     staffMeasure(
@@ -180,9 +180,9 @@
     ["C#3", "F#4", "G#3", "B3"],
     ["C#3", "E#4", "G#3", "B3"],
     ["F#2", "A3", "C#4"],
-    ["E#2", "G#4", "B2", "D3"],
-    ["E2", "F#4", "A2", "C#3"],
-    ["D#2", "F#4", "A2", "C#3"],
+    ["E#3", "G#4", "B3", "D4"],
+    ["E3", "F#4", "A3", "C#4"],
+    ["D#3", "F#4", "A3", "C#4"],
     ["D3", "F#4", "A3", "C#4"],
   ];
   const harmonicEvents = chordRoute.map((modelLabel, index) => ({
@@ -195,7 +195,7 @@
     chordSymbol: chordSymbols[index],
     validationPitches: validationPitches[index],
     validationScope: "harmonic-span",
-    bassPitch: index === 3 ? "B2" : index === 8 ? "E2" : undefined,
+    bassPitch: index === 3 ? "B2" : index === 8 ? "E3" : undefined,
   }));
 
   const lyrics = [
@@ -296,9 +296,9 @@
       analysisLocations,
       bassDescent: [
         { bar: 24, pitch: "F#2" },
-        { bar: 25, pitch: "E#2" },
-        { bar: 26, pitch: "E2" },
-        { bar: 27, pitch: "D#2" },
+        { bar: 25, pitch: "E#3" },
+        { bar: 26, pitch: "E3" },
+        { bar: 27, pitch: "D#3" },
         { bar: 28, pitch: "D3" },
       ],
       harmonicDeviceAcceptedAnswers: [deviceAnswer],
