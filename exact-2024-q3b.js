@@ -105,7 +105,7 @@
     ),
     staffMeasure(
       [note("E5", "h"), note("B4", "q")],
-      pianoChordVoice(repeatedChords(["A3", "C#4", "E4", "G4", "A4"])),
+      pianoChordVoice(repeatedChords(["G3", "B3", "D4", "F#4"])),
       pianoBassVoice(heldBass("F#2", "F#1")),
       { endBarline: "final", systemBreakAfter: true }
     ),
