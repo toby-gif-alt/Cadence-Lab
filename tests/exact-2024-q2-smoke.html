@@ -57,10 +57,10 @@
       ];
 
       assert('production-app-renderer-and-validator-load', Boolean(lab && renderer && structured && relationships) && validator?.valid === true, validator);
-      assert('three-new-q2-ids-are-present-once', ids.every(id => questions.filter(question => question.id === id).length === 1) && questions.length === 54);
-      assert('reference-count-is-nineteen-with-seven-from-2024',
-        validator?.referenceCount === 19 &&
-        questions.filter(question => question.sourceType === 'nzqa-reference' && question.source?.year === 2024).length === 7,
+      assert('three-new-q2-ids-are-present-once', ids.every(id => questions.filter(question => question.id === id).length === 1) && questions.length === 55);
+      assert('reference-count-is-twenty-with-eight-from-2024',
+        validator?.referenceCount === 20 &&
+        questions.filter(question => question.sourceType === 'nzqa-reference' && question.source?.year === 2024).length === 8,
         validator
       );
       assert('new-q2-questions-are-exact-official-references', [analysis, context, piano].every(question =>

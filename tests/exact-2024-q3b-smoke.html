@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+  <meta charset="utf-8">
+  <title>2024 Q3(b) exact-source production smoke test</title>
+  <style>
+    #app { width: 1180px; height: 1000px; }
+    #responsive { position: absolute; left: -6000px; top: 0; }
+  </style>
+</head>
+<body data-status="running">
+<iframe id="app" title="Cadence Lab production frame" src="../index.html?question=nzqa-2024-commercial-piano&amp;v=2026-09-q3b-2"></iframe>
+<div id="responsive"></div>
+<pre id="results">Running…</pre>
+<script>
+const frame=document.querySelector('#app'),out=document.querySelector('#results'),assertions={},details={};
+const assert=(name,value,detail)=>{assertions[name]=Boolean(value);if(!value&&detail!==undefined)details[name]=detail;};
+const turn=w=>new Promise(resolve=>w.setTimeout(resolve,0));
+function finish(error){if(error)details.error=error.stack||String(error);const passed=!error&&Object.values(assertions).every(Boolean);document.body.dataset.status=passed?'pass':'fail';out.textContent=JSON.stringify({passed,assertions,details},null,2);}
+addEventListener('error',event=>finish(event.error||event.message));
+addEventListener('unhandledrejection',event=>finish(event.reason));
+frame.addEventListener('load',async()=>{try{
+  const w=frame.contentWindow,d=frame.contentDocument,lab=w.CadenceLab,renderer=w.CadenceScoreRenderer,validator=w.CadenceQuestionValidator,playback=w.CadencePlayback;
+  const question=lab.questions.find(candidate=>candidate.id==='nzqa-2024-commercial-piano');
+  const eventSignature=event=>`${event.rest?'R':(event.pitches||[event.pitch]).join('+')}/${event.duration}${event.tieToNext?'~':''}`;
+  const signatures=(measure,staff,source='staffVoices')=>(measure[source]?.[staff]||[]).map(stream=>stream.events.map(eventSignature).join('|'));
+  const expectedVocal=[
+    'B3/q|D4/qd|E4/8',
+    'D4/16|C#4/16|B3/8~|B3/q|R/q',
+    'Cn4/16|B3/16|A3/8~|A3/q|B3/q',
+    'D4/h|R/q',
+    'F#4/h|A4/q',
+    'B4/16|A4/16|G4/8~|G4/h',
+    'D4/h|B4/q',
+    'E5/h|R/q',
+    'E5/h|B4/q',
+  ];
+  const expectedTreble=[
+    'A3+C#4+E4+G4/q|A3+C#4+E4+G4/q|A3+C#4+E4+G4/q',
+    'A3+Cn4+D4+F#4/q|A3+Cn4+D4+F#4/q|A3+Cn4+D4+F#4/q',
+    'B3+D4+Fn4+G4/q|B3+D4+Fn4+G4/q|Fn3+G3+B3+D4/q',
+    'A3+D4+F#4/q|B3+D4+G4/q|G#3+B3+D4+Fn4/q',
+    'A3+C#4+F#4/q|A3+C#4+F#4/q|A3+C#4+F#4/q',
+    'B3+D4+G4/q|B3+D4+G4/q|B3+D4+G4/q',
+    'G#3+B3+D4+E4/q|G#3+B3+D4+E4/q|G#3+B3+D4+E4/q',
+    'A3+C#4+E4+G4+B4/q|A3+C#4+E4+G4+B4/q|A3+C#4+E4+G4+B4/q',
+    'A3+C#4+E4+G4+A4/q|A3+C#4+E4+G4+A4/q|A3+C#4+E4+G4+A4/q',
+  ];
+  const expectedBass=[
+    'D2/h~|D2/8d|C#2/16',
+    'F#2/h~|F#2/8d|F#1/16',
+    'G1/h~|G1/8d|G1/16',
+    'D2/q|E2/q|G#2/q',
+    'F#2/h~|F#2/8d|F#1/16',
+    'G1/h~|G1/8d|G1/16',
+    'G#1/h~|G#1/8d|G#1/16',
+    'A1/q|A2/q|F#2/q',
+    'F#2/h~|F#2/8d|F#1/16',
+  ];
+  const modelSignatures=question.score.measures.map(measure=>({
+    vocal:signatures(measure,'vocal')[0],
+    treble:signatures(measure,'treble')[0],
+    bass:signatures(measure,'bass')[0],
+  }));
+  assert('production-validator-is-valid',validator?.report.valid===true,validator?.report.errors);
+  assert('twenty-exact-references-with-eight-from-2024',validator?.report.referenceCount===20&&lab.questions.filter(candidate=>candidate.sourceType==='nzqa-reference'&&candidate.source?.year===2024).length===8,validator?.report);
+  assert('exact-source-identity-and-location-are-pinned',question.sourceType==='nzqa-reference'&&question.sourceSpec.transcriptionMode==='exact'&&question.source.question==='Question Three'&&question.source.part==='(b)'&&question.source.extract==='Extract Seven'&&question.source.creator==='Phillip Norman'&&question.source.title==='Love is Commercial'&&question.source.bars==='32–40'&&/exam p\. 10; schedule p\. 10/.test(question.source.location));
+  assert('printed-bars-key-meter-tempo-and-layout-match-the-paper',question.score.layout==='vocal-piano'&&question.score.keySignature==='D'&&question.score.timeSignature==='3/4'&&question.score.barNumbers.join(',')==='32,33,34,35,36,37,38,39,40'&&question.sourceSpec.tempoMarking==='♩ = 86'&&question.score.staffLabels.vocal==='Voice'&&question.score.staffLabels.piano==='Piano');
+  assert('published-vocal-pitch-rhythm-register-and-ties-are-pinned',JSON.stringify(modelSignatures.map(item=>item.vocal))===JSON.stringify(expectedVocal),modelSignatures.map(item=>item.vocal));
+  assert('published-piano-treble-pitch-rhythm-register-and-accidentals-are-pinned',JSON.stringify(modelSignatures.map(item=>item.treble))===JSON.stringify(expectedTreble),modelSignatures.map(item=>item.treble));
+  assert('published-piano-bass-syncopation-register-and-ties-are-pinned',JSON.stringify(modelSignatures.map(item=>item.bass))===JSON.stringify(expectedBass),modelSignatures.map(item=>item.bass));
+  const displayRoute=['D7/F♯','G7','D','Em7','G♯dim7','F♯m','G','E7/G♯','A9'];
+  const semanticRoute=['D7/F#','G7','D','Em7','G#dim7','F#m','G','E7/G#','A9'];
+  const locations=[[33,1],[34,1],[35,1],[35,2],[35,3],[36,1],[37,1],[38,1],[39,1]];
+  assert('nine-published-chord-indications-and-locations-are-pinned',JSON.stringify(question.score.sourceChordLabels.map(item=>item.label))===JSON.stringify(displayRoute)&&JSON.stringify(question.score.harmonicEvents.map(event=>event.chordSymbol))===JSON.stringify(semanticRoute)&&JSON.stringify(question.sourceSpec.analysisLocations.map(item=>[item.bar,item.beat]))===JSON.stringify(locations)&&question.score.harmonicEvents.every(event=>event.answerRole==='supplied'&&event.analysisBox===false));
+  const renderedBarNumbers=[...d.querySelectorAll('#score .measure-bar-number')].map(node=>node.textContent);
+  assert('lyrics-tempo-dynamic-and-system-start-bars-render-from-source-data',question.score.lyrics.length===17&&question.score.sourceTextAnnotations.map(item=>item.text).join('|')==='♩ = 86|mf'&&d.querySelectorAll('#score .source-lyric').length===17&&d.querySelectorAll('#score .source-text-annotation').length===2&&renderedBarNumbers.join(',')==='32,35,38'&&renderedBarNumbers.length===Number(d.querySelector('#score').dataset.systemCount),{renderedBarNumbers,systems:d.querySelector('#score').dataset.systemMeasureCounts});
+
+  const supplied=[question.score.measures[0],question.score.measures[8]];
+  const targets=question.score.measures.slice(1,8);
+  assert('bar32-style-model-and-bar40-return-remain-fully-supplied',supplied.every(measure=>JSON.stringify(measure.staffVoices)===JSON.stringify(measure.questionStaffVoices))&&question.sourceSpec.completionContract.suppliedMeasure===1&&question.sourceSpec.completionContract.trailingSuppliedMeasure===9);
+  assert('bars33-to39-mask-both-piano-staves-but-retain-the-vocal-line',targets.every(measure=>measure.questionStaffVoices.treble.length===0&&measure.questionStaffVoices.bass.length===0&&JSON.stringify(measure.questionStaffVoices.vocal)===JSON.stringify(measure.staffVoices.vocal)));
+  assert('question-source-contract-pins-the-mask-not-only-the-model',question.sourceSpec.questionStaffVoicePitchSignatures.slice(1,8).every(item=>item.treble.length===0&&item.bass.length===0&&item.vocal.length===1)&&question.sourceSpec.learnerContract.visibleModelPianoPitchesInTargetBeforeSubmit===0);
+  assert('question-dom-shows-nine-indications-with-no-answer-boxes-or-model',d.querySelectorAll('#score .source-chord-label').length===9&&d.querySelectorAll('#score .analysis-box').length===0&&d.querySelector('#model-score-wrap').hidden===true);
+  const questionTimeline=playback.buildTimeline(playback.questionOnlyScore(question.score));
+  const modelTimeline=playback.buildTimeline(question.score);
+  const isPianoNote=item=>item.voice==='piano-chords'||item.voice==='piano-bass';
+  assert('question-playback-excludes-hidden-model-piano-notes',questionTimeline.totalBeats===27&&modelTimeline.totalBeats===27&&questionTimeline.notes.length<modelTimeline.notes.length&&!questionTimeline.notes.some(item=>item.measure>=2&&item.measure<=8&&isPianoNote(item))&&modelTimeline.notes.some(item=>item.measure>=2&&item.measure<=8&&isPianoNote(item)),{questionNotes:questionTimeline.notes.length,modelNotes:modelTimeline.notes.length});
+
+  const mutations=[
+    ['model pitch',clone=>clone.score.measures[3].staffVoices.treble[0].events[2].pitches[0]='A3','staffVoicePitchSignatures mismatch'],
+    ['model rhythm',clone=>clone.score.measures[0].staffVoices.bass[0].events[1].duration='8','staffVoiceRhythmSignatures mismatch'],
+    ['model tie',clone=>delete clone.score.measures[0].staffVoices.bass[0].events[0].tieToNext,'staffVoiceTieSignatures mismatch'],
+    ['question leak',clone=>clone.score.measures[1].questionStaffVoices.treble=structuredClone(clone.score.measures[1].staffVoices.treble),'questionStaffVoiceEventCounts mismatch'],
+    ['lyric',clone=>clone.score.lyrics[0].text='Changed','sourceLyrics mismatch'],
+    ['chord location',clone=>clone.score.harmonicEvents[3].beat=2.5,'analysisLocations mismatch'],
+  ];
+  const mutationFailures=mutations.filter(([name,mutate,needle])=>{const bank=structuredClone(lab.questions),clone=bank.find(candidate=>candidate.id===question.id);mutate(clone);const report=validator.validate(bank);return !report.sourceFidelityErrors.some(error=>error.includes(question.id)&&error.includes(needle));}).map(item=>item[0]);
+  assert('source-validator-rejects-model-mask-lyric-and-location-drift',mutationFailures.length===0,mutationFailures);
+
+  const responsive=document.querySelector('#responsive');
+  const responsiveChecks=[1200,780,390].map(width=>{const target=document.createElement('div');target.style.width=`${width}px`;responsive.appendChild(target);renderer.render(target,question.score,{showAnswer:false,width});const svg=target.querySelector('svg'),viewBox=svg?.getAttribute('viewBox')?.split(/\s+/).map(Number);return{width,systems:Number(target.dataset.systemCount),systemMeasures:target.dataset.systemMeasureCounts,labels:target.querySelectorAll('.source-chord-label').length,lyrics:target.querySelectorAll('.source-lyric').length,staves:Number(target.dataset.independentStaffMeasureCount),viewWidth:viewBox?.[2],overflow:target.scrollWidth>target.clientWidth+1};});
+  assert('wide-tablet-and-390-renders-retain-all-source-information',responsiveChecks.every(item=>item.labels===9&&item.lyrics===17&&item.staves===9&&!item.overflow&&item.viewWidth>=390),responsiveChecks);
+  assert('wide-render-preserves-the-printed-three-system-grouping',responsiveChecks[0].systemMeasures==='[3,3,3]',responsiveChecks);
+  assert('tablet-retains-source-systems-and-phone-reflows-for-legibility',responsiveChecks[1].systemMeasures==='[3,3,3]'&&responsiveChecks[2].systems>3,responsiveChecks);
+
+  assert('paper-completion-submit-succeeds',lab.submit({skipConfirmation:true,noScroll:true})===true);
+  await turn(w);await turn(w);
+  assert('published-model-reveals-separately-with-the-complete-piano-surface',lab.isSubmitted()&&!d.querySelector('#model-score-wrap').hidden&&d.querySelector('#score').dataset.scoreMode==='question'&&d.querySelector('#model-score').dataset.scoreMode==='model'&&d.querySelector('#model-score').dataset.measureCount==='9'&&d.querySelectorAll('#model-score .source-chord-label').length===9&&displayRoute.every(label=>d.querySelector('#answer-copy').textContent.includes(label)));
+  finish();
+}catch(error){finish(error);}});
+</script>
+</body>
+</html>
